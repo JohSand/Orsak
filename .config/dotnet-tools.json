@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "sourcelink": {
+      "version": "3.1.1",
+      "commands": [
+        "sourcelink"
+      ]
+    },
+    "dotnet-reportgenerator-globaltool": {
+      "version": "4.8.13",
+      "commands": [
+        "reportgenerator"
+      ]
+    },
+    "fsdocs-tool": {
+      "version": "15.0.1",
+      "commands": [
+        "fsdocs"
+      ]
+    },
+    "fantomas": {
+      "version": "6.0.0-alpha-005",
+      "commands": [
+        "fantomas"
+      ]
+    },
+    "gitversion.tool": {
+      "version": "5.10.3",
+      "commands": [
+        "dotnet-gitversion"
+      ]
+    }
+  }
+}

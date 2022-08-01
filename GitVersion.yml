@@ -1,0 +1,15 @@
+continuous-delivery-fallback-tag: 'beta'
+branches:
+  main:
+    regex: ^master$|^main$
+    mode: ContinuousDeployment
+    is-mainline: true
+    tag: ''
+
+  pull-request:
+    regex: ^(pull|pull\-requests|pr)[/-]
+    mode: ContinuousDeployment  
+    prevent-increment-of-merged-branch-version: false
+    track-merge-target: false
+    source-branches: [ 'main' ]
+    tag: 'beta'
