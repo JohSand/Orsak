@@ -9,7 +9,6 @@ open Microsoft.AspNetCore.Http
 
 module EffectPipeline =
     let wrap (e: Effect<_,_,_>) = eff {
-        use! _a = HttpContext.pushCorrelationId ()
         //other things before the effect is run
         let! result = e
         //stuff after the effect is run
@@ -62,14 +61,6 @@ module Handlers =
 
     let post () = eff { return () }
 
-    open FSharpPlus
-    //let blaHa () : Effect<unit,_,unit> =
-    //    let (e: Effect<unit,int,unit>) = result 1
-    //    let (fn: Effect<unit,int -> string,unit>) =
-    //            eff {
-    //                return (fun i -> i.ToString())
-    //            }
-    //    fn <*> e
 
 let webApp runEnv : HttpHandler =
     let inline (==>) httpHandler effect =

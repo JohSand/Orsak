@@ -24,14 +24,3 @@ module HttpContext =
 
     let current () =
         Effect.Create(fun (provider: #IContextProvider) -> provider.Context)
-
-    let pushCorrelationId () =
-        eff {
-            let! logger = Log.getLogger ()            
-            let! ctx = current ()
-            match ctx.TryGetRequestHeader "X-Svea-CorrelationId" with
-            | Some header ->
-                return logger.BeginScope ("CorrelationId: {CorrelationId}", header)
-            | None ->
-                return logger.BeginScope ("")
-        }
