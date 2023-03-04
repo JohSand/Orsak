@@ -26,7 +26,7 @@ type EffectDelegate<'r, 'a, 'e> = delegate of 'r -> AsyncResult<'a, 'e>
 /// <typeparam name="'a"></typeparam>
 /// <typeparam name="'e"></typeparam>
 /// <returns></returns>
-[<Struct>]
+[<Struct; NoComparison; NoEquality>]
 type Effect<'r, 'a, 'e> =
     | Effect of EffectDelegate<'r, 'a, 'e>
     member inline this.Invoke r = let (Effect d) = this in d.Invoke r
@@ -150,14 +150,28 @@ type EffBuilderBase() =
             task1: EffectCode<_, 'TOverall, unit, 'Err>,
             task2: EffectCode<_, 'TOverall, 'T, 'Err>
         ) : EffectCode<_, 'TOverall, 'T, 'Err> =
-        ResumableCode.Combine(task1, task2)
+            ResumableCode(fun sm ->
+                if __useResumableCode then
+                    let __stack_fin = task1.Invoke(&sm)
+
+                    if __stack_fin then
+                        match sm.Data.Result with
+                        | Ok _ ->
+                            task2.Invoke(&sm)
+                        | Error _ ->
+                            true
+                            
+                    else
+                        false    
+                else
+                    //todo stock CombineDynamic does not propagate error on first task1
+                    ResumableCode.CombineDynamic(&sm, task1, task2))
 
     member inline _.While
         (
             [<InlineIfLambda>] condition: unit -> bool,
             body: EffectCode<'Env, 'TOverall, unit, 'Err>
         ) : EffectCode<_, 'TOverall, unit, _> =
-        //if body-ColdTaskCode is failed, abort early...
         Helpers.While(condition, body)
 
 
@@ -546,6 +560,81 @@ module Builder =
 [<AutoOpen>]
 module LowPriority =
     type EffBuilder with
+
+        (*  Not sure I want *)
+        [<NoEagerConstraintApplication>]
+        static member inline BindDynamic< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
+            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
+            and ^Awaiter :> ICriticalNotifyCompletion
+            and ^Awaiter: (member get_IsCompleted: unit -> bool)
+            and ^Awaiter: (member GetResult: unit -> 'TResult1)>
+            (
+                sm: byref<_>,
+                task: ^TaskLike,
+                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+            ) : bool =
+
+            let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) (task))
+
+            let cont =
+                (EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                    let result = (^Awaiter: (member GetResult: unit -> 'TResult1) (awaiter))
+                    (continuation result).Invoke(&sm)))
+
+            // shortcut to continue immediately
+            if (^Awaiter: (member get_IsCompleted: unit -> bool) (awaiter)) then
+                cont.Invoke(&sm)
+            else
+                sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+                sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                false
+
+        [<NoEagerConstraintApplication>]
+        member inline _.Bind< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
+            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
+            and ^Awaiter :> ICriticalNotifyCompletion
+            and ^Awaiter: (member get_IsCompleted: unit -> bool)
+            and ^Awaiter: (member GetResult: unit -> 'TResult1)>
+            (
+                task: ^TaskLike,
+                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
+
+            EffectCode<'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
+                if __useResumableCode then
+                    //-- RESUMABLE CODE START
+                    // Get an awaiter from the awaitable
+                    let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) (task))
+
+                    let mutable __stack_fin = true
+
+                    if not (^Awaiter: (member get_IsCompleted: unit -> bool) (awaiter)) then
+                        // This will yield with __stack_yield_fin = false
+                        // This will resume with __stack_yield_fin = true
+                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                        __stack_fin <- __stack_yield_fin
+
+                    if __stack_fin then
+                        let result = (^Awaiter: (member GetResult: unit -> 'TResult1) (awaiter))
+                        (continuation result).Invoke(&sm)
+                    else
+                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                        false
+                else
+                    EffBuilder.BindDynamic(
+                        &sm,
+                        task,
+                        continuation
+                    )
+            //-- RESUMABLE CODE END
+            )
+
+[<AutoOpen>]
+module Medium =
+    open FSharp.Control
+
+    type EffBuilder with
+        (* DO WANT *)
         static member inline BindDynamic
             (
                 sm: byref<_>,
@@ -716,16 +805,7 @@ module LowPriority =
                 t: Task<'TResult1>,
                 continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
-            this.Bind(
-                ValueTask<_>(
-                    task =
-                        task {
-                            let! result = t
-                            return Ok result
-                        }
-                ),
-                continuation
-            )
+            this.Bind(vtask { let! result = t in return Ok result }, continuation)
 
         member inline this.Bind(result: Result<_, _>, f) =
             this.Bind(ValueTask<_>(result = result), f)
@@ -811,7 +891,7 @@ module LowPriority =
             this.Bind(task, (fun (t: 'T) -> this.Return t))
 
         member inline this.ReturnFrom(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
-            this.Bind(ValueTask<_>(result), (fun (t: 'T) -> this.Return t))
+            this.Bind(ValueTask<_>(result), this.Return)
 
 //Fsharp plus
 type Effect<'R, 'T, 'E> with

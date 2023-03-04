@@ -12,16 +12,10 @@ open System
 
 [<AutoOpen>]
 module Helpers =
-    type Task with
-        member this.ToUnit() =
-            task {
-                do! this
-                return ()
-            }
-    
+   
     let waiting (ss: SemaphoreSlim) =
         eff {
-            do! ss.WaitAsync().ToUnit().ToUnit().WaitAsync(TimeSpan.FromMilliseconds 100)
+            do! ss.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
             try
                 return ()
             finally
@@ -30,7 +24,7 @@ module Helpers =
 
     let takeAndRelease (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) =        
         eff {
-            do! ss1.WaitAsync().ToUnit().WaitAsync(TimeSpan.FromMilliseconds 100)
+            do! ss1.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
             ss2.Release 1 |> ignore
             try
                 return ()
@@ -41,7 +35,7 @@ module Helpers =
     let releaseAndTake (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) : Effect<_,_, string> =        
         eff {
             ss1.Release 1 |> ignore
-            do! ss2.WaitAsync().ToUnit().ToUnit().WaitAsync(TimeSpan.FromMilliseconds 100)
+            do! ss2.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
             try
                 return ()
             finally
@@ -55,13 +49,6 @@ module Helpers =
         e
         |> Effect.map (fun v -> failwith $"Got value %A{v} when expecting error %A{error}")
         |> Effect.tryRecover (fun es -> if es = error then Ok () else failwith $"Got error %O{es} when expecting error %O{error}")
-
-    let asdgfgh () =
-        seq {
-            1
-            2
-            3
-        }
 
 module BuilderTests =
 
@@ -234,21 +221,18 @@ module BuilderTests =
                 if i <> 2 then
                     return! Ok ()
                 else
-                    return! Error "Expected error"
-
-                
+                    return! Error "Expected error"                
             }
         
-        (    
         eff {
             let mutable counter = 0
             while counter < 5 do
                 do! inlineEffect counter
                 counter <- counter + 1
-            if counter <> 2 then
-                failwithf "Loop continued past 2, got to %i" counter
+
+            failwithf "Loop continued past 2, got to %i" counter
+            return ()
         }
-        )
         |> expectError "Expected error"
         |> run
 
@@ -266,11 +250,12 @@ module BuilderTests =
         (
         eff {
             let mutable counter = 1
-            for j in 1 .. 5 do
+            for j in struct (1, 2, 3, 4, 5) do
                 do! inlineEffect j
                 counter <- counter + 1
-            if counter <> 2 then
-                failwithf "Loop continued past 2, got to %i" counter
+            
+            failwithf "Loop continued past 2, got to %i" counter
+            return ()
         }
         )
         |> expectError "Expected error"
@@ -296,9 +281,9 @@ module CombinatorTests =
             for _ in 1..5 do
                 eff { 
                     Assert.Equal(2, lock1.CurrentCount)
-                    do! lock1.WaitAsync().ToUnit()
+                    do! lock1.WaitAsync()
                     try
-                        do! Task.Delay(10).ToUnit()
+                        do! Task.Delay(10)
                     finally
                         lock1.Release(1) |> ignore              
                     Assert.Equal(2, lock1.CurrentCount)

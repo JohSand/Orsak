@@ -90,34 +90,30 @@ module Effect =
 
     //we want a more efficient version of this
     let inline par (eff: Effect<'r, 'a, 'e> seq) =
-        mkEffect (fun rEnv ->
-            ValueTask<_>(
-                task =
-                    task {
-                        let! results =
-                            eff
-                            |> Seq.map (run rEnv)
-                            |> Seq.map (fun (t: AsyncResult<'a, 'e>) -> t.AsTask())
-                            |> Task.WhenAll
+        mkEffect (fun rEnv -> vtask {
+            let! results =
+                eff
+                |> Seq.map (run rEnv)
+                |> Seq.map (fun (t: AsyncResult<'a, 'e>) -> t.AsTask())
+                |> Task.WhenAll
 
-                        return
-                            Ok []
-                            |> Array.foldBack
-                                (fun curr agg ->
-                                    match agg with
-                                    | Ok (list: 'a list) ->
-                                        match curr with
-                                        | Ok a -> Ok(a :: list)
-                                        | Error e -> Error e
-                                    | Error e -> Error e)
-                                results
-                    }
-            ))
+            return
+                Ok []
+                |> Array.foldBack
+                    (fun curr agg ->
+                        match agg with
+                        | Ok (list: 'a list) ->
+                            match curr with
+                            | Ok a -> Ok(a :: list)
+                            | Error e -> Error e
+                        | Error e -> Error e)
+                    results
+            })
 
     //todo
     let inline traverse f (eff: Effect<'r, 'a, 'e> array) =
-        let work rEnv =
-            task {
+        mkEffect(fun rEnv -> 
+            vtask {
                 let mutable final = Ok (Array.zeroCreate eff.Length)
 
                 for i = 0 to (eff.Length - 1) do
@@ -133,33 +129,29 @@ module Effect =
 
                 return final
             }
-
-        mkEffect(fun rEnv -> ValueTask<_>(task = work rEnv))
+        )
 
     //probably defer to fsharpplus for polymorphic version
     let inline sequence (eff: Effect<'r, 'a, 'e> list) = traverse id (Array.ofList eff)
 
     let inline timeout (ts: TimeSpan) onTimeout (eff: Effect<_, _, _>) =
-        let work rEnv =
-            task {
+        mkEffect(fun rEnv -> 
+            vtask {
                 try
-                    return! (run rEnv eff).AsTask().WaitAsync(ts)
+                    return! eff.Run(rEnv).AsTask().WaitAsync(ts)
                 with
                 | :? TimeoutException -> return Error onTimeout
-            }
-
-        mkEffect(fun rEnv -> ValueTask<_>(task = work rEnv))
+            })
 
     let inline race (eff1: Effect<_, _, _>) (eff2: Effect<_, _, _>) =
-        let work rEnv =
-            task {
-                let t1 = (run rEnv eff1).AsTask()
-                let t2 = (run rEnv eff2).AsTask()
+        mkEffect(fun rEnv ->
+            vtask {
+                let t1 = eff1.Run(rEnv).AsTask()
+                let t2 = eff2.Run(rEnv).AsTask()
                 let! winner = Task.WhenAny(t1, t2)
                 return! winner
             }
-
-        mkEffect(fun rEnv -> ValueTask<_>(task = work rEnv))
+        )
 
 type Effect =
     static member Error(error: 'e) : Effect<'a, 'b, 'e> =
@@ -169,34 +161,29 @@ type Effect =
         mkEffect(x >> Ok >> ValueTask.FromResult)
 
     static member Create(full: 'a -> Task<Result<'b, 'e>>) =
-        mkEffect(fun a -> ValueTask<_>(task = task { return! full a }))
+        mkEffect(fun a -> ValueTask<_>(task =  full a ))
 
-    static member Create(x: 'a -> Async<'b>, [<Optional>] _medium: byte) : Effect<'a, 'b, _> =
-        Effect.Create (fun a ->
-            task {
+    static member Create(full: 'a -> ValueTask<Result<'b, 'e>>) =
+        mkEffect(fun a -> full a)
+
+    static member Create(x: 'a -> Async<'b>) : Effect<'a, 'b, _> =
+        mkEffect (fun a ->
+            vtask {
                 let! b = x a
                 return Ok b
             })
 
     static member Create(x: 'a -> Task<'b>, [<Optional>] _medium: byte) : Effect<'a, 'b, _> =
-        Effect.Create (fun a ->
-            task {
+        mkEffect (fun a ->
+            vtask {
                 let! b = x a
                 return Ok b
             })
 
-    static member Create(x: 'a -> ValueTask<'b>) : Effect<'a, 'b, _> =
+    static member Create(f: 'a -> ValueTask<'b>, [<Optional>] _medium: byte) : Effect<'a, 'b, _> =
         mkEffect (fun a ->
-            let vTask = x a
-
-            if vTask.IsCompletedSuccessfully then
-                ValueTask<Result<_, _>>(result = Ok(vTask.GetAwaiter().GetResult()))
-            else
-                ValueTask<Result<_, _>>(
-                    task =
-                        task {
-                            let! result = vTask
-                            return Ok result
-                        }
-                ))
+            vtask {
+                let! b = f a
+                return Ok b
+            })
 
