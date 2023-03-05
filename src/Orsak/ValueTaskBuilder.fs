@@ -47,11 +47,10 @@ type ValueTaskBuilder() =
 
     /// Used to represent no-ops like the implicit empty "else" branch of an "if" expression.
     [<DefaultValue>]
-    member inline _.Zero() : ValueTaskCode<'TOverall, unit> =
-        ResumableCode.Zero()
+    member inline _.Zero() : ValueTaskCode<'TOverall, unit> = ResumableCode.Zero()
 
     member inline _.Return(value: 'T) : ValueTaskCode<'T, 'T> =
-        ValueTaskCode<'T, _>(fun sm ->
+        ValueTaskCode<'T, _> (fun sm ->
             sm.Data.Result <- value
             true)
 
@@ -91,12 +90,16 @@ type ValueTaskBuilder() =
         ) : ValueTaskCode<'TOverall, 'T> =
         ResumableCode.TryFinally(
             body,
-            ResumableCode<_, _>(fun _sm ->
+            ResumableCode<_, _> (fun _sm ->
                 compensation ()
                 true)
         )
 
-    member inline _.For(sequence: seq<'T>, body: 'T -> ValueTaskCode<'TOverall, unit>) : ValueTaskCode<'TOverall, unit> =
+    member inline _.For
+        (
+            sequence: seq<'T>,
+            body: 'T -> ValueTaskCode<'TOverall, unit>
+        ) : ValueTaskCode<'TOverall, unit> =
         ResumableCode.For(sequence, body)
 
     member inline internal this.TryFinallyAsync
@@ -106,7 +109,7 @@ type ValueTaskBuilder() =
         ) : ValueTaskCode<'TOverall, 'T> =
         ResumableCode.TryFinallyAsync(
             body,
-            ResumableCode<_, _>(fun sm ->
+            ResumableCode<_, _> (fun sm ->
                 if __useResumableCode then
                     let mutable __stack_condition_fin = true
                     let __stack_vtask = compensation ()
@@ -125,7 +128,7 @@ type ValueTaskBuilder() =
                     let mutable awaiter = vtask.GetAwaiter()
 
                     let cont =
-                        ValueTaskResumptionFunc<'TOverall>(fun sm ->
+                        ValueTaskResumptionFunc<'TOverall> (fun sm ->
                             awaiter.GetResult() |> ignore
                             true)
 
@@ -180,16 +183,15 @@ type ValueTaskBuilder() =
                             assert not (isNull awaiter)
                             sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
 
-                    with exn ->
-                        savedExn <- exn
+                    with
+                    | exn -> savedExn <- exn
                     // Run SetException outside the stack unwind, see https://github.com/dotnet/roslyn/issues/26567
                     match savedExn with
                     | null -> ()
                     | exn -> sm.Data.MethodBuilder.SetException exn
 
                 member _.SetStateMachine(sm, state) =
-                    sm.Data.MethodBuilder.SetStateMachine(state)
-            }
+                    sm.Data.MethodBuilder.SetStateMachine(state) }
 
         sm.ResumptionDynamicInfo <- resumptionInfo
         sm.Data.MethodBuilder <- PoolingAsyncValueTaskMethodBuilder<'T>.Create ()
@@ -199,7 +201,7 @@ type ValueTaskBuilder() =
     member inline _.Run(code: ValueTaskCode<'T, 'T>) : ValueTask<'T> =
         if __useResumableCode then
             __stateMachine<ValueValueTaskStateMachineData<'T>, ValueTask<'T>>
-                (MoveNextMethodImpl<_>(fun sm ->
+                (MoveNextMethodImpl<_> (fun sm ->
                     //-- RESUMABLE CODE START
                     __resumeAt sm.ResumptionPoint
                     let mutable __stack_exn: Exception = null
@@ -209,18 +211,16 @@ type ValueTaskBuilder() =
 
                         if __stack_code_fin then
                             sm.Data.MethodBuilder.SetResult(sm.Data.Result)
-                    with exn ->
-                        __stack_exn <- exn
+                    with
+                    | exn -> __stack_exn <- exn
                     // Run SetException outside the stack unwind, see https://github.com/dotnet/roslyn/issues/26567
                     match __stack_exn with
                     | null -> ()
                     | exn -> sm.Data.MethodBuilder.SetException exn
                 //-- RESUMABLE CODE END
                 ))
-                (SetStateMachineMethodImpl<_>(fun sm state -> 
-                    sm.Data.MethodBuilder.SetStateMachine(state))
-                )
-                (AfterCode<_, _>(fun sm ->
+                (SetStateMachineMethodImpl<_>(fun sm state -> sm.Data.MethodBuilder.SetStateMachine(state)))
+                (AfterCode<_, _> (fun sm ->
                     sm.Data.MethodBuilder <- PoolingAsyncValueTaskMethodBuilder<'T>.Create ()
                     sm.Data.MethodBuilder.Start(&sm)
                     sm.Data.MethodBuilder.Task))
@@ -237,11 +237,9 @@ module LowPriority =
     type ValueTaskBuilder with
 
         [<NoEagerConstraintApplication>]
-        static member inline BindDynamic< ^TaskLike, 'TResult1, 'TResult2, ^Awaiter, 'TOverall
-            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
-            and ^Awaiter :> ICriticalNotifyCompletion
-            and ^Awaiter: (member get_IsCompleted: unit -> bool)
-            and ^Awaiter: (member GetResult: unit -> 'TResult1)>
+        static member inline BindDynamic< ^TaskLike, 'TResult1, 'TResult2, ^Awaiter, 'TOverall when ^TaskLike: (member GetAwaiter:
+            unit -> ^Awaiter) and ^Awaiter :> ICriticalNotifyCompletion and ^Awaiter: (member get_IsCompleted:
+            unit -> bool) and ^Awaiter: (member GetResult: unit -> 'TResult1)>
             (
                 sm: byref<_>,
                 task: ^TaskLike,
@@ -251,7 +249,7 @@ module LowPriority =
             let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) (task))
 
             let cont =
-                (ValueTaskResumptionFunc<'TOverall>(fun sm ->
+                (ValueTaskResumptionFunc<'TOverall> (fun sm ->
                     let result = (^Awaiter: (member GetResult: unit -> 'TResult1) (awaiter))
                     (continuation result).Invoke(&sm)))
 
@@ -264,17 +262,15 @@ module LowPriority =
                 false
 
         [<NoEagerConstraintApplication>]
-        member inline _.Bind< ^TaskLike, 'TResult1, 'TResult2, ^Awaiter, 'TOverall
-            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
-            and ^Awaiter :> ICriticalNotifyCompletion
-            and ^Awaiter: (member get_IsCompleted: unit -> bool)
-            and ^Awaiter: (member GetResult: unit -> 'TResult1)>
+        member inline _.Bind< ^TaskLike, 'TResult1, 'TResult2, ^Awaiter, 'TOverall when ^TaskLike: (member GetAwaiter:
+            unit -> ^Awaiter) and ^Awaiter :> ICriticalNotifyCompletion and ^Awaiter: (member get_IsCompleted:
+            unit -> bool) and ^Awaiter: (member GetResult: unit -> 'TResult1)>
             (
                 task: ^TaskLike,
                 continuation: ('TResult1 -> ValueTaskCode<'TOverall, 'TResult2>)
             ) : ValueTaskCode<'TOverall, 'TResult2> =
 
-            ValueTaskCode<'TOverall, _>(fun sm ->
+            ValueTaskCode<'TOverall, _> (fun sm ->
                 if __useResumableCode then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the awaitable
@@ -304,11 +300,8 @@ module LowPriority =
             )
 
         [<NoEagerConstraintApplication>]
-        member inline this.ReturnFrom< ^TaskLike, ^Awaiter, 'T
-            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
-            and ^Awaiter :> ICriticalNotifyCompletion
-            and ^Awaiter: (member get_IsCompleted: unit -> bool)
-            and ^Awaiter: (member GetResult: unit -> 'T)>
+        member inline this.ReturnFrom< ^TaskLike, ^Awaiter, 'T when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter) and ^Awaiter :> ICriticalNotifyCompletion and ^Awaiter: (member get_IsCompleted:
+            unit -> bool) and ^Awaiter: (member GetResult: unit -> 'T)>
             (task: ^TaskLike)
             : ValueTaskCode<'T, 'T> =
 
@@ -335,7 +328,7 @@ module HighPriority =
             let mutable awaiter = task.GetAwaiter()
 
             let cont =
-                (ValueTaskResumptionFunc<'TOverall>(fun sm ->
+                (ValueTaskResumptionFunc<'TOverall> (fun sm ->
                     let result = awaiter.GetResult()
                     (continuation result).Invoke(&sm)))
 
@@ -353,7 +346,7 @@ module HighPriority =
                 continuation: ('TResult1 -> ValueTaskCode<'TOverall, 'TResult2>)
             ) : ValueTaskCode<'TOverall, 'TResult2> =
 
-            ValueTaskCode<'TOverall, _>(fun sm ->
+            ValueTaskCode<'TOverall, _> (fun sm ->
                 if __useResumableCode then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the task

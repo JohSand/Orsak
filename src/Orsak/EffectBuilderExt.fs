@@ -4,50 +4,30 @@ open System.Runtime.CompilerServices
 
 module Proptype =
     //do i want this?
-    type FSharp.Control.TaskBuilderBase with
-        member inline this.For((a, b): struct ('a * 'a), [<InlineIfLambda>]f: 'a -> _) =
-            this.Delay (fun () -> this.Combine(f a, f b))
+    ()
 
-        member inline this.For((a, b, c): struct ('a * 'a * 'a), [<InlineIfLambda>]f: 'a -> _) =
-            this.Delay (fun () -> this.Combine(this.Combine(f a, f b), f c))
-
-        member inline this.For((a, b, c, d): struct ('a * 'a * 'a * 'a), [<InlineIfLambda>]f: 'a -> _) =
-            this.Delay (fun () -> this.Combine (this.Combine (this.Combine(f a, f b), f c), f d))
-
-        member inline this.For((a, b, c, d, e): struct ('a * 'a * 'a * 'a * 'a), [<InlineIfLambda>]f: 'a -> _) =
-            this.Delay (fun () -> this.Combine(this.Combine (this.Combine (this.Combine(f a, f b), f c), f d), f e))
-
-        member inline this.For((a, b, c ,d, e, f): struct ('a * 'a * 'a * 'a * 'a * 'a), [<InlineIfLambda>]fn: 'a -> _) =
-            this.Delay (fun () -> this.Combine(this.Combine(this.Combine (this.Combine (this.Combine(fn a, fn b), fn c), fn d), fn e), fn f))
-
-        member inline this.For((a, b, c ,d, e, f, g): struct ('a * 'a * 'a * 'a * 'a * 'a * 'a), [<InlineIfLambda>]fn: 'a -> _) =
-            this.Delay (fun () -> this.Combine(this.Combine(this.Combine(this.Combine (this.Combine (this.Combine(fn a, fn b), fn c), fn d), fn e), fn f), fn g))
-
+[<Extension>]
+type TaskHeler =
     [<Extension>]
-    type TaskHeler =
-        [<Extension>]
-        static member inline Merge<^a, ^err when ^err: (static member (+): ^err -> ^err -> ^err)>(err: ^err, res: Result<^a, ^err>) = 
-            match res with
-            | Ok _ -> err
-            | Error e -> err + e
+    static member inline Merge< ^a, ^err when ^err: (static member (+): ^err -> ^err -> ^err)>
+        (
+            err: ^err,
+            res: Result< ^a, ^err >
+        ) =
+        match res with
+        | Ok _ -> err
+        | Error e -> err + e
 
 namespace Orsak.Extensions
+
 open Orsak
 
 [<AutoOpen>]
 module EffectBuilderExt =
-    open Proptype
+    //open Proptype
     open System.Threading.Tasks
 
     type EffBuilder with
-
-        member _.Dummy () =
-            task {
-                for a in struct (1, 2) do
-                    ()            
-            }
-
-
         member inline this.Bind3Return
             (
                 m1: Effect<'Env, 'a, 'Err>,
@@ -156,16 +136,11 @@ module EffectBuilderExt =
 
                                     match! whenAll a' b' c' d' e' with
                                     | Ok a, Ok b, Ok c, Ok d, Ok e -> return Ok(f (a, b, c, d, e))
-                                    | Error e, b, c, d, er ->                                         
-                                        return Error (e.Merge(b).Merge(c).Merge(d).Merge(er))
-                                    | _, Error e, b, c, d -> 
-                                        return Error (e.Merge(b).Merge(c).Merge(d))
-                                    | _, _, Error e, b, c ->    
-                                        return Error (e.Merge(b).Merge(c))
-                                    | _, _, _, Error e, b -> 
-                                        return Error (e.Merge(b))
-                                    | _, _, _, _, Error e -> 
-                                        return Error e
+                                    | Error e, b, c, d, r -> return Error(e.Merge(b).Merge(c).Merge(d).Merge(r))
+                                    | _, Error e, b, c, d -> return Error(e.Merge(b).Merge(c).Merge(d))
+                                    | _, _, Error e, b, c -> return Error(e.Merge(b).Merge(c))
+                                    | _, _, _, Error e, b -> return Error(e.Merge(b))
+                                    | _, _, _, _, Error e -> return Error e
                                 }
                         ))
                 )

@@ -31,8 +31,10 @@ type Effect<'r, 'a, 'e> =
     | Effect of EffectDelegate<'r, 'a, 'e>
     member inline this.Invoke r = let (Effect d) = this in d.Invoke r
     member inline this.Run(r: 'r) = this.Invoke r
-    member inline this.RunOrFail(r: 'r) = 
+
+    member inline this.RunOrFail(r: 'r) =
         let (Effect d) = this
+
         task {
             match! d.Invoke r with
             | Ok a -> return a
@@ -150,22 +152,20 @@ type EffBuilderBase() =
             task1: EffectCode<_, 'TOverall, unit, 'Err>,
             task2: EffectCode<_, 'TOverall, 'T, 'Err>
         ) : EffectCode<_, 'TOverall, 'T, 'Err> =
-            ResumableCode(fun sm ->
-                if __useResumableCode then
-                    let __stack_fin = task1.Invoke(&sm)
+        ResumableCode (fun sm ->
+            if __useResumableCode then
+                let __stack_fin = task1.Invoke(&sm)
 
-                    if __stack_fin then
-                        match sm.Data.Result with
-                        | Ok _ ->
-                            task2.Invoke(&sm)
-                        | Error _ ->
-                            true
-                            
-                    else
-                        false    
+                if __stack_fin then
+                    match sm.Data.Result with
+                    | Ok _ -> task2.Invoke(&sm)
+                    | Error _ -> true
+
                 else
-                    //todo stock CombineDynamic does not propagate error on first task1
-                    ResumableCode.CombineDynamic(&sm, task1, task2))
+                    false
+            else
+                //todo stock CombineDynamic does not propagate error on first task1
+                ResumableCode.CombineDynamic(&sm, task1, task2))
 
     member inline _.While
         (
@@ -260,7 +260,7 @@ type EffBuilderBase() =
     member inline _.Recover<'Env, 'T, 'TOverall, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
-            [<InlineIfLambda>]continuation: 'Err -> 'TResult
+            [<InlineIfLambda>] continuation: 'Err -> 'TResult
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
         EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
             let task = eff.Invoke sm.Data.Environment
@@ -312,10 +312,10 @@ type EffBuilderBase() =
 
                     match result with
                     | Ok result ->
-                        sm.Data.Result <- Result<_,'Err2>.Ok result
+                        sm.Data.Result <- Result<_, 'Err2>.Ok result
                         true
                     | Error (error: 'Err1) ->
-                        sm.Data.Result <- Result<_,'Err2>.Error(f error)
+                        sm.Data.Result <- Result<_, 'Err2>.Error (f error)
                         true
                 else
                     sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
@@ -323,15 +323,17 @@ type EffBuilderBase() =
             else
                 failwith "")
 
-        member inline _.Zip<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Err: (static member (+): 'Err -> 'Err -> 'Err) >
+    member inline _.Zip<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Err: (static member (+):
+        'Err -> 'Err -> 'Err)>
         (
             eff: Effect<'Env, 'TResult1, 'Err>,
             eff2: Effect<'Env, 'TResult2, 'Err>,
             f
         ) : EffectCode<'Env, _, 'T, 'Err> =
-        EffectCode<'Env,'TOverall, 'T, 'Err> (fun sm ->
+        EffectCode<'Env, 'TOverall, 'T, 'Err> (fun sm ->
             let task = eff.Invoke sm.Data.Environment
             let task2 = eff2.Invoke sm.Data.Environment
+
             if __useResumableCode then
                 //-- RESUMABLE CODE START
                 // Get an awaiter from the task
@@ -353,9 +355,10 @@ type EffBuilderBase() =
                     if __stack_fin then
                         let result = awaiter.GetResult()
                         let result2 = awaiter2.GetResult()
+
                         match result, result2 with
                         | Ok result, Ok result2 ->
-                            sm.Data.Result <- Ok (f struct (result, result2))
+                            sm.Data.Result <- Ok(f struct (result, result2))
                             true
                         | Error error, Ok _ ->
                             sm.Data.Result <- Error error
@@ -366,7 +369,7 @@ type EffBuilderBase() =
                         | Error error, Error result ->
                             sm.Data.Result <- Error(error + result)
                             true
-                        //failwith ""
+                    //failwith ""
 
                     else
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
@@ -381,7 +384,7 @@ type EffBuilderBase() =
     member inline _.TryRecover<'Env, 'T, 'TOverall, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
-            [<InlineIfLambda>]continuation: 'Err -> Result<'TResult, 'Err>
+            [<InlineIfLambda>] continuation: 'Err -> Result<'TResult, 'Err>
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
         EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
             let task = eff.Invoke sm.Data.Environment
@@ -418,7 +421,7 @@ type EffBuilderBase() =
     member inline _.TryRecover<'Env, 'T, 'TOverall, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
-            [<InlineIfLambda>]continuation: 'Err -> Effect<'Env, 'TResult, 'Err>
+            [<InlineIfLambda>] continuation: 'Err -> Effect<'Env, 'TResult, 'Err>
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
         EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
             let task = eff.Invoke sm.Data.Environment
@@ -456,7 +459,7 @@ type EffBuilderBase() =
                 failwith "")
 
 
-    member inline this.Bind2Return(m1: Effect<'Env, 'a, 'Err>, m2: Effect<'Env, 'b, 'Err>, [<InlineIfLambda>]f) =
+    member inline this.Bind2Return(m1: Effect<'Env, 'a, 'Err>, m2: Effect<'Env, 'b, 'Err>, [<InlineIfLambda>] f) =
         this.Zip(m1, m2, f)
 
     member inline this.MergeSources(m1, m2: Effect<_, _, _>) = this.Bind2Return(m1, m2, id)
@@ -563,11 +566,9 @@ module LowPriority =
 
         (*  Not sure I want *)
         [<NoEagerConstraintApplication>]
-        static member inline BindDynamic< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
-            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
-            and ^Awaiter :> ICriticalNotifyCompletion
-            and ^Awaiter: (member get_IsCompleted: unit -> bool)
-            and ^Awaiter: (member GetResult: unit -> 'TResult1)>
+        static member inline BindDynamic< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err when ^TaskLike: (member GetAwaiter:
+            unit -> ^Awaiter) and ^Awaiter :> ICriticalNotifyCompletion and ^Awaiter: (member get_IsCompleted:
+            unit -> bool) and ^Awaiter: (member GetResult: unit -> 'TResult1)>
             (
                 sm: byref<_>,
                 task: ^TaskLike,
@@ -577,7 +578,7 @@ module LowPriority =
             let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) (task))
 
             let cont =
-                (EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                (EffectResumptionFunc<'Env, 'TOverall, 'Err> (fun sm ->
                     let result = (^Awaiter: (member GetResult: unit -> 'TResult1) (awaiter))
                     (continuation result).Invoke(&sm)))
 
@@ -590,17 +591,15 @@ module LowPriority =
                 false
 
         [<NoEagerConstraintApplication>]
-        member inline _.Bind< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
-            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
-            and ^Awaiter :> ICriticalNotifyCompletion
-            and ^Awaiter: (member get_IsCompleted: unit -> bool)
-            and ^Awaiter: (member GetResult: unit -> 'TResult1)>
+        member inline _.Bind< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err when ^TaskLike: (member GetAwaiter:
+            unit -> ^Awaiter) and ^Awaiter :> ICriticalNotifyCompletion and ^Awaiter: (member get_IsCompleted:
+            unit -> bool) and ^Awaiter: (member GetResult: unit -> 'TResult1)>
             (
                 task: ^TaskLike,
                 continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
 
-            EffectCode<'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
+            EffectCode<'Env, 'TOverall, 'TResult2, 'Err> (fun sm ->
                 if __useResumableCode then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the awaitable
@@ -621,11 +620,7 @@ module LowPriority =
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                         false
                 else
-                    EffBuilder.BindDynamic(
-                        &sm,
-                        task,
-                        continuation
-                    )
+                    EffBuilder.BindDynamic(&sm, task, continuation)
             //-- RESUMABLE CODE END
             )
 
@@ -805,7 +800,13 @@ module Medium =
                 t: Task<'TResult1>,
                 continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
-            this.Bind(vtask { let! result = t in return Ok result }, continuation)
+            this.Bind(
+                vtask {
+                    let! result = t
+                    return Ok result
+                },
+                continuation
+            )
 
         member inline this.Bind(result: Result<_, _>, f) =
             this.Bind(ValueTask<_>(result = result), f)
@@ -869,23 +870,55 @@ module Medium =
                         )
                 ))
 
-        member inline this.For((a, b): struct ('a * 'a), [<InlineIfLambda>]f: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
-            this.Delay (fun () -> this.Combine(f a, f b))
+        member inline this.For
+            (
+                (a, b): struct ('a * 'a),
+                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, unit, unit, 'Err>
+            ) =
+            this.Delay(fun () -> this.Combine(f a, f b))
 
-        member inline this.For((a, b, c): struct ('a * 'a * 'a), [<InlineIfLambda>]f: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
-            this.Delay (fun () -> this.Combine(this.Combine(f a, f b), f c))
+        member inline this.For
+            (
+                (a, b, c): struct ('a * 'a * 'a),
+                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, unit, unit, 'Err>
+            ) =
+            this.Delay(fun () -> this.Combine(this.Combine(f a, f b), f c))
 
-        member inline this.For((a, b, c, d): struct ('a * 'a * 'a * 'a), [<InlineIfLambda>]f: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
-            this.Delay (fun () -> this.Combine (this.Combine (this.Combine(f a, f b), f c), f d))
+        member inline this.For
+            (
+                (a, b, c, d): struct ('a * 'a * 'a * 'a),
+                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, unit, unit, 'Err>
+            ) =
+            this.Delay(fun () -> this.Combine(this.Combine(this.Combine(f a, f b), f c), f d))
 
-        member inline this.For((a, b, c, d, e): struct ('a * 'a * 'a * 'a * 'a), [<InlineIfLambda>]f: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
-            this.Delay (fun () -> this.Combine(this.Combine (this.Combine (this.Combine(f a, f b), f c), f d), f e))
+        member inline this.For
+            (
+                (a, b, c, d, e): struct ('a * 'a * 'a * 'a * 'a),
+                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, unit, unit, 'Err>
+            ) =
+            this.Delay(fun () -> this.Combine(this.Combine(this.Combine(this.Combine(f a, f b), f c), f d), f e))
 
-        member inline this.For((a, b, c ,d, e, f): struct ('a * 'a * 'a * 'a * 'a * 'a), [<InlineIfLambda>]fn: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
-            this.Delay (fun () -> this.Combine(this.Combine(this.Combine (this.Combine (this.Combine(fn a, fn b), fn c), fn d), fn e), fn f))
+        member inline this.For
+            (
+                (a, b, c, d, e, f): struct ('a * 'a * 'a * 'a * 'a * 'a),
+                [<InlineIfLambda>] fn: 'a -> EffectCode<'Env, unit, unit, 'Err>
+            ) =
+            this.Delay (fun () ->
+                this.Combine(this.Combine(this.Combine(this.Combine(this.Combine(fn a, fn b), fn c), fn d), fn e), fn f))
 
-        member inline this.For((a, b, c ,d, e, f, g): struct ('a * 'a * 'a * 'a * 'a * 'a * 'a), [<InlineIfLambda>]fn: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
-            this.Delay (fun () -> this.Combine(this.Combine(this.Combine(this.Combine (this.Combine (this.Combine(fn a, fn b), fn c), fn d), fn e), fn f), fn g))
+        member inline this.For
+            (
+                (a, b, c, d, e, f, g): struct ('a * 'a * 'a * 'a * 'a * 'a * 'a),
+                [<InlineIfLambda>] fn: 'a -> EffectCode<'Env, unit, unit, 'Err>
+            ) =
+            this.Delay (fun () ->
+                this.Combine(
+                    this.Combine(
+                        this.Combine(this.Combine(this.Combine(this.Combine(fn a, fn b), fn c), fn d), fn e),
+                        fn f
+                    ),
+                    fn g
+                ))
 
         member inline this.ReturnFrom(task: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.Bind(task, (fun (t: 'T) -> this.Return t))
@@ -896,22 +929,31 @@ module Medium =
 //Fsharp plus
 type Effect<'R, 'T, 'E> with
     //functor
-    static member inline Map(h: Effect<'r, 'a, 'e>, f: 'a -> 'b) = eff { let! e = h in return f e }
+    static member inline Map(h: Effect<'r, 'a, 'e>, f: 'a -> 'b) =
+        eff {
+            let! e = h
+            return f e
+        }
 
     static member inline Return(a) = eff { return a }
-    
+
     //monad
-    static member inline (>>=)(h: Effect<'r, 'a, 'e>, f: 'a -> Effect<'r, 'b, 'e>) = eff { let! e = h in return! f e }
+    static member inline (>>=)(h: Effect<'r, 'a, 'e>, f: 'a -> Effect<'r, 'b, 'e>) =
+        eff {
+            let! e = h
+            return! f e
+        }
 
     //helper, seem type inference get wonky with operator
-    static member ap<'r, 'a, 'b, 'e> (applicative: Effect<'r, ('b -> 'a) , 'e>) (e: Effect<'r, 'b , 'e>) :  Effect<'r, 'a, 'e> =
-        eff { 
+    static member inline ap<'r, 'a, 'b, 'e>
+        (applicative: Effect<'r, ('b -> 'a), 'e>)
+        (e: Effect<'r, 'b, 'e>)
+        : Effect<'r, 'a, 'e> =
+        eff {
             let! fn = applicative
             let! a = e
             return fn a
         }
 
     //applicative
-    static member inline (<*>)(f, e) = 
-        Effect.ap f e
-
+    static member inline (<*>)(f, e) = Effect.ap f e
