@@ -10,7 +10,7 @@
     <PropertyGroup>
         <Copyright>Copyright © $([System.DateTime]::UtcNow.Year)</Copyright>
         <PackageProjectUrl>https://github.com/JohSand/Orsak</PackageProjectUrl>
-        <FsDocsLicenseLink>https://github.com/JohSand/Orsak/blob/main/LICENSE.md</FsDocsLicenseLink>
+        <FsDocsLicenseLink>https://github.com/JohSand/Orsak/blob/main/LICENSE.txt</FsDocsLicenseLink>
         <FsDocsReleaseNotesLink>https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md</FsDocsReleaseNotesLink>
         <FsDocsLogoSource>images/logo-fantomas-white.svg</FsDocsLogoSource>
         
