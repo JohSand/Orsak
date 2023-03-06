@@ -12,7 +12,7 @@
         <PackageProjectUrl>https://johsand.github.io/Orsak/</PackageProjectUrl>
         <FsDocsLicenseLink>https://github.com/JohSand/Orsak/blob/main/LICENSE.txt</FsDocsLicenseLink>
         <FsDocsReleaseNotesLink>https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md</FsDocsReleaseNotesLink>
-        <FsDocsLogoSource>docs/content/img/o.png</FsDocsLogoSource>
+        <FsDocsLogoSource>../content/img/o.png</FsDocsLogoSource>
         <FsDocsSourceRepository>https://johsand.github.io/Orsak/</FsDocsSourceRepository>
         <RepositoryUrl>https://github.com/JohSand/Orsak</RepositoryUrl>
         <RepositoryBranch>main</RepositoryBranch>
