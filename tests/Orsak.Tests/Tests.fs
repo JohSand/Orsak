@@ -230,7 +230,7 @@ module BuilderTests =
                 do! inlineEffect counter
                 counter <- counter + 1
 
-            failwithf "Loop continued past 2, got to %i" counter
+            failwith $"Loop continued past 2, got to %i{counter}"
             return ()
         }
         |> expectError "Expected error"

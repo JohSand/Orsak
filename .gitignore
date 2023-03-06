@@ -255,7 +255,8 @@ TestResults.xml
 
 # NuGet packages distributables
 dist/
-
+tmp/
+ 
 # Ionide cache
 .ionide/
 

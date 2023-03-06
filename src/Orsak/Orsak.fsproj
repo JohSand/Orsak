@@ -3,7 +3,24 @@
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <WarningsAsErrors>FS0025;FS1182</WarningsAsErrors>
+        <WarnOn>1182;3390;$(WarnOn)</WarnOn>
+        <RootNamespace>Orsak</RootNamespace>
     </PropertyGroup>
+    <PropertyGroup>
+        <Copyright>Copyright © $([System.DateTime]::UtcNow.Year)</Copyright>
+        <PackageProjectUrl>https://github.com/JohSand/Orsak</PackageProjectUrl>
+        <FsDocsLicenseLink>https://github.com/JohSand/Orsak/blob/main/LICENSE.md</FsDocsLicenseLink>
+        <FsDocsReleaseNotesLink>https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md</FsDocsReleaseNotesLink>
+        <FsDocsLogoSource>images/logo-fantomas-white.svg</FsDocsLogoSource>
+        
+        <RepositoryUrl>https://github.com/JohSand/Orsak</RepositoryUrl>
+        <RepositoryBranch>main</RepositoryBranch>
+        <RepositoryType>git</RepositoryType>
+
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
 
     <ItemGroup>
         <Compile Include="ValueTaskBuilder.fs" />

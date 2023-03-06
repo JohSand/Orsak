@@ -9,6 +9,7 @@
 // To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights
 // to this software to the public domain worldwide. This software is distributed without any warranty.
 
+/// <exclude/>
 namespace FSharp.Control
 
 #nowarn "57"
@@ -24,7 +25,7 @@ open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 open Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators
 open Microsoft.FSharp.Control
 open Microsoft.FSharp.Collections
-
+/// <exclude/>
 /// The extra data stored in ResumableStateMachine for tasks
 [<Struct; NoComparison; NoEquality>]
 type ValueValueTaskStateMachineData<'T> =
@@ -34,12 +35,15 @@ type ValueValueTaskStateMachineData<'T> =
 
     [<DefaultValue(false)>]
     val mutable MethodBuilder: PoolingAsyncValueTaskMethodBuilder<'T>
-
+/// <exclude/>
 and ValueTaskStateMachine<'TOverall> = ResumableStateMachine<ValueValueTaskStateMachineData<'TOverall>>
+/// <exclude/>
 and ValueTaskResumptionFunc<'TOverall> = ResumptionFunc<ValueValueTaskStateMachineData<'TOverall>>
+/// <exclude/>
 and ValueTaskResumptionDynamicInfo<'TOverall> = ResumptionDynamicInfo<ValueValueTaskStateMachineData<'TOverall>>
+/// <exclude/>
 and ValueTaskCode<'TOverall, 'T> = ResumableCode<ValueValueTaskStateMachineData<'TOverall>, 'T>
-
+/// <exclude/>
 type ValueTaskBuilder() =
 
     member inline _.Delay(generator: unit -> ValueTaskCode<'TOverall, 'T>) : ValueTaskCode<'TOverall, 'T> =
@@ -227,10 +231,12 @@ type ValueTaskBuilder() =
         else
             ValueTaskBuilder.RunDynamic(code)
 
+/// <exclude/>
 [<AutoOpen>]
 module ValueTaskBuilder =
     let vtask = ValueTaskBuilder()
-
+    
+/// <exclude/>
 [<AutoOpen>]
 module LowPriority =
     // Low priority extensions
@@ -313,7 +319,8 @@ module LowPriority =
                 body: 'Resource -> ValueTaskCode<'TOverall, 'T>
             ) =
             ResumableCode.Using(resource, body)
-
+            
+/// <exclude/>
 [<AutoOpen>]
 module HighPriority =
     // High priority extensions
@@ -373,7 +380,7 @@ module HighPriority =
 
         member inline this.ReturnFrom(task: Task<'T>) : ValueTaskCode<'T, 'T> =
             this.Bind(task, (fun v -> this.Return v))
-
+/// <exclude/>
 [<AutoOpen>]
 module MediumPriority =
     open HighPriority
