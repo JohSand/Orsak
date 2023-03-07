@@ -29,5 +29,7 @@
         <Compile Include="Effect.fs" />
         <Compile Include="EffSeq.fs" />
     </ItemGroup>
-
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
 </Project>
