@@ -2,12 +2,9 @@
 
 open System.Runtime.CompilerServices
 
-module Proptype =
-    //do i want this?
-    ()
-
+/// <exclude/>
 [<Extension>]
-type TaskHeler =
+type TaskHelper =
     [<Extension>]
     static member inline Merge< ^a, ^err when ^err: (static member (+): ^err -> ^err -> ^err)>
         (
@@ -22,9 +19,9 @@ namespace Orsak.Extensions
 
 open Orsak
 
+/// <exclude/>
 [<AutoOpen>]
 module EffectBuilderExt =
-    //open Proptype
     open System.Threading.Tasks
 
     type EffBuilder with
@@ -49,9 +46,9 @@ module EffectBuilderExt =
                         ValueTask<_>(
                             task =
                                 task {
-                                    let a' = m1.Invoke rEnv
-                                    let b' = m2.Invoke rEnv
-                                    let c' = m3.Invoke rEnv
+                                    let a' = m1.Run rEnv
+                                    let b' = m2.Run rEnv
+                                    let c' = m3.Run rEnv
 
                                     match! whenAll a' b' c' with
                                     | Ok a, Ok b, Ok c -> return Ok(f (a, b, c))
@@ -86,10 +83,10 @@ module EffectBuilderExt =
                         ValueTask<_>(
                             task =
                                 task {
-                                    let a' = m1.Invoke rEnv
-                                    let b' = m2.Invoke rEnv
-                                    let c' = m3.Invoke rEnv
-                                    let d' = m4.Invoke rEnv
+                                    let a' = m1.Run rEnv
+                                    let b' = m2.Run rEnv
+                                    let c' = m3.Run rEnv
+                                    let d' = m4.Run rEnv
 
                                     match! whenAll a' b' c' d' with
                                     | Ok a, Ok b, Ok c, Ok d -> return Ok(f (a, b, c, d))
@@ -128,11 +125,11 @@ module EffectBuilderExt =
                         ValueTask<_>(
                             task =
                                 task {
-                                    let a' = m1.Invoke rEnv
-                                    let b' = m2.Invoke rEnv
-                                    let c' = m3.Invoke rEnv
-                                    let d' = m4.Invoke rEnv
-                                    let e' = m5.Invoke rEnv
+                                    let a' = m1.Run rEnv
+                                    let b' = m2.Run rEnv
+                                    let c' = m3.Run rEnv
+                                    let d' = m4.Run rEnv
+                                    let e' = m5.Run rEnv
 
                                     match! whenAll a' b' c' d' e' with
                                     | Ok a, Ok b, Ok c, Ok d, Ok e -> return Ok(f (a, b, c, d, e))

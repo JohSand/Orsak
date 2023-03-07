@@ -109,7 +109,10 @@
   <div class="fsdocs-xmldoc">
     <div>
       <p class="fsdocs-summary">
-        Describes an effect
+        
+ Describes an effect that can either succeed with <typeparamref name="'r" />, or fails with <typeparamref name="'e" />.
+ The effect is is 'cold', and only starts when run with an <typeparamref name="'r" />.
+ 
       </p>
     </div>
   </div>
@@ -135,7 +138,7 @@
         <tr>
           <td class="fsdocs-member-usage">
             <div>
-              <code onmouseout="hideTip(event, '87', 87)" onmouseover="showTip(event, '87', 87)">
+              <code onmouseout="hideTip(event, '35', 35)" onmouseover="showTip(event, '35', 35)">
                 <p>
                   <a id="Effect">
                     <a href="#Effect">
@@ -144,7 +147,7 @@
                   </a>
                 </p>
               </code>
-              <div class="fsdocs-tip" id="87">
+              <div class="fsdocs-tip" id="35">
                 <div class="member-tooltip">
                   Full Usage: 
                   <code><span>Effect&#32;<span><a href="https://johsand.github.io/Orsak/reference/orsak-effectdelegate-3.html">EffectDelegate</a>&lt;<span>'r,&#32;'a,&#32;'e</span>&gt;</span></span></code>
@@ -213,88 +216,7 @@
         <tr>
           <td class="fsdocs-member-usage">
             <div>
-              <code onmouseout="hideTip(event, '88', 88)" onmouseover="showTip(event, '88', 88)">
-                <p>
-                  <a id="Invoke">
-                    <a href="#Invoke">
-                      <code><span>this.Invoke</span></code>
-                    </a>
-                  </a>
-                </p>
-              </code>
-              <div class="fsdocs-tip" id="88">
-                <div class="member-tooltip">
-                  Full Usage: 
-                  <code><span>this.Invoke</span></code>
-                  <br/>
-                  <br/>
-                  Parameters: 
-                  <ul>
-                    <span>
-                      <b>
-                        r
-                      </b>
-                      :
-                      <code>'r</code>
-                    </span>
-                    <br/>
-                  </ul>
-                  <br/>
-                  <span>
-                    Returns: 
-                    <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-asyncresult-2.html">AsyncResult</a>&lt;<span>'a,&#32;'e</span>&gt;</span></code>
-                  </span>
-                  <br/>
-                  Modifiers: 
-                  inline
-                  <br/>
-                </div>
-              </div>
-            </div>
-          </td>
-          <td class="fsdocs-member-xmldoc">
-            <div class="fsdocs-summary">
-              <div class="fsdocs-source-link" title="Copy signature (Markdown)" onclick="Clipboard_CopyTo('``cref:M:Orsak.Effect`3.Invoke``')">
-                <img src="https://johsand.github.io/Orsak/content/img/copy-md.png" class="normal"/>
-                <img src="https://johsand.github.io/Orsak/content/img/copy-md-hover.png" class="hover"/>
-              </div>
-              <div class="fsdocs-source-link" title="Copy signature (XML)" onclick="Clipboard_CopyTo('<see cref=\'M:Orsak.Effect`3.Invoke\'/>')">
-                <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
-                <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
-              </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L32-32" class="fsdocs-source-link" title="Source on GitHub">
-                <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
-                <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
-              </a>
-              <p class="fsdocs-summary">
-                
-              </p>
-            </div>
-            <dl class="fsdocs-params">
-              <dt class="fsdocs-param">
-                <span class="fsdocs-param-name">
-                  r
-                </span>
-                :
-                <code>'r</code>
-              </dt>
-              <dd class="fsdocs-param-docs"></dd>
-            </dl>
-            <dl class="fsdocs-returns">
-              <dt>
-                <span class="fsdocs-return-name">
-                  Returns: 
-                </span>
-                <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-asyncresult-2.html">AsyncResult</a>&lt;<span>'a,&#32;'e</span>&gt;</span></code>
-              </dt>
-              <dd class="fsdocs-return-docs"></dd>
-            </dl>
-          </td>
-        </tr>
-        <tr>
-          <td class="fsdocs-member-usage">
-            <div>
-              <code onmouseout="hideTip(event, '89', 89)" onmouseover="showTip(event, '89', 89)">
+              <code onmouseout="hideTip(event, '36', 36)" onmouseover="showTip(event, '36', 36)">
                 <p>
                   <a id="Run">
                     <a href="#Run">
@@ -303,7 +225,7 @@
                   </a>
                 </p>
               </code>
-              <div class="fsdocs-tip" id="89">
+              <div class="fsdocs-tip" id="36">
                 <div class="member-tooltip">
                   Full Usage: 
                   <code><span>this.Run</span></code>
@@ -343,12 +265,14 @@
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
               </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L33-33" class="fsdocs-source-link" title="Source on GitHub">
+              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L36-36" class="fsdocs-source-link" title="Source on GitHub">
                 <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
               </a>
               <p class="fsdocs-summary">
                 
+ Starts the effect.
+ <returns>A <see cref="ValueTask" /> that can be awaited to get the result of the effect</returns>
               </p>
             </div>
             <dl class="fsdocs-params">
@@ -375,7 +299,7 @@
         <tr>
           <td class="fsdocs-member-usage">
             <div>
-              <code onmouseout="hideTip(event, '90', 90)" onmouseover="showTip(event, '90', 90)">
+              <code onmouseout="hideTip(event, '37', 37)" onmouseover="showTip(event, '37', 37)">
                 <p>
                   <a id="RunOrFail">
                     <a href="#RunOrFail">
@@ -384,7 +308,7 @@
                   </a>
                 </p>
               </code>
-              <div class="fsdocs-tip" id="90">
+              <div class="fsdocs-tip" id="37">
                 <div class="member-tooltip">
                   Full Usage: 
                   <code><span>this.RunOrFail</span></code>
@@ -424,12 +348,14 @@
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
               </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L35-35" class="fsdocs-source-link" title="Source on GitHub">
+              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L42-42" class="fsdocs-source-link" title="Source on GitHub">
                 <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
               </a>
               <p class="fsdocs-summary">
                 
+ Starts the effect, and raises an exception in case of error. Prefer <a href="https://learn.microsoft.com/dotnet/api/run">Run</a>.
+ <returns>A <see cref="ValueTask" /> that can be awaited to get the result of the effect</returns>
               </p>
             </div>
             <dl class="fsdocs-params">
@@ -475,7 +401,7 @@
         <tr>
           <td class="fsdocs-member-usage">
             <div>
-              <code onmouseout="hideTip(event, '91', 91)" onmouseover="showTip(event, '91', 91)">
+              <code onmouseout="hideTip(event, '38', 38)" onmouseover="showTip(event, '38', 38)">
                 <p>
                   <a id="(<*>)">
                     <a href="#(<*>)">
@@ -484,7 +410,7 @@
                   </a>
                 </p>
               </code>
-              <div class="fsdocs-tip" id="91">
+              <div class="fsdocs-tip" id="38">
                 <div class="member-tooltip">
                   Full Usage: 
                   <code><span>f&#32;&lt;*&gt;&#32;e</span></code>
@@ -532,12 +458,14 @@
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
               </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L959-959" class="fsdocs-source-link" title="Source on GitHub">
+              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L964-964" class="fsdocs-source-link" title="Source on GitHub">
                 <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
               </a>
               <p class="fsdocs-summary">
                 
+Implements Apply on the effect, making it an applicative
+
               </p>
             </div>
             <dl class="fsdocs-params">
@@ -572,7 +500,7 @@
         <tr>
           <td class="fsdocs-member-usage">
             <div>
-              <code onmouseout="hideTip(event, '92', 92)" onmouseover="showTip(event, '92', 92)">
+              <code onmouseout="hideTip(event, '39', 39)" onmouseover="showTip(event, '39', 39)">
                 <p>
                   <a id="(>>=)">
                     <a href="#(>>=)">
@@ -581,7 +509,7 @@
                   </a>
                 </p>
               </code>
-              <div class="fsdocs-tip" id="92">
+              <div class="fsdocs-tip" id="39">
                 <div class="member-tooltip">
                   Full Usage: 
                   <code><span>h&#32;&gt;&gt;=&#32;f</span></code>
@@ -629,12 +557,14 @@
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
               </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L941-941" class="fsdocs-source-link" title="Source on GitHub">
+              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L944-944" class="fsdocs-source-link" title="Source on GitHub">
                 <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
               </a>
               <p class="fsdocs-summary">
                 
+Implements Bind on the effect, which together with the functor Return makes it a Monad 
+
               </p>
             </div>
             <dl class="fsdocs-params">
@@ -669,7 +599,7 @@
         <tr>
           <td class="fsdocs-member-usage">
             <div>
-              <code onmouseout="hideTip(event, '93', 93)" onmouseover="showTip(event, '93', 93)">
+              <code onmouseout="hideTip(event, '40', 40)" onmouseover="showTip(event, '40', 40)">
                 <p>
                   <a id="Map">
                     <a href="#Map">
@@ -678,7 +608,7 @@
                   </a>
                 </p>
               </code>
-              <div class="fsdocs-tip" id="93">
+              <div class="fsdocs-tip" id="40">
                 <div class="member-tooltip">
                   Full Usage: 
                   <code><span>Effect.Map<span><span>(<span>h,&#32;f</span>)</span></span></span></code>
@@ -726,12 +656,14 @@
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
               </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L932-932" class="fsdocs-source-link" title="Source on GitHub">
+              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L933-933" class="fsdocs-source-link" title="Source on GitHub">
                 <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
               </a>
               <p class="fsdocs-summary">
                 
+Implements Map on the effect, making it a Functor
+
               </p>
             </div>
             <dl class="fsdocs-params">
@@ -766,7 +698,7 @@
         <tr>
           <td class="fsdocs-member-usage">
             <div>
-              <code onmouseout="hideTip(event, '94', 94)" onmouseover="showTip(event, '94', 94)">
+              <code onmouseout="hideTip(event, '41', 41)" onmouseover="showTip(event, '41', 41)">
                 <p>
                   <a id="Return">
                     <a href="#Return">
@@ -775,7 +707,7 @@
                   </a>
                 </p>
               </code>
-              <div class="fsdocs-tip" id="94">
+              <div class="fsdocs-tip" id="41">
                 <div class="member-tooltip">
                   Full Usage: 
                   <code><span>Effect.Return<span><span>(<span>a</span>)</span></span></span></code>
@@ -815,12 +747,14 @@
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
               </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L938-938" class="fsdocs-source-link" title="Source on GitHub">
+              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L940-940" class="fsdocs-source-link" title="Source on GitHub">
                 <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
               </a>
               <p class="fsdocs-summary">
                 
+Implements Return on the effect
+
               </p>
             </div>
             <dl class="fsdocs-params">
@@ -839,105 +773,6 @@
                   Returns: 
                 </span>
                 <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'b,&#32;'a,&#32;'c</span>&gt;</span></code>
-              </dt>
-              <dd class="fsdocs-return-docs"></dd>
-            </dl>
-          </td>
-        </tr>
-        <tr>
-          <td class="fsdocs-member-usage">
-            <div>
-              <code onmouseout="hideTip(event, '95', 95)" onmouseover="showTip(event, '95', 95)">
-                <p>
-                  <a id="ap">
-                    <a href="#ap">
-                      <code><span>Effect.ap&#32;<span>applicative&#32;e</span></span></code>
-                    </a>
-                  </a>
-                </p>
-              </code>
-              <div class="fsdocs-tip" id="95">
-                <div class="member-tooltip">
-                  Full Usage: 
-                  <code><span>Effect.ap&#32;<span>applicative&#32;e</span></span></code>
-                  <br/>
-                  <br/>
-                  Parameters: 
-                  <ul>
-                    <span>
-                      <b>
-                        applicative
-                      </b>
-                      :
-                      <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'r,&#32;<span>(<span>'b&#32;->&#32;'a</span>)</span>,&#32;'e</span>&gt;</span></code>
-                    </span>
-                    <br/>
-                    <span>
-                      <b>
-                        e
-                      </b>
-                      :
-                      <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'r,&#32;'b,&#32;'e</span>&gt;</span></code>
-                    </span>
-                    <br/>
-                  </ul>
-                  <br/>
-                  <span>
-                    Returns: 
-                    <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'r,&#32;'a,&#32;'e</span>&gt;</span></code>
-                  </span>
-                  <br/>
-                  Modifiers: 
-                  inline
-                  <br/>
-                  Type parameters: 
-                  &#39;e
-                </div>
-              </div>
-            </div>
-          </td>
-          <td class="fsdocs-member-xmldoc">
-            <div class="fsdocs-summary">
-              <div class="fsdocs-source-link" title="Copy signature (Markdown)" onclick="Clipboard_CopyTo('```cref:M:Orsak.Effect`3.ap``4```')">
-                <img src="https://johsand.github.io/Orsak/content/img/copy-md.png" class="normal"/>
-                <img src="https://johsand.github.io/Orsak/content/img/copy-md-hover.png" class="hover"/>
-              </div>
-              <div class="fsdocs-source-link" title="Copy signature (XML)" onclick="Clipboard_CopyTo('<see cref=\'M:Orsak.Effect`3.ap``4\'/>')">
-                <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
-                <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
-              </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/EffectBuilder.fs#L948-948" class="fsdocs-source-link" title="Source on GitHub">
-                <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
-                <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
-              </a>
-              <p class="fsdocs-summary">
-                
-              </p>
-            </div>
-            <dl class="fsdocs-params">
-              <dt class="fsdocs-param">
-                <span class="fsdocs-param-name">
-                  applicative
-                </span>
-                :
-                <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'r,&#32;<span>(<span>'b&#32;->&#32;'a</span>)</span>,&#32;'e</span>&gt;</span></code>
-              </dt>
-              <dd class="fsdocs-param-docs"></dd>
-              <dt class="fsdocs-param">
-                <span class="fsdocs-param-name">
-                  e
-                </span>
-                :
-                <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'r,&#32;'b,&#32;'e</span>&gt;</span></code>
-              </dt>
-              <dd class="fsdocs-param-docs"></dd>
-            </dl>
-            <dl class="fsdocs-returns">
-              <dt>
-                <span class="fsdocs-return-name">
-                  Returns: 
-                </span>
-                <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'r,&#32;'a,&#32;'e</span>&gt;</span></code>
               </dt>
               <dd class="fsdocs-return-docs"></dd>
             </dl>

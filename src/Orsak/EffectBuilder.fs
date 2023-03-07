@@ -1,13 +1,10 @@
 ﻿namespace Orsak
 
-open System.Runtime.InteropServices
-
 #nowarn "57"
 #nowarn "3513"
 #nowarn "3511"
 
 open System
-open System.Threading
 open System.Threading.Tasks
 open System.Collections.Generic
 open System.Runtime.CompilerServices
@@ -21,17 +18,27 @@ type AsyncResult<'a, 'e> = ValueTask<Result<'a, 'e>>
 
 type EffectDelegate<'r, 'a, 'e> = delegate of 'r -> AsyncResult<'a, 'e>
 
-/// <summary>Describes an effect</summary>
-/// <typeparam name="'r">The effect runner</typeparam>
-/// <typeparam name="'a"></typeparam>
-/// <typeparam name="'e"></typeparam>
+/// <summary>
+/// Describes an effect that can either succeed with <typeparamref name="'r"/>, or fails with <typeparamref name="'e"/>.
+/// The effect is is 'cold', and only starts when run with an <typeparamref name="'r"/>.
+/// </summary>
+/// <typeparam name="'r" > The environment required to run the effect </typeparam>
+/// <typeparam name="'a" > The resulting type when the effect runs successfully </typeparam>
+/// <typeparam name="'e" > The resulting type when the effect fails</typeparam>
 /// <returns></returns>
 [<Struct; NoComparison; NoEquality>]
 type Effect<'r, 'a, 'e> =
     | Effect of EffectDelegate<'r, 'a, 'e>
-    member inline this.Invoke r = let (Effect d) = this in d.Invoke r
-    member inline this.Run(r: 'r) = this.Invoke r
+    /// <summary>
+    /// Starts the effect.
+    /// <returns>A <see cref="ValueTask"/> that can be awaited to get the result of the effect</returns>
+    /// </summary>
+    member inline this.Run(r: 'r) = let (Effect d) = this in d.Invoke r
 
+    /// <summary>
+    /// Starts the effect, and raises an exception in case of error. Prefer <see cref="Run"/>.
+    /// <returns>A <see cref="ValueTask"/> that can be awaited to get the result of the effect</returns>
+    /// </summary>
     member inline this.RunOrFail(r: 'r) =
         let (Effect d) = this
 
@@ -42,6 +49,7 @@ type Effect<'r, 'a, 'e> =
         }
 
 
+/// <exclude/>
 [<Struct; NoComparison; NoEquality>]
 type EffectStateMachineData<'Env, 'T, 'Err> =
     [<DefaultValue(false)>]
@@ -52,19 +60,20 @@ type EffectStateMachineData<'Env, 'T, 'Err> =
 
     [<DefaultValue(false)>]
     val mutable MethodBuilder: AsyncValueTaskMethodBuilder<Result<'T, 'Err>>
-
+/// <exclude/>
 and EffectStateMachine<'Env, 'TOverall, 'Err> = ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>
+/// <exclude/>
 and EffectResumptionFunc<'Env, 'TOverall, 'Err> = ResumptionFunc<EffectStateMachineData<'Env, 'TOverall, 'Err>>
-
+/// <exclude/>
 and EffectResumptionDynamicInfo<'Env, 'TOverall, 'Err> =
     ResumptionDynamicInfo<EffectStateMachineData<'Env, 'TOverall, 'Err>>
-
+/// <exclude/>
 and EffectCode<'Env, 'TOverall, 'T, 'Err> = ResumableCode<EffectStateMachineData<'Env, 'TOverall, 'Err>, 'T>
+/// <exclude/>
+type EffBuilderBase() =
+    static member inline GetResumptionFunc (sm: byref<ResumableStateMachine<'Data>>) = sm.ResumptionDynamicInfo.ResumptionFunc
 
-module Helpers =
-    let inline GetResumptionFunc (sm: byref<ResumableStateMachine<'Data>>) = sm.ResumptionDynamicInfo.ResumptionFunc
-
-    let rec WhileDynamic
+    static member WhileDynamic
         (
             sm: byref<EffectStateMachine<'Env, 'TOverall, 'Err>>,
             condition: unit -> bool,
@@ -73,19 +82,19 @@ module Helpers =
         if condition () then
             if body.Invoke(&sm) then
                 match sm.Data.Result with
-                | Ok _ -> WhileDynamic(&sm, condition, body)
+                | Ok _ -> EffBuilderBase.WhileDynamic(&sm, condition, body)
                 | Error _ -> true //early break out
             else
-                let rf = GetResumptionFunc &sm
+                let rf = EffBuilderBase.GetResumptionFunc &sm
 
                 sm.ResumptionDynamicInfo.ResumptionFunc <-
-                    (ResumptionFunc<_>(fun sm -> WhileBodyDynamicAux(&sm, condition, body, rf)))
+                    ResumptionFunc<_>(fun sm -> EffBuilderBase.WhileBodyDynamicAux(&sm, condition, body, rf))
 
                 false
         else
             true
 
-    and WhileBodyDynamicAux
+    static member WhileBodyDynamicAux
         (
             sm: byref<EffectStateMachine<'Env, 'TOverall, 'Err>>,
             condition: unit -> bool,
@@ -93,51 +102,15 @@ module Helpers =
             rf: ResumptionFunc<_>
         ) : bool =
         if rf.Invoke(&sm) then
-            WhileDynamic(&sm, condition, body)
+            EffBuilderBase.WhileDynamic(&sm, condition, body)
         else
-            let rf = GetResumptionFunc &sm
+            let rf = EffBuilderBase.GetResumptionFunc &sm
 
             sm.ResumptionDynamicInfo.ResumptionFunc <-
-                (ResumptionFunc<_>(fun sm -> WhileBodyDynamicAux(&sm, condition, body, rf)))
+                ResumptionFunc<_>(fun sm -> EffBuilderBase.WhileBodyDynamicAux(&sm, condition, body, rf))
 
             false
 
-    /// Builds a step that executes the body while the condition predicate is true.
-    let inline While
-        (
-            [<InlineIfLambda>] condition: unit -> bool,
-            body: EffectCode<'Env, 'TOverall, unit, 'Err>
-        ) : EffectCode<'Env, 'TOverall, unit, 'Err> =
-        EffectCode<'Env, 'TOverall, unit, 'Err> (fun sm ->
-            if __useResumableCode then
-                //-- RESUMABLE CODE START
-                let mutable __stack_go = true
-                let mutable cc = true
-
-                while __stack_go && condition () && cc do
-                    // NOTE: The body of the state machine code for 'while' may contain await points, so resuming
-                    // the code will branch directly into the expanded 'body', branching directly into the while loop
-                    let __stack_body_fin = body.Invoke(&sm)
-
-                    if __stack_body_fin then
-                        // If the body completed, we go back around the loop (__stack_go = true)
-                        // If the body yielded, we yield (__stack_go = false)
-                        __stack_go <- __stack_body_fin
-
-                        match sm.Data.Result with
-                        | Ok _ -> ()
-                        | Error _ -> cc <- false
-                    else
-                        __stack_go <- false
-
-
-                __stack_go
-            //-- RESUMABLE CODE END
-            else
-                WhileDynamic(&sm, condition, body))
-
-
-type EffBuilderBase() =
     member inline _.Delay
         (generator: unit -> EffectCode<'Env, 'TOverall, 'T, 'Err>)
         : EffectCode<'Env, 'TOverall, 'T, 'Err> =
@@ -171,8 +144,34 @@ type EffBuilderBase() =
         (
             [<InlineIfLambda>] condition: unit -> bool,
             body: EffectCode<'Env, 'TOverall, unit, 'Err>
-        ) : EffectCode<_, 'TOverall, unit, _> =
-        Helpers.While(condition, body)
+        ) : EffectCode<'Env, 'TOverall, unit, 'Err> =
+        EffectCode<'Env, 'TOverall, unit, 'Err> (fun sm ->
+            if __useResumableCode then
+                //-- RESUMABLE CODE START
+                let mutable __stack_go = true
+                let mutable cc = true
+
+                while __stack_go && condition () && cc do
+                    // NOTE: The body of the state machine code for 'while' may contain await points, so resuming
+                    // the code will branch directly into the expanded 'body', branching directly into the while loop
+                    let __stack_body_fin = body.Invoke(&sm)
+
+                    if __stack_body_fin then
+                        // If the body completed, we go back around the loop (__stack_go = true)
+                        // If the body yielded, we yield (__stack_go = false)
+                        __stack_go <- __stack_body_fin
+
+                        match sm.Data.Result with
+                        | Ok _ -> ()
+                        | Error _ -> cc <- false
+                    else
+                        __stack_go <- false
+
+
+                __stack_go
+            //-- RESUMABLE CODE END
+            else
+                EffBuilderBase.WhileDynamic(&sm, condition, body))
 
 
     /// Wraps a step in a try/with. This catches exceptions both in the evaluation of the function
@@ -225,7 +224,7 @@ type EffBuilderBase() =
 
                     let cont =
                         EffectResumptionFunc<'Env, 'TOverall, 'Err> (fun sm ->
-                            awaiter.GetResult() |> ignore
+                            awaiter.GetResult()                            
                             true)
 
                     // shortcut to continue immediately
@@ -263,7 +262,7 @@ type EffBuilderBase() =
             [<InlineIfLambda>] continuation: 'Err -> 'TResult
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
         EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
-            let task = eff.Invoke sm.Data.Environment
+            let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
                 let mutable awaiter = task.GetAwaiter()
@@ -296,7 +295,7 @@ type EffBuilderBase() =
             f: 'Err1 -> 'Err2
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err2> =
         EffectCode<'Env, 'TResult, _, 'Err2> (fun sm ->
-            let task = eff.Invoke sm.Data.Environment
+            let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
                 let mutable awaiter = task.GetAwaiter()
@@ -331,8 +330,8 @@ type EffBuilderBase() =
             f
         ) : EffectCode<'Env, _, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err> (fun sm ->
-            let task = eff.Invoke sm.Data.Environment
-            let task2 = eff2.Invoke sm.Data.Environment
+            let task = eff.Run sm.Data.Environment
+            let task2 = eff2.Run sm.Data.Environment
 
             if __useResumableCode then
                 //-- RESUMABLE CODE START
@@ -369,8 +368,6 @@ type EffBuilderBase() =
                         | Error error, Error result ->
                             sm.Data.Result <- Error(error + result)
                             true
-                    //failwith ""
-
                     else
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
                         false
@@ -387,7 +384,7 @@ type EffBuilderBase() =
             [<InlineIfLambda>] continuation: 'Err -> Result<'TResult, 'Err>
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
         EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
-            let task = eff.Invoke sm.Data.Environment
+            let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
                 //-- RESUMABLE CODE START
@@ -424,7 +421,7 @@ type EffBuilderBase() =
             [<InlineIfLambda>] continuation: 'Err -> Effect<'Env, 'TResult, 'Err>
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
         EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
-            let task = eff.Invoke sm.Data.Environment
+            let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
                 //-- RESUMABLE CODE START
@@ -448,7 +445,7 @@ type EffBuilderBase() =
                         true
                     | Error error ->
                         let e = continuation error
-                        let task = e.Invoke sm.Data.Environment
+                        let task = e.Run sm.Data.Environment
                         let mutable awaiter = task.GetAwaiter()
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                         false
@@ -464,8 +461,7 @@ type EffBuilderBase() =
 
     member inline this.MergeSources(m1, m2: Effect<_, _, _>) = this.Bind2Return(m1, m2, id)
 
-// sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
-// false
+/// <exclude/>
 type EffBuilder() =
     inherit EffBuilderBase()
 
@@ -555,14 +551,16 @@ type EffBuilder() =
         else
             EffBuilder.RunDynamic(code)
 
+/// <exclude/>
 [<AutoOpen>]
 module Builder =
     let inline mkEffect d = Effect(EffectDelegate d)
     let eff = EffBuilder()
 
+/// <exclude/>
 [<AutoOpen>]
 module LowPriority =
-    type EffBuilder with
+    type EffBuilderBase with
 
         (*  Not sure I want *)
         [<NoEagerConstraintApplication>]
@@ -572,18 +570,18 @@ module LowPriority =
             (
                 sm: byref<_>,
                 task: ^TaskLike,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : bool =
 
-            let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) (task))
+            let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) task)
 
             let cont =
                 (EffectResumptionFunc<'Env, 'TOverall, 'Err> (fun sm ->
-                    let result = (^Awaiter: (member GetResult: unit -> 'TResult1) (awaiter))
+                    let result = (^Awaiter: (member GetResult: unit -> 'TResult1) awaiter)
                     (continuation result).Invoke(&sm)))
 
             // shortcut to continue immediately
-            if (^Awaiter: (member get_IsCompleted: unit -> bool) (awaiter)) then
+            if (^Awaiter: (member get_IsCompleted: unit -> bool) awaiter) then
                 cont.Invoke(&sm)
             else
                 sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
@@ -596,25 +594,25 @@ module LowPriority =
             unit -> bool) and ^Awaiter: (member GetResult: unit -> 'TResult1)>
             (
                 task: ^TaskLike,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
 
             EffectCode<'Env, 'TOverall, 'TResult2, 'Err> (fun sm ->
                 if __useResumableCode then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the awaitable
-                    let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) (task))
+                    let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) task)
 
                     let mutable __stack_fin = true
 
-                    if not (^Awaiter: (member get_IsCompleted: unit -> bool) (awaiter)) then
+                    if not (^Awaiter: (member get_IsCompleted: unit -> bool) awaiter) then
                         // This will yield with __stack_yield_fin = false
                         // This will resume with __stack_yield_fin = true
                         let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                         __stack_fin <- __stack_yield_fin
 
                     if __stack_fin then
-                        let result = (^Awaiter: (member GetResult: unit -> 'TResult1) (awaiter))
+                        let result = (^Awaiter: (member GetResult: unit -> 'TResult1) awaiter)
                         (continuation result).Invoke(&sm)
                     else
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
@@ -624,17 +622,18 @@ module LowPriority =
             //-- RESUMABLE CODE END
             )
 
+/// <exclude/>
 [<AutoOpen>]
 module Medium =
     open FSharp.Control
 
-    type EffBuilder with
+    type EffBuilderBase with
         (* DO WANT *)
         static member inline BindDynamic
             (
                 sm: byref<_>,
                 task: ValueTask<'TResult1>,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : bool =
             let mutable awaiter = task.GetAwaiter()
 
@@ -655,7 +654,7 @@ module Medium =
             (
                 sm: byref<_>,
                 task: ValueTask<Result<'TResult1, 'Err>>,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : bool =
             let mutable awaiter = task.GetAwaiter()
 
@@ -682,7 +681,7 @@ module Medium =
         member inline _.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 task: ValueTask<Result<'TResult1, 'Err>>,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
 
             EffectCode<'Env, 'TOverall, _, 'Err> (fun sm ->
@@ -721,12 +720,12 @@ module Medium =
         member inline _.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 eff: Effect<'Env, 'TResult1, 'Err>,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
 
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
 
             EffectCode<'Env, 'TOverall, _, 'Err> (fun sm ->
-                let task = eff.Invoke sm.Data.Environment
+                let task = eff.Run sm.Data.Environment
 
                 if __useResumableCode then
                     //-- RESUMABLE CODE START
@@ -760,7 +759,7 @@ module Medium =
         member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 task: ValueTask<'TResult1>,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             EffectCode<'Env, 'TOverall, _, 'Err> (fun sm ->
                 if __useResumableCode then
@@ -791,14 +790,14 @@ module Medium =
         member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 task: Task<Result<'TResult1, 'Err>>,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(ValueTask<_>(task = task), continuation)
 
         member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 t: Task<'TResult1>,
-                continuation: ('TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(
                 vtask {
@@ -926,18 +925,22 @@ module Medium =
         member inline this.ReturnFrom(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.Bind(ValueTask<_>(result), this.Return)
 
+
 //Fsharp plus
 type Effect<'R, 'T, 'E> with
-    //functor
+    (* Functor *)
+    ///Implements Map on the effect, making it a Functor
     static member inline Map(h: Effect<'r, 'a, 'e>, f: 'a -> 'b) =
         eff {
             let! e = h
             return f e
         }
 
+    ///Implements Return on the effect
     static member inline Return(a) = eff { return a }
 
-    //monad
+    (* Monad *)
+    ///Implements Bind on the effect, which together with the functor Return makes it a Monad 
     static member inline (>>=)(h: Effect<'r, 'a, 'e>, f: 'a -> Effect<'r, 'b, 'e>) =
         eff {
             let! e = h
@@ -945,8 +948,9 @@ type Effect<'R, 'T, 'E> with
         }
 
     //helper, seem type inference get wonky with operator
+    /// <exclude/>
     static member inline ap<'r, 'a, 'b, 'e>
-        (applicative: Effect<'r, ('b -> 'a), 'e>)
+        (applicative: Effect<'r, 'b -> 'a, 'e>)
         (e: Effect<'r, 'b, 'e>)
         : Effect<'r, 'a, 'e> =
         eff {
@@ -955,5 +959,6 @@ type Effect<'R, 'T, 'E> with
             return fn a
         }
 
-    //applicative
+    (* applicative *)
+    ///Implements Apply on the effect, making it an applicative
     static member inline (<*>)(f, e) = Effect.ap f e

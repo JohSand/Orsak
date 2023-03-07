@@ -35,7 +35,7 @@ let main args =
 
     let a = [| Effect.ret<int,int,int> 1; eff { return! Error -1 } |]
     let (b) =  traverse id a
-    let c = (b.Invoke 1).GetAwaiter().GetResult()
+    let c = b.Run(1).GetAwaiter().GetResult()
     
     let builder = WebApplication.CreateBuilder(args)
     builder

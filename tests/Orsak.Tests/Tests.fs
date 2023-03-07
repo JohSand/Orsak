@@ -267,17 +267,17 @@ module CombinatorTests =
     let parTest (lock1: SemaphoreSlim) (lock2: SemaphoreSlim) =
         do lock1.Wait()
         do lock2.Wait()
-        [ 
+        [| 
             yield takeAndRelease lock1 lock2
             for _ in 1..5 do
                 yield waiting lock1
 
             yield releaseAndTake lock1 lock2
-        ]  
+        |]  
 
     ///Setup so that the effect must be run sequencially
     let sequenceTest (lock1: SemaphoreSlim) =
-        [ 
+        [|
             for _ in 1..5 do
                 eff { 
                     Assert.Equal(2, lock1.CurrentCount)
@@ -288,7 +288,7 @@ module CombinatorTests =
                         lock1.Release(1) |> ignore              
                     Assert.Equal(2, lock1.CurrentCount)
                 }
-        ] 
+        |] 
 
     [<Fact>]
     let parCombinatorTest () =       
