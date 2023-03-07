@@ -279,12 +279,13 @@ type Effect =
     /// <example>
     ///   To create reusable effects from Interfaces used to describe the effects, use the following pattern.
     ///   <code>
-    ///         open Orsak
-    ///         type MyEffect = abstract member DoEffect: int -> System.Threading.Tasks.Task&lt;string&gt;
-    ///         type MyEffectProvider = abstract member Effect: MyEffect
-    ///         module MyEffect =
-    ///             let doEffect x =
-    ///                 Orsak.Effect.Create(fun (e: #MyEffectProvider) -> e.Effect.DoEffect(x))
+    /// open Orsak
+    /// open System.Threading.Tasks
+    /// type MyEffect = abstract member DoEffect: int -> Task&lt;string&gt;
+    /// type MyEffectProvider = abstract member Effect: MyEffect
+    /// module MyEffect =
+    ///     let doEffect x =
+    ///         Orsak.Effect.Create(fun (e: #MyEffectProvider) -> e.Effect.DoEffect(x))
     ///   </code>
     /// </example>
     static member Create(f: 'a -> Task<'b>, [<Optional>] _medium: byte) : Effect<'a, 'b, _> =
