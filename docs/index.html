@@ -35,7 +35,7 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse navbar-nav-scroll" id="navbarsExampleDefault">
-            <a href="https://johsand.github.io/Orsak/"><img id="fsdocs-logo" src="../content/img/o.png" /></a>
+            <a href="https://johsand.github.io/Orsak/"><img id="fsdocs-logo" src="https://johsand.github.io/Orsak/content/img/o.png" /></a>
             <!-- BEGIN SEARCH BOX: this adds support for the search box -->
             <div id="header">
                 <div class="searchbox" id="fsdocs-searchbox">
@@ -86,6 +86,12 @@
         <hr />
         <div class="container" id="fsdocs-content">
             <h1><a name="Orsak" class="anchor" href="#Orsak">Orsak</a></h1>
+<p>Orsak is a library for function effects in F#, allowing pragmatic and composable modelling of side-effects through interfaces. It is inspired by <a href="https://zio.dev">Zio</a>, with the F# encoding similar to the approach described by Bartosz Sypytkowski <a href="https://www.bartoszsypytkowski.com/dealing-with-complex-dependency-injection-in-f/">here</a>.</p>
+<hr />
+<p>This implementation makes use of resumable code to implement the computation expression builder for the lowest possible overhead.
+The builder also has various overloads for <code>Bind</code>, allowing for friction free interop with TaskLike, Async, Result<_,_> and more.
+It supports for, while, use, try-with and try-finally, and also applicative bind when the error-type supports <code>+</code>.
+While the computation expression is the intended way of working with effects, the corresponding module should contain all the expected functions.</p>
 
             
         </div>

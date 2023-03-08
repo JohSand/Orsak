@@ -34,7 +34,7 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse navbar-nav-scroll" id="navbarsExampleDefault">
-            <a href="https://johsand.github.io/Orsak/"><img id="fsdocs-logo" src="../content/img/o.png" /></a>
+            <a href="https://johsand.github.io/Orsak/"><img id="fsdocs-logo" src="https://johsand.github.io/Orsak/content/img/o.png" /></a>
             <!-- BEGIN SEARCH BOX: this adds support for the search box -->
             <div id="header">
                 <div class="searchbox" id="fsdocs-searchbox">
@@ -85,14 +85,188 @@
         <hr />
         <div class="container" id="fsdocs-content">
             
-<p>Commented stuff becomes text</p>
-<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs1', 1)" onmouseover="showTip(event, 'fs1', 1)" class="id">a</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs2', 2)" onmouseover="showTip(event, 'fs2', 2)" class="vt">int</span> <span class="o">=</span> <span class="n">0</span>
+<h3><a name="Basic-usage" class="anchor" href="#Basic-usage">Basic usage</a></h3>
+<p>This is a library intended to make effectful code easier to manage. It allows the user to easily create and consume side-effects modelled as interfaces, by making use of computation expressions.</p>
+<p>Imagine having the interface</p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs8', 11)" onmouseover="showTip(event, 'fs8', 11)" class="if">IButtonPusher</span> <span class="o">=</span>
+    <span class="k">abstract</span> <span class="k">member</span> <span class="fn">PushButton</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs9', 12)" onmouseover="showTip(event, 'fs9', 12)" class="rt">unit</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs10', 13)" onmouseover="showTip(event, 'fs10', 13)" class="d">Task</span><span class="pn">&lt;</span><span onmouseout="hideTip(event, 'fs9', 14)" onmouseover="showTip(event, 'fs9', 14)" class="rt">unit</span><span class="pn">&gt;</span>
 </code></pre>
-Warning: Output, it-value and value references require --eval
+<p>describing some business-critical capability. To integrate that with the effect framework, we create the following helpers:</p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs11', 15)" onmouseover="showTip(event, 'fs11', 15)" class="if">IButtonPusherProvider</span> <span class="o">=</span>
+    <span class="k">abstract</span> <span class="k">member</span> <span class="prop">ButtonPusher</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs8', 16)" onmouseover="showTip(event, 'fs8', 16)" class="if">IButtonPusher</span>
 
-            <div class="fsdocs-tip" id="fs1">val a: int</div>
-<div class="fsdocs-tip" id="fs2">Multiple items<br />val int: value: &#39;T -&gt; int (requires member op_Explicit)<br /><br />--------------------<br />type int = int32<br /><br />--------------------<br />type int&lt;&#39;Measure&gt; =
-  int</div>
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs12', 17)" onmouseover="showTip(event, 'fs12', 17)" class="id">Orsak</span>
+
+<span class="k">module</span> <span class="m">ButtonPusher</span> <span class="o">=</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs13', 18)" onmouseover="showTip(event, 'fs13', 18)" class="fn">pushButton</span> <span class="pn">(</span><span class="pn">)</span> <span class="o">=</span>
+        <span onmouseout="hideTip(event, 'fs14', 19)" onmouseover="showTip(event, 'fs14', 19)" class="m">Effect</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs15', 20)" onmouseover="showTip(event, 'fs15', 20)" class="id">Create</span><span class="pn">(</span><span class="k">fun</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs16', 21)" onmouseover="showTip(event, 'fs16', 21)" class="fn">provider</span><span class="pn">:</span> <span class="pn">#</span><span onmouseout="hideTip(event, 'fs11', 22)" onmouseover="showTip(event, 'fs11', 22)" class="if">IButtonPusherProvider</span><span class="pn">)</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs16', 23)" onmouseover="showTip(event, 'fs16', 23)" class="fn">provider</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs17', 24)" onmouseover="showTip(event, 'fs17', 24)" class="prop">ButtonPusher</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs18', 25)" onmouseover="showTip(event, 'fs18', 25)" class="id">PushButton</span> <span class="pn">(</span><span class="pn">)</span><span class="pn">)</span>
+</code></pre>
+<p>Then, we can the write code like</p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs19', 26)" onmouseover="showTip(event, 'fs19', 26)" class="fn">work</span> <span class="pn">(</span><span class="pn">)</span> <span class="pn">:</span> <span onmouseout="hideTip(event, 'fs14', 27)" onmouseover="showTip(event, 'fs14', 27)" class="vt">Effect</span><span class="pn">&lt;</span><span class="pn">#</span><span onmouseout="hideTip(event, 'fs11', 28)" onmouseover="showTip(event, 'fs11', 28)" class="if">IButtonPusherProvider</span><span class="pn">,</span><span onmouseout="hideTip(event, 'fs9', 29)" onmouseover="showTip(event, 'fs9', 29)" class="rt">unit</span><span class="pn">,</span><span class="id">_</span><span class="pn">&gt;</span> <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs20', 30)" onmouseover="showTip(event, 'fs20', 30)" class="k">eff</span> <span class="pn">{</span>
+        <span class="c">//code</span>
+        <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs21', 31)" onmouseover="showTip(event, 'fs21', 31)" class="m">ButtonPusher</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs13', 32)" onmouseover="showTip(event, 'fs13', 32)" class="id">pushButton</span> <span class="pn">(</span><span class="pn">)</span>
+        <span class="c">//more code</span>
+    <span class="pn">}</span>
+</code></pre>
+<p>Which can be run with some type which implements <code>IButtonPusherProvider</code>.</p>
+<p>The big win with effects is that they compose. By using a flexible constraints the the effect creation function, we can
+simply add effects, which will constrain the effect runner type to implement both <code>IButtonPusherProvider</code> and <code>ILoggerFactory</code></p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs22', 33)" onmouseover="showTip(event, 'fs22', 33)" class="if">ILoggerProvider</span> <span class="o">=</span>
+    <span class="k">abstract</span> <span class="k">member</span> <span onmouseout="hideTip(event, 'fs23', 34)" onmouseover="showTip(event, 'fs23', 34)" class="prop">Logger</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs24', 35)" onmouseover="showTip(event, 'fs24', 35)" class="if">ILogger</span>
+
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs25', 36)" onmouseover="showTip(event, 'fs25', 36)" class="fn">logInformation</span> <span onmouseout="hideTip(event, 'fs26', 37)" onmouseover="showTip(event, 'fs26', 37)" class="fn">a</span> <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs14', 38)" onmouseover="showTip(event, 'fs14', 38)" class="m">Effect</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs15', 39)" onmouseover="showTip(event, 'fs15', 39)" class="id">Create</span><span class="pn">(</span><span class="k">fun</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs27', 40)" onmouseover="showTip(event, 'fs27', 40)" class="fn">provider</span><span class="pn">:</span> <span class="pn">#</span><span onmouseout="hideTip(event, 'fs22', 41)" onmouseover="showTip(event, 'fs22', 41)" class="if">ILoggerProvider</span><span class="pn">)</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs27', 42)" onmouseover="showTip(event, 'fs27', 42)" class="fn">provider</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs28', 43)" onmouseover="showTip(event, 'fs28', 43)" class="prop">Logger</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs29', 44)" onmouseover="showTip(event, 'fs29', 44)" class="id">Log</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs30', 45)" onmouseover="showTip(event, 'fs30', 45)" class="en">LogLevel</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs31', 46)" onmouseover="showTip(event, 'fs31', 46)" class="id">Information</span><span class="pn">,</span> <span onmouseout="hideTip(event, 'fs26', 47)" onmouseover="showTip(event, 'fs26', 47)" class="fn">a</span><span class="pn">)</span><span class="pn">)</span>
+
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs32', 48)" onmouseover="showTip(event, 'fs32', 48)" class="fn">workThenLog</span><span class="pn">(</span><span class="pn">)</span> <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs20', 49)" onmouseover="showTip(event, 'fs20', 49)" class="k">eff</span> <span class="pn">{</span>
+        <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs19', 50)" onmouseover="showTip(event, 'fs19', 50)" class="fn">work</span> <span class="pn">(</span><span class="pn">)</span>
+        <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs25', 51)" onmouseover="showTip(event, 'fs25', 51)" class="fn">logInformation</span> <span class="s">&quot;Did the work.&quot;</span>
+    <span class="pn">}</span>
+</code></pre>
+<p>Then, in the composition root of the program, one could define:</p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs33', 52)" onmouseover="showTip(event, 'fs33', 52)" class="rt">EffectRunner</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs34', 53)" onmouseover="showTip(event, 'fs34', 53)" class="fn">buttonPusher</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs8', 54)" onmouseover="showTip(event, 'fs8', 54)" class="if">IButtonPusher</span><span class="pn">)</span> <span class="o">=</span>
+    <span class="k">interface</span> <span onmouseout="hideTip(event, 'fs22', 55)" onmouseover="showTip(event, 'fs22', 55)" class="if">ILoggerProvider</span> <span class="k">with</span>
+        <span class="k">member</span> <span class="id">_</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs23', 56)" onmouseover="showTip(event, 'fs23', 56)" class="prop">Logger</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs35', 57)" onmouseover="showTip(event, 'fs35', 57)" class="rt">NullLogger</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs36', 58)" onmouseover="showTip(event, 'fs36', 58)" class="id">Instance</span>
+    <span class="k">interface</span> <span onmouseout="hideTip(event, 'fs11', 59)" onmouseover="showTip(event, 'fs11', 59)" class="if">IButtonPusherProvider</span> <span class="k">with</span>
+        <span class="k">member</span> <span class="id">_</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs21', 60)" onmouseover="showTip(event, 'fs21', 60)" class="prop">ButtonPusher</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs34', 61)" onmouseover="showTip(event, 'fs34', 61)" class="fn">buttonPusher</span>
+</code></pre>
+<p>And then run the effects:</p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs37', 62)" onmouseover="showTip(event, 'fs37', 62)" class="id">runner</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs33', 63)" onmouseover="showTip(event, 'fs33', 63)" class="rt">EffectRunner</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs33', 64)" onmouseover="showTip(event, 'fs33', 64)" class="fn">EffectRunner</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs38', 65)" onmouseover="showTip(event, 'fs38', 65)" class="m">Unchecked</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs39', 66)" onmouseover="showTip(event, 'fs39', 66)" class="id">defaultof</span><span class="pn">&lt;</span><span class="id">_</span><span class="pn">&gt;</span><span class="pn">)</span>
+
+<span onmouseout="hideTip(event, 'fs32', 67)" onmouseover="showTip(event, 'fs32', 67)" class="fn">workThenLog</span><span class="pn">(</span><span class="pn">)</span><span class="pn">.</span><span class="id">Run</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs37', 68)" onmouseover="showTip(event, 'fs37', 68)" class="id">runner</span><span class="pn">)</span>
+</code></pre>
+
+            <div class="fsdocs-tip" id="fs1">namespace System</div>
+<div class="fsdocs-tip" id="fs2">namespace System.Threading</div>
+<div class="fsdocs-tip" id="fs3">namespace System.Threading.Tasks</div>
+<div class="fsdocs-tip" id="fs4">namespace Microsoft</div>
+<div class="fsdocs-tip" id="fs5">namespace Microsoft.Extensions</div>
+<div class="fsdocs-tip" id="fs6">namespace Microsoft.Extensions.Logging</div>
+<div class="fsdocs-tip" id="fs7">namespace Microsoft.Extensions.Logging.Abstractions</div>
+<div class="fsdocs-tip" id="fs8">type IButtonPusher =
+  abstract PushButton: unit -&gt; Task&lt;unit&gt;</div>
+<div class="fsdocs-tip" id="fs9">type unit = Unit</div>
+<div class="fsdocs-tip" id="fs10">Multiple items<br />type Task =
+  interface IAsyncResult
+  interface IDisposable
+  new: action: Action -&gt; unit + 7 overloads
+  member ConfigureAwait: continueOnCapturedContext: bool -&gt; ConfiguredTaskAwaitable
+  member ContinueWith: continuationAction: Action&lt;Task,obj&gt; * state: obj -&gt; Task + 19 overloads
+  member Dispose: unit -&gt; unit
+  member GetAwaiter: unit -&gt; TaskAwaiter
+  member RunSynchronously: unit -&gt; unit + 1 overload
+  member Start: unit -&gt; unit + 1 overload
+  member Wait: unit -&gt; unit + 5 overloads
+  ...<br /><em>&lt;summary&gt;Represents an asynchronous operation.&lt;/summary&gt;</em><br /><br />--------------------<br />type Task&lt;&#39;TResult&gt; =
+  inherit Task
+  new: ``function`` : Func&lt;obj,&#39;TResult&gt; * state: obj -&gt; unit + 7 overloads
+  member ConfigureAwait: continueOnCapturedContext: bool -&gt; ConfiguredTaskAwaitable&lt;&#39;TResult&gt;
+  member ContinueWith: continuationAction: Action&lt;Task&lt;&#39;TResult&gt;,obj&gt; * state: obj -&gt; Task + 19 overloads
+  member GetAwaiter: unit -&gt; TaskAwaiter&lt;&#39;TResult&gt;
+  member WaitAsync: cancellationToken: CancellationToken -&gt; Task&lt;&#39;TResult&gt; + 2 overloads
+  member Result: &#39;TResult
+  static member Factory: TaskFactory&lt;&#39;TResult&gt;<br /><em>&lt;summary&gt;Represents an asynchronous operation that can return a value.&lt;/summary&gt;<br />&lt;typeparam name=&quot;TResult&quot;&gt;The type of the result produced by this &lt;see cref=&quot;T:System.Threading.Tasks.Task`1&quot; /&gt;.&lt;/typeparam&gt;</em><br /><br />--------------------<br />Task(action: System.Action) : Task<br />Task(action: System.Action, cancellationToken: System.Threading.CancellationToken) : Task<br />Task(action: System.Action, creationOptions: TaskCreationOptions) : Task<br />Task(action: System.Action&lt;obj&gt;, state: obj) : Task<br />Task(action: System.Action, cancellationToken: System.Threading.CancellationToken, creationOptions: TaskCreationOptions) : Task<br />Task(action: System.Action&lt;obj&gt;, state: obj, cancellationToken: System.Threading.CancellationToken) : Task<br />Task(action: System.Action&lt;obj&gt;, state: obj, creationOptions: TaskCreationOptions) : Task<br />Task(action: System.Action&lt;obj&gt;, state: obj, cancellationToken: System.Threading.CancellationToken, creationOptions: TaskCreationOptions) : Task<br /><br />--------------------<br />Task(``function`` : System.Func&lt;&#39;TResult&gt;) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;obj,&#39;TResult&gt;, state: obj) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;&#39;TResult&gt;, cancellationToken: System.Threading.CancellationToken) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;&#39;TResult&gt;, creationOptions: TaskCreationOptions) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;obj,&#39;TResult&gt;, state: obj, cancellationToken: System.Threading.CancellationToken) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;obj,&#39;TResult&gt;, state: obj, creationOptions: TaskCreationOptions) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;&#39;TResult&gt;, cancellationToken: System.Threading.CancellationToken, creationOptions: TaskCreationOptions) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;obj,&#39;TResult&gt;, state: obj, cancellationToken: System.Threading.CancellationToken, creationOptions: TaskCreationOptions) : Task&lt;&#39;TResult&gt;</div>
+<div class="fsdocs-tip" id="fs11">type IButtonPusherProvider =
+  abstract ButtonPusher: IButtonPusher</div>
+<div class="fsdocs-tip" id="fs12">namespace Orsak</div>
+<div class="fsdocs-tip" id="fs13">val pushButton: unit -&gt; Effect&lt;#IButtonPusherProvider,unit,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs14">Multiple items<br />union case Effect.Effect: EffectDelegate&lt;&#39;r,&#39;a,&#39;e&gt; -&gt; Effect&lt;&#39;r,&#39;a,&#39;e&gt;<br /><br />--------------------<br />module Effect
+
+from Orsak<br /><br />--------------------<br />type Effect =
+  static member Create: f: (&#39;a -&gt; &#39;b) * [&lt;ParamArray&gt;] _a: Object array -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt; + 5 overloads
+  static member Error: error: &#39;e -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt;<br /><br />--------------------<br />[&lt;Struct&gt;]
+type Effect&lt;&#39;r,&#39;a,&#39;e&gt; =
+  | Effect of EffectDelegate&lt;&#39;r,&#39;a,&#39;e&gt;
+  member Run: r: &#39;r -&gt; AsyncResult&lt;&#39;a,&#39;e&gt;
+  member RunOrFail: r: &#39;r -&gt; Task&lt;&#39;a&gt;
+  static member (&lt;*&gt;) : f: Effect&lt;&#39;a3,(&#39;a4 -&gt; &#39;a5),&#39;a6&gt; * e: Effect&lt;&#39;a3,&#39;a4,&#39;a6&gt; -&gt; Effect&lt;&#39;a3,&#39;a5,&#39;a6&gt;
+  static member (&gt;&gt;=) : h: Effect&lt;&#39;r,&#39;a,&#39;e&gt; * f: (&#39;a -&gt; Effect&lt;&#39;r,&#39;b,&#39;e&gt;) -&gt; Effect&lt;&#39;r,&#39;b,&#39;e&gt;
+  static member Map: h: Effect&lt;&#39;r,&#39;a,&#39;e&gt; * f: (&#39;a -&gt; &#39;b) -&gt; Effect&lt;&#39;r,&#39;b,&#39;e&gt;
+  static member Return: a: &#39;a3 -&gt; Effect&lt;&#39;a4,&#39;a3,&#39;a5&gt;
+  static member ap: applicative: Effect&lt;&#39;r,(&#39;b -&gt; &#39;a),&#39;e&gt; -&gt; e: Effect&lt;&#39;r,&#39;b,&#39;e&gt; -&gt; Effect&lt;&#39;r,&#39;a,&#39;e&gt;<br /><em>&lt;summary&gt;
+ Describes an effect that can either succeed with &lt;typeparamref name=&quot;&#39;r&quot; /&gt;, or fails with &lt;typeparamref name=&quot;&#39;e&quot; /&gt;.
+ The effect is is &#39;cold&#39;, and only starts when run with an &lt;typeparamref name=&quot;&#39;r&quot; /&gt;.
+ &lt;/summary&gt;<br />&lt;typeparam name=&quot;&#39;r&quot;&gt; The environment required to run the effect &lt;/typeparam&gt;<br />&lt;typeparam name=&quot;&#39;a&quot;&gt; The resulting type when the effect runs successfully &lt;/typeparam&gt;<br />&lt;typeparam name=&quot;&#39;e&quot;&gt; The resulting type when the effect fails&lt;/typeparam&gt;<br />&lt;returns&gt;&lt;/returns&gt;</em></div>
+<div class="fsdocs-tip" id="fs15">static member Effect.Create: f: (&#39;a -&gt; Async&lt;&#39;b&gt;) -&gt; Effect&lt;&#39;a,&#39;b,&#39;a2&gt;<br />static member Effect.Create: f: (&#39;a -&gt; ValueTask&lt;Result&lt;&#39;b,&#39;e&gt;&gt;) -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt;<br />static member Effect.Create: f: (&#39;a -&gt; Task&lt;Result&lt;&#39;b,&#39;e&gt;&gt;) -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt;<br />static member Effect.Create: f: (&#39;a -&gt; ValueTask&lt;&#39;b&gt;) * _medium: byte -&gt; Effect&lt;&#39;a,&#39;b,&#39;a2&gt;<br />static member Effect.Create: f: (&#39;a -&gt; Task&lt;&#39;b&gt;) * _medium: byte -&gt; Effect&lt;&#39;a,&#39;b,&#39;c&gt;<br />static member Effect.Create: f: (&#39;a -&gt; &#39;b) * [&lt;System.ParamArray&gt;] _a: System.Object array -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt;</div>
+<div class="fsdocs-tip" id="fs16">val provider: #IButtonPusherProvider</div>
+<div class="fsdocs-tip" id="fs17">property IButtonPusherProvider.ButtonPusher: IButtonPusher with get</div>
+<div class="fsdocs-tip" id="fs18">abstract IButtonPusher.PushButton: unit -&gt; Task&lt;unit&gt;</div>
+<div class="fsdocs-tip" id="fs19">val work: unit -&gt; Effect&lt;#IButtonPusherProvider,unit,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs20">val eff: EffBuilder</div>
+<div class="fsdocs-tip" id="fs21">module ButtonPusher
+
+from 1_intro</div>
+<div class="fsdocs-tip" id="fs22">type ILoggerProvider =
+  abstract Logger: ILogger</div>
+<div class="fsdocs-tip" id="fs23">Multiple items<br />type Logger&lt;&#39;T&gt; =
+  interface ILogger&lt;&#39;T&gt;
+  interface ILogger
+  new: factory: ILoggerFactory -&gt; unit<br /><em>&lt;summary&gt;
+            Delegates to a new &lt;see cref=&quot;T:Microsoft.Extensions.Logging.ILogger&quot; /&gt; instance using the full name of the given type, created by the
+            provided &lt;see cref=&quot;T:Microsoft.Extensions.Logging.ILoggerFactory&quot; /&gt;.
+            &lt;/summary&gt;<br />&lt;typeparam name=&quot;T&quot;&gt;The type.&lt;/typeparam&gt;</em><br /><br />--------------------<br />Logger(factory: ILoggerFactory) : Logger&lt;&#39;T&gt;</div>
+<div class="fsdocs-tip" id="fs24">Multiple items<br />type ILogger =
+  member BeginScope&lt;&#39;TState&gt; : state: &#39;TState -&gt; IDisposable
+  member IsEnabled: logLevel: LogLevel -&gt; bool
+  member Log&lt;&#39;TState&gt; : logLevel: LogLevel * eventId: EventId * state: &#39;TState * ``exception`` : exn * formatter: Func&lt;&#39;TState,exn,string&gt; -&gt; unit<br /><em>&lt;summary&gt;
+            Represents a type used to perform logging.
+            &lt;/summary&gt;<br />&lt;remarks&gt;Aggregates most logging patterns to a single method.&lt;/remarks&gt;</em><br /><br />--------------------<br />type ILogger&lt;&#39;TCategoryName&gt; =
+  inherit ILogger<br /><em>&lt;summary&gt;
+            A generic interface for logging where the category name is derived from the specified
+            &lt;typeparamref name=&quot;TCategoryName&quot; /&gt; type name.
+            Generally used to enable activation of a named &lt;see cref=&quot;T:Microsoft.Extensions.Logging.ILogger&quot; /&gt; from dependency injection.
+            &lt;/summary&gt;<br />&lt;typeparam name=&quot;TCategoryName&quot;&gt;The type whose name is used for the logger category name.&lt;/typeparam&gt;</em></div>
+<div class="fsdocs-tip" id="fs25">val logInformation: a: string -&gt; Effect&lt;#ILoggerProvider,unit,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs26">val a: string</div>
+<div class="fsdocs-tip" id="fs27">val provider: #ILoggerProvider</div>
+<div class="fsdocs-tip" id="fs28">property ILoggerProvider.Logger: ILogger with get</div>
+<div class="fsdocs-tip" id="fs29">(extension) ILogger.Log(logLevel: LogLevel, message: string, [&lt;System.ParamArray&gt;] args: obj array) : unit<br />(extension) ILogger.Log(logLevel: LogLevel, eventId: EventId, message: string, [&lt;System.ParamArray&gt;] args: obj array) : unit<br />(extension) ILogger.Log(logLevel: LogLevel, ``exception`` : exn, message: string, [&lt;System.ParamArray&gt;] args: obj array) : unit<br />(extension) ILogger.Log(logLevel: LogLevel, eventId: EventId, ``exception`` : exn, message: string, [&lt;System.ParamArray&gt;] args: obj array) : unit<br />ILogger.Log&lt;&#39;TState&gt;(logLevel: LogLevel, eventId: EventId, state: &#39;TState, ``exception`` : exn, formatter: System.Func&lt;&#39;TState,exn,string&gt;) : unit</div>
+<div class="fsdocs-tip" id="fs30">[&lt;Struct&gt;]
+type LogLevel =
+  | Trace = 0
+  | Debug = 1
+  | Information = 2
+  | Warning = 3
+  | Error = 4
+  | Critical = 5
+  | None = 6<br /><em>&lt;summary&gt;
+            Defines logging severity levels.
+            &lt;/summary&gt;</em></div>
+<div class="fsdocs-tip" id="fs31">field LogLevel.Information: LogLevel = 2</div>
+<div class="fsdocs-tip" id="fs32">val workThenLog: unit -&gt; Effect&lt;&#39;a,unit,&#39;b&gt; (requires &#39;a :&gt; ILoggerProvider and &#39;a :&gt; IButtonPusherProvider)</div>
+<div class="fsdocs-tip" id="fs33">Multiple items<br />type EffectRunner =
+  interface IButtonPusherProvider
+  interface ILoggerProvider
+  new: buttonPusher: IButtonPusher -&gt; EffectRunner<br /><br />--------------------<br />new: buttonPusher: IButtonPusher -&gt; EffectRunner</div>
+<div class="fsdocs-tip" id="fs34">val buttonPusher: IButtonPusher</div>
+<div class="fsdocs-tip" id="fs35">Multiple items<br />type NullLogger =
+  interface ILogger
+  member BeginScope&lt;&#39;TState&gt; : state: &#39;TState -&gt; IDisposable
+  member IsEnabled: logLevel: LogLevel -&gt; bool
+  member Log&lt;&#39;TState&gt; : logLevel: LogLevel * eventId: EventId * state: &#39;TState * ``exception`` : exn * formatter: Func&lt;&#39;TState,exn,string&gt; -&gt; unit
+  static member Instance: NullLogger<br /><em>&lt;summary&gt;
+            Minimalistic logger that does nothing.
+            &lt;/summary&gt;</em><br /><br />--------------------<br />type NullLogger&lt;&#39;T&gt; =
+  interface ILogger&lt;&#39;T&gt;
+  interface ILogger
+  new: unit -&gt; unit
+  member BeginScope&lt;&#39;TState&gt; : state: &#39;TState -&gt; IDisposable
+  member IsEnabled: logLevel: LogLevel -&gt; bool
+  member Log&lt;&#39;TState&gt; : logLevel: LogLevel * eventId: EventId * state: &#39;TState * ``exception`` : exn * formatter: Func&lt;&#39;TState,exn,string&gt; -&gt; unit
+  static val Instance: NullLogger&lt;&#39;T&gt;<br /><em>&lt;summary&gt;
+            Minimalistic logger that does nothing.
+            &lt;/summary&gt;</em><br /><br />--------------------<br />NullLogger() : NullLogger&lt;&#39;T&gt;</div>
+<div class="fsdocs-tip" id="fs36">Multiple items<br />field NullLogger&lt;&#39;T&gt;.Instance: NullLogger&lt;&#39;T&gt;<br /><em>&lt;summary&gt;
+            Returns an instance of &lt;see cref=&quot;T:Microsoft.Extensions.Logging.Abstractions.NullLogger`1&quot; /&gt;.
+            &lt;/summary&gt;<br />&lt;returns&gt;An instance of &lt;see cref=&quot;T:Microsoft.Extensions.Logging.Abstractions.NullLogger`1&quot; /&gt;.&lt;/returns&gt;</em><br /><br />--------------------<br />property NullLogger.Instance: NullLogger with get<br /><em>&lt;summary&gt;
+            Returns the shared instance of &lt;see cref=&quot;T:Microsoft.Extensions.Logging.Abstractions.NullLogger&quot; /&gt;.
+            &lt;/summary&gt;</em></div>
+<div class="fsdocs-tip" id="fs37">val runner: EffectRunner</div>
+<div class="fsdocs-tip" id="fs38">module Unchecked
+
+from Microsoft.FSharp.Core.Operators</div>
+<div class="fsdocs-tip" id="fs39">val defaultof&lt;&#39;T&gt; : &#39;T</div>
 
         </div>
 
