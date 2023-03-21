@@ -29,6 +29,7 @@ type EffectDelegate<'r, 'a, 'e> = delegate of 'r -> AsyncResult<'a, 'e>
 [<Struct; NoComparison; NoEquality>]
 type Effect<'r, 'a, 'e> =
     | Effect of EffectDelegate<'r, 'a, 'e>
+
     /// <summary>
     /// Starts the effect.
     /// <returns>A <see cref="ValueTask"/> that can be awaited to get the result of the effect</returns>
@@ -60,18 +61,23 @@ type EffectStateMachineData<'Env, 'T, 'Err> =
 
     [<DefaultValue(false)>]
     val mutable MethodBuilder: AsyncValueTaskMethodBuilder<Result<'T, 'Err>>
+
 /// <exclude/>
 and EffectStateMachine<'Env, 'TOverall, 'Err> = ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>
 /// <exclude/>
 and EffectResumptionFunc<'Env, 'TOverall, 'Err> = ResumptionFunc<EffectStateMachineData<'Env, 'TOverall, 'Err>>
+
 /// <exclude/>
 and EffectResumptionDynamicInfo<'Env, 'TOverall, 'Err> =
     ResumptionDynamicInfo<EffectStateMachineData<'Env, 'TOverall, 'Err>>
+
 /// <exclude/>
 and EffectCode<'Env, 'TOverall, 'T, 'Err> = ResumableCode<EffectStateMachineData<'Env, 'TOverall, 'Err>, 'T>
+
 /// <exclude/>
 type EffBuilderBase() =
-    static member inline GetResumptionFunc (sm: byref<ResumableStateMachine<'Data>>) = sm.ResumptionDynamicInfo.ResumptionFunc
+    static member inline GetResumptionFunc(sm: byref<ResumableStateMachine<'Data>>) =
+        sm.ResumptionDynamicInfo.ResumptionFunc
 
     static member WhileDynamic
         (
@@ -125,7 +131,7 @@ type EffBuilderBase() =
             task1: EffectCode<_, 'TOverall, unit, 'Err>,
             task2: EffectCode<_, 'TOverall, 'T, 'Err>
         ) : EffectCode<_, 'TOverall, 'T, 'Err> =
-        ResumableCode (fun sm ->
+        ResumableCode(fun sm ->
             if __useResumableCode then
                 let __stack_fin = task1.Invoke(&sm)
 
@@ -145,7 +151,7 @@ type EffBuilderBase() =
             [<InlineIfLambda>] condition: unit -> bool,
             body: EffectCode<'Env, 'TOverall, unit, 'Err>
         ) : EffectCode<'Env, 'TOverall, unit, 'Err> =
-        EffectCode<'Env, 'TOverall, unit, 'Err> (fun sm ->
+        EffectCode<'Env, 'TOverall, unit, 'Err>(fun sm ->
             if __useResumableCode then
                 //-- RESUMABLE CODE START
                 let mutable __stack_go = true
@@ -192,7 +198,7 @@ type EffBuilderBase() =
         ) : EffectCode<_, 'TOverall, 'T, _> =
         ResumableCode.TryFinally(
             body,
-            ResumableCode<_, _> (fun _sm ->
+            ResumableCode<_, _>(fun _sm ->
                 compensation ()
                 true)
         )
@@ -204,7 +210,7 @@ type EffBuilderBase() =
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         ResumableCode.TryFinallyAsync(
             body,
-            ResumableCode<_, _> (fun sm ->
+            ResumableCode<_, _>(fun sm ->
                 if __useResumableCode then
                     let mutable __stack_condition_fin = true
                     let __stack_vtask = compensation ()
@@ -223,8 +229,8 @@ type EffBuilderBase() =
                     let mutable awaiter = vtask.GetAwaiter()
 
                     let cont =
-                        EffectResumptionFunc<'Env, 'TOverall, 'Err> (fun sm ->
-                            awaiter.GetResult()                            
+                        EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                            awaiter.GetResult()
                             true)
 
                     // shortcut to continue immediately
@@ -252,16 +258,44 @@ type EffBuilderBase() =
 
 
     member inline _.Return(value: 'T) : EffectCode<'Env, 'T, 'T, 'Err> =
-        EffectCode<'Env, 'T, _, 'Err> (fun sm ->
+        EffectCode<'Env, 'T, _, 'Err>(fun sm ->
             sm.Data.Result <- Ok value
             true)
+
+    static member inline RecoverDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env,'TResult,'Err>>>,
+            task: ValueTask<_>,
+            continuation: ('Err -> 'TResult)
+        ) : bool =
+        let mutable awaiter = task.GetAwaiter()
+
+        let cont =
+            (EffectResumptionFunc<'Env,'TResult,'Err>(fun sm ->
+                    let result = awaiter.GetResult()
+                    match result with
+                    | Ok result ->
+                        sm.Data.Result <- Ok result
+                        true
+                    | Error error ->
+                        sm.Data.Result <- Ok(continuation error)
+                        true      
+                )
+            )
+
+        if awaiter.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+            false
 
     member inline _.Recover<'Env, 'T, 'TOverall, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
             [<InlineIfLambda>] continuation: 'Err -> 'TResult
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
-        EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
+        EffectCode<'Env, 'TResult, _, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
@@ -287,14 +321,43 @@ type EffBuilderBase() =
                     sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                     false
             else
-                failwith "")
+                EffBuilderBase.RecoverDynamic(&sm, task, continuation))
+
+
+    static member inline ChangeErrorDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err1, 'Err2>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env,'TResult,'Err2>>>,
+            task: ValueTask<_>,
+            f: ('Err1 -> 'Err2)
+        ) : bool =
+        let mutable awaiter = task.GetAwaiter()
+
+        let cont =
+            (EffectResumptionFunc<'Env,'TResult,'Err2>(fun sm ->
+                    let result = awaiter.GetResult()
+                    match result with
+                    | Ok result ->
+                        sm.Data.Result <- Result<_, 'Err2>.Ok result
+                        true
+                    | Error(error: 'Err1) ->
+                        sm.Data.Result <- Result<_, 'Err2>.Error(f error)
+                        true   
+                )
+            )
+
+        if awaiter.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+            false
 
     member inline _.ChangeError<'Env, 'T, 'TOverall, 'TResult, 'Err1, 'Err2>
         (
             eff: Effect<'Env, 'TResult, 'Err1>,
             f: 'Err1 -> 'Err2
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err2> =
-        EffectCode<'Env, 'TResult, _, 'Err2> (fun sm ->
+        EffectCode<'Env, 'TResult, _, 'Err2>(fun sm ->
             let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
@@ -313,23 +376,71 @@ type EffBuilderBase() =
                     | Ok result ->
                         sm.Data.Result <- Result<_, 'Err2>.Ok result
                         true
-                    | Error (error: 'Err1) ->
-                        sm.Data.Result <- Result<_, 'Err2>.Error (f error)
+                    | Error(error: 'Err1) ->
+                        sm.Data.Result <- Result<_, 'Err2>.Error(f error)
                         true
                 else
                     sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                     false
             else
-                failwith "")
+                EffBuilderBase.ChangeErrorDynamic(&sm, task, f))
 
-    member inline _.Zip<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Err: (static member (+):
-        'Err -> 'Err -> 'Err)>
+    static member inline ZipDynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env,'TOverall,'Err>>>,
+            task1: ValueTask<Result<'TResult1,'Err>>,
+            task2: ValueTask<Result<'TResult2,'Err>>,
+            f
+        ) : bool =
+        let mutable awaiter1 = task1.GetAwaiter()
+        let mutable awaiter2 = task2.GetAwaiter()
+        let cont =
+            (EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm ->
+                    let cont =  
+                        (EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm -> 
+                            let result = awaiter1.GetResult()
+                            let result2 = awaiter2.GetResult()
+
+                            match result, result2 with
+                            | Ok result, Ok result2 ->
+                                sm.Data.Result <- Ok(f struct (result, result2))
+                                true
+                            | Error error, Ok _ ->
+                                sm.Data.Result <- Error error
+                                true
+                            | Ok _, Error result ->
+                                sm.Data.Result <- Error result
+                                true
+                            | Error error, Error result ->
+                                sm.Data.Result <- Error(error + result)
+                                true                   
+                                ))
+
+                    if awaiter2.IsCompleted then
+                        cont.Invoke(&sm)
+                     else
+                        sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                        sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                        false  
+                )
+            )
+
+        if awaiter1.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+            false
+
+
+    member inline _.Zip<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
         (
             eff: Effect<'Env, 'TResult1, 'Err>,
             eff2: Effect<'Env, 'TResult2, 'Err>,
             f
         ) : EffectCode<'Env, _, 'T, 'Err> =
-        EffectCode<'Env, 'TOverall, 'T, 'Err> (fun sm ->
+        EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
             let task2 = eff2.Run sm.Data.Environment
 
@@ -375,15 +486,44 @@ type EffBuilderBase() =
                     sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                     false
             else
-                failwith "todo")
+                EffBuilderBase.ZipDynamic(&sm, task, task2, f)
+            )
 
+
+    static member inline TryRecoverDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env,'TResult,'Err>>>,
+            task: ValueTask<_>,
+            continuation: ('Err -> Result<'TResult, 'Err>)
+        ) : bool =
+        let mutable awaiter = task.GetAwaiter()
+
+        let cont =
+            (EffectResumptionFunc<'Env,'TResult,'Err>(fun sm ->
+                    let result = awaiter.GetResult()
+                    match result with
+                    | Ok result ->
+                        sm.Data.Result <- Ok result
+                        true
+                    | Error error ->
+                        sm.Data.Result <- continuation error
+                        true      
+                )
+            )
+
+        if awaiter.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+            false
 
     member inline _.TryRecover<'Env, 'T, 'TOverall, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
             [<InlineIfLambda>] continuation: 'Err -> Result<'TResult, 'Err>
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
-        EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
+        EffectCode<'Env, 'TResult, _, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
@@ -413,14 +553,55 @@ type EffBuilderBase() =
                     sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                     false
             else
-                failwith "")
+                EffBuilderBase.TryRecoverDynamic(&sm, task, continuation))
+
+    static member inline TryRecoverDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env,'TResult,'Err>>>,
+            task: ValueTask<_>,
+            continuation: ('Err -> Effect<'Env, 'TResult, 'Err>)
+        ) : bool =
+        let mutable awaiter = task.GetAwaiter()
+
+        let cont =
+            (EffectResumptionFunc<'Env,'TResult,'Err>(fun sm ->
+                    let result = awaiter.GetResult()
+                    match result with
+                    | Ok result ->
+                        sm.Data.Result <- Ok result
+                        true
+                    | Error error ->
+                        let next = continuation error
+                        let task = next.Run sm.Data.Environment
+                        let mutable awaiter = task.GetAwaiter()
+                        let cont =
+                            (EffectResumptionFunc<'Env,'TResult,'Err>(fun sm ->
+                                    sm.Data.Result <- awaiter.GetResult()
+                                    true
+                                    ))
+
+                        if awaiter.IsCompleted then
+                            cont.Invoke(&sm)
+                        else
+                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                            false    
+                )
+            )
+
+        if awaiter.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+            false
 
     member inline _.TryRecover<'Env, 'T, 'TOverall, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
             [<InlineIfLambda>] continuation: 'Err -> Effect<'Env, 'TResult, 'Err>
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
-        EffectCode<'Env, 'TResult, _, 'Err> (fun sm ->
+        EffectCode<'Env, 'TResult, _, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
@@ -453,7 +634,7 @@ type EffBuilderBase() =
                     sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                     false
             else
-                failwith "")
+                EffBuilderBase.TryRecoverDynamic(&sm, task, continuation))
 
 
     member inline this.Bind2Return(m1: Effect<'Env, 'a, 'Err>, m2: Effect<'Env, 'b, 'Err>, [<InlineIfLambda>] f) =
@@ -496,21 +677,22 @@ type EffBuilder() =
                             assert not (isNull awaiter)
                             sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
 
-                    with
-                    | exn -> savedExn <- exn
+                    with exn ->
+                        savedExn <- exn
                     // Run SetException outside the stack unwind, see https://github.com/dotnet/roslyn/issues/26567
                     match savedExn with
                     | null -> ()
                     | exn -> sm.Data.MethodBuilder.SetException exn
 
                 member _.SetStateMachine(sm, state) =
-                    sm.Data.MethodBuilder.SetStateMachine(state) }
+                    sm.Data.MethodBuilder.SetStateMachine(state)
+            }
 
         Effect(
-            EffectDelegate (fun env ->
+            EffectDelegate(fun env ->
                 sm.Data.Environment <- env
                 sm.ResumptionDynamicInfo <- resumptionInfo
-                sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create ()
+                sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
                 sm.Data.MethodBuilder.Start(&sm)
                 sm.Data.MethodBuilder.Task)
         )
@@ -519,7 +701,7 @@ type EffBuilder() =
     member inline _.Run<'Env, 'T, 'Err>(code: EffectCode<'Env, 'T, 'T, 'Err>) : Effect<'Env, 'T, 'Err> =
         if __useResumableCode then
             __stateMachine<EffectStateMachineData<'Env, 'T, 'Err>, Effect<'Env, 'T, 'Err>>
-                (MoveNextMethodImpl<_> (fun sm ->
+                (MoveNextMethodImpl<_>(fun sm ->
                     //-- RESUMABLE CODE START
                     __resumeAt sm.ResumptionPoint
                     let mutable __stack_exn: Exception = null
@@ -529,8 +711,8 @@ type EffBuilder() =
 
                         if __stack_code_fin then
                             sm.Data.MethodBuilder.SetResult(sm.Data.Result)
-                    with
-                    | exn -> __stack_exn <- exn
+                    with exn ->
+                        __stack_exn <- exn
                     // Run SetException outside the stack unwind, see https://github.com/dotnet/roslyn/issues/26567
                     match __stack_exn with
                     | null -> ()
@@ -538,13 +720,13 @@ type EffBuilder() =
                 //-- RESUMABLE CODE END
                 ))
                 (SetStateMachineMethodImpl<_>(fun sm state -> sm.Data.MethodBuilder.SetStateMachine(state)))
-                (AfterCode<_, _> (fun sm ->
+                (AfterCode<_, _>(fun sm ->
                     let mutable sm = sm
 
                     Effect(
-                        EffectDelegate (fun env ->
+                        EffectDelegate(fun env ->
                             sm.Data.Environment <- env
-                            sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create ()
+                            sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
                             sm.Data.MethodBuilder.Start(&sm)
                             sm.Data.MethodBuilder.Task)
                     )))
@@ -564,9 +746,11 @@ module LowPriority =
 
         (*  Not sure I want *)
         [<NoEagerConstraintApplication>]
-        static member inline BindDynamic< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err when ^TaskLike: (member GetAwaiter:
-            unit -> ^Awaiter) and ^Awaiter :> ICriticalNotifyCompletion and ^Awaiter: (member get_IsCompleted:
-            unit -> bool) and ^Awaiter: (member GetResult: unit -> 'TResult1)>
+        static member inline BindDynamic< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
+            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
+            and ^Awaiter :> ICriticalNotifyCompletion
+            and ^Awaiter: (member get_IsCompleted: unit -> bool)
+            and ^Awaiter: (member GetResult: unit -> 'TResult1)>
             (
                 sm: byref<_>,
                 task: ^TaskLike,
@@ -576,7 +760,7 @@ module LowPriority =
             let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) task)
 
             let cont =
-                (EffectResumptionFunc<'Env, 'TOverall, 'Err> (fun sm ->
+                (EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
                     let result = (^Awaiter: (member GetResult: unit -> 'TResult1) awaiter)
                     (continuation result).Invoke(&sm)))
 
@@ -589,15 +773,17 @@ module LowPriority =
                 false
 
         [<NoEagerConstraintApplication>]
-        member inline _.Bind< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err when ^TaskLike: (member GetAwaiter:
-            unit -> ^Awaiter) and ^Awaiter :> ICriticalNotifyCompletion and ^Awaiter: (member get_IsCompleted:
-            unit -> bool) and ^Awaiter: (member GetResult: unit -> 'TResult1)>
+        member inline _.Bind< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
+            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
+            and ^Awaiter :> ICriticalNotifyCompletion
+            and ^Awaiter: (member get_IsCompleted: unit -> bool)
+            and ^Awaiter: (member GetResult: unit -> 'TResult1)>
             (
                 task: ^TaskLike,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
 
-            EffectCode<'Env, 'TOverall, 'TResult2, 'Err> (fun sm ->
+            EffectCode<'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
                 if __useResumableCode then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the awaitable
@@ -638,7 +824,7 @@ module Medium =
             let mutable awaiter = task.GetAwaiter()
 
             let cont =
-                (EffectResumptionFunc<'Env, 'TOverall, 'Err> (fun sm ->
+                (EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
                     let result = awaiter.GetResult()
                     (continuation result).Invoke(&sm)))
 
@@ -659,7 +845,7 @@ module Medium =
             let mutable awaiter = task.GetAwaiter()
 
             let cont =
-                (EffectResumptionFunc<'Env, 'TOverall, 'Err> (fun sm ->
+                (EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
                     let result = awaiter.GetResult()
 
                     match result with
@@ -684,7 +870,7 @@ module Medium =
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
 
-            EffectCode<'Env, 'TOverall, _, 'Err> (fun sm ->
+            EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
                 if __useResumableCode then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the task
@@ -724,7 +910,7 @@ module Medium =
 
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
 
-            EffectCode<'Env, 'TOverall, _, 'Err> (fun sm ->
+            EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
                 let task = eff.Run sm.Data.Environment
 
                 if __useResumableCode then
@@ -761,7 +947,7 @@ module Medium =
                 task: ValueTask<'TResult1>,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
-            EffectCode<'Env, 'TOverall, _, 'Err> (fun sm ->
+            EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
                 if __useResumableCode then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the task
@@ -822,7 +1008,7 @@ module Medium =
                 s: IAsyncEnumerable<'a>,
                 [<InlineIfLambda>] f1: 'a -> EffectCode<'Env, unit, unit, 'Err>
             ) =
-            this.Delay (fun () ->
+            this.Delay(fun () ->
                 this.Using(
                     s.GetAsyncEnumerator(),
                     fun enumerator ->
@@ -851,7 +1037,7 @@ module Medium =
                 ))
 
         member inline this.For(s: IEnumerable<'a>, f1: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
-            this.Delay (fun () ->
+            this.Delay(fun () ->
                 this.Using(
                     s.GetEnumerator(),
                     fun enumerator ->
@@ -862,7 +1048,7 @@ module Medium =
                             (fun () -> continue'),
                             this.Combine(
                                 (f1 enumerator.Current),
-                                this.Delay (fun () ->
+                                this.Delay(fun () ->
                                     continue' <- enumerator.MoveNext()
                                     this.Zero())
                             )
@@ -902,15 +1088,18 @@ module Medium =
                 (a, b, c, d, e, f): struct ('a * 'a * 'a * 'a * 'a * 'a),
                 [<InlineIfLambda>] fn: 'a -> EffectCode<'Env, unit, unit, 'Err>
             ) =
-            this.Delay (fun () ->
-                this.Combine(this.Combine(this.Combine(this.Combine(this.Combine(fn a, fn b), fn c), fn d), fn e), fn f))
+            this.Delay(fun () ->
+                this.Combine(
+                    this.Combine(this.Combine(this.Combine(this.Combine(fn a, fn b), fn c), fn d), fn e),
+                    fn f
+                ))
 
         member inline this.For
             (
                 (a, b, c, d, e, f, g): struct ('a * 'a * 'a * 'a * 'a * 'a * 'a),
                 [<InlineIfLambda>] fn: 'a -> EffectCode<'Env, unit, unit, 'Err>
             ) =
-            this.Delay (fun () ->
+            this.Delay(fun () ->
                 this.Combine(
                     this.Combine(
                         this.Combine(this.Combine(this.Combine(this.Combine(fn a, fn b), fn c), fn d), fn e),
@@ -924,6 +1113,58 @@ module Medium =
 
         member inline this.ReturnFrom(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.Bind(ValueTask<_>(result), this.Return)
+
+
+        //meh
+        static member inline ZipDynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+            (
+                sm: byref<ResumableStateMachine<EffectStateMachineData<'Env,'TOverall,'Err>>>,
+                task1: ValueTask<Result<'TResult1,'Err>>,
+                task2: ValueTask<Result<'TResult2,'Err>>,
+                task3: ValueTask<Result<'TResult2,'Err>>,
+                _f
+            ) : bool = 
+            let mutable awaiter1 = task1.GetAwaiter()      
+
+            let cont =
+                (EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm ->
+                        let mutable awaiter2 = task2.GetAwaiter()
+                        let cont =  
+                            (EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm -> 
+                                    let mutable awaiter3 = task3.GetAwaiter()
+                                    let cont =  
+                                        (EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm -> 
+                                            failwith ""
+                 
+                                                ))
+                        
+                                    if awaiter3.IsCompleted then
+                                        cont.Invoke(&sm)
+                                     else
+                                        sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
+                                        sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                        false  
+                 
+                                    ))
+                        
+                        if awaiter2.IsCompleted then
+                            cont.Invoke(&sm)
+                         else
+                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                            false  
+                    )
+                )
+            
+            if awaiter1.IsCompleted then
+                cont.Invoke(&sm)
+            else
+                sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
+                sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                false
+
+
+
 
 
 //Fsharp plus
@@ -940,7 +1181,7 @@ type Effect<'R, 'T, 'E> with
     static member inline Return(a) = eff { return a }
 
     (* Monad *)
-    ///Implements Bind on the effect, which together with the functor Return makes it a Monad 
+    ///Implements Bind on the effect, which together with the functor Return makes it a Monad
     static member inline (>>=)(h: Effect<'r, 'a, 'e>, f: 'a -> Effect<'r, 'b, 'e>) =
         eff {
             let! e = h
