@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Composition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="author" content="Orsak">
+
+    <link rel="stylesheet" id="theme_link" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.6.0/materia/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns" crossorigin="anonymous"></script>
+
+    <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+
+    <link rel="shortcut icon" type="image/x-icon" href="https://johsand.github.io/Orsak/img/favicon.ico">
+    <link type="text/css" rel="stylesheet" href="https://johsand.github.io/Orsak/content/navbar-fixed-left.css" />
+    <link type="text/css" rel="stylesheet" href="https://johsand.github.io/Orsak/content/fsdocs-default.css" />
+    <link type="text/css" rel="stylesheet" href="https://johsand.github.io/Orsak/content/fsdocs-custom.css" />
+    <script type="text/javascript" src="https://johsand.github.io/Orsak/content/fsdocs-tips.js"></script>
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- BEGIN SEARCH BOX: this adds support for the search box -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/JavaScript-autoComplete/1.0.4/auto-complete.css" />
+    <!-- END SEARCH BOX: this adds support for the search box -->
+    
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-md navbar-light bg-secondary fixed-left" id="fsdocs-nav">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse navbar-nav-scroll" id="navbarsExampleDefault">
+            <a href="https://johsand.github.io/Orsak/"><img id="fsdocs-logo" src="https://johsand.github.io/Orsak/content/img/o.png" /></a>
+            <!-- BEGIN SEARCH BOX: this adds support for the search box -->
+            <div id="header">
+                <div class="searchbox" id="fsdocs-searchbox">
+                    <label for="search-by">
+                        <i class="fas fa-search"></i>
+                    </label>
+                    <input data-search-input="" id="search-by" type="search" placeholder="Search..." />
+                    <span data-search-clear="">
+                        <i class="fas fa-times"></i>
+                    </span>
+                </div>
+            </div>
+
+            <!-- END SEARCH BOX: this adds support for the search box -->
+            <ul class="navbar-nav">
+                <li class="nav-header">Links</li>
+                <li class="nav-item" id="fsdocs-license-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/blob/main/LICENSE.txt">License</a></li>
+                <li class="nav-item" id="fsdocs-release-notes-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md">Release Notes</a></li>
+                <li class="nav-item" id="fsdocs-repository-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/">Source Repository</a></li>
+                <li class="nav-header">
+  Motivation
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Motivation.html">
+    Introduction
+  </a>
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Motivation.html">
+    Composition
+  </a>
+</li>             
+<li class="nav-header">
+  Examples
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Examples.html">
+    Scoped Effect Provider
+  </a>
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Examples.html">
+    Http
+  </a>
+</li>
+                <li class="nav-header">
+  API Reference
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/reference/index.html">
+    All Namespaces
+  </a>
+</li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="masthead">
+            <h3 class="muted"><a href="https://johsand.github.io/Orsak/">Orsak</a></h3>
+        </div>
+        <hr />
+        <div class="container" id="fsdocs-content">
+            
+<h3><a name="In-the-beginning-there-was-OOP" class="anchor" href="#In-the-beginning-there-was-OOP">In the beginning, there was OOP</a></h3>
+<p>Let's say you have an application that is architected according to <a href="https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell">Functional Core, imperative shell</a>. And all the functional code is easy to test and easy to reuse.
+But in the imperative shell, how do we compose the side-effectful code?</p>
+<p>If you are coming from an object-oriented background, you might be thinking about SOLID. Certainly that was my background. So I made <code>IRepositories</code> and <code>IClients</code> and <code>IMessageHandlers</code>, and injected them into <code>IDomainService</code> and <code>IThisService</code> and <code>IThatService</code>,
+and all that jazz. And inevitably I ended up with too many constructor-parameters, and interfaces with too many members, and weird code duplication. And at the end of the day I thought to my self "There must be a better way. If this is the Right Way<sup>tm</sup>, why is it so hard?"</p>
+<p>In the end, I believe that while this is the least bad way of doing oo-programming, it is not enough.</p>
+<h3><a name="Putting-the-fun-in-programming" class="anchor" href="#Putting-the-fun-in-programming">Putting the 'fun' in programming</a></h3>
+<p>If the I in solid is taken to its natural conclusion, your interfaces end up with a single member. Now, this is not an <a href="https://blog.ploeh.dk/2014/03/10/solid-the-next-step-is-functional/">original</a> observation, but one I believe merits repeating.
+But in OO the object is the natural method of composition, and even with dependency injection creating SRP-conforming objects quickly becomes tedious. But give that <a href="http://people.csail.mit.edu/gregs/ll1-discuss-archive-html/msg03277.html">objects are merely a poor man's
+closures</a>, maybe we can unlock reuse and composability some other way?</p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs5', 5)" onmouseover="showTip(event, 'fs5', 5)" class="if">IMessageClient</span> <span class="o">=</span> <span class="k">abstract</span> <span class="k">member</span> <span class="fn">FetchData</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs6', 6)" onmouseover="showTip(event, 'fs6', 6)" class="rt">string</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs7', 7)" onmouseover="showTip(event, 'fs7', 7)" class="d">Task</span><span class="pn">&lt;</span><span onmouseout="hideTip(event, 'fs6', 8)" onmouseover="showTip(event, 'fs6', 8)" class="rt">string</span><span class="pn">&gt;</span>
+<span class="k">type</span> <span onmouseout="hideTip(event, 'fs8', 9)" onmouseover="showTip(event, 'fs8', 9)" class="if">IMessageClientProvider</span> <span class="o">=</span> <span class="k">abstract</span> <span class="k">member</span> <span class="prop">Client</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs5', 10)" onmouseover="showTip(event, 'fs5', 10)" class="if">IMessageClient</span>
+<span class="k">module</span> <span class="m">MessageClient</span> <span class="o">=</span> <span class="k">let</span> <span onmouseout="hideTip(event, 'fs9', 11)" onmouseover="showTip(event, 'fs9', 11)" class="fn">fetchData</span> <span onmouseout="hideTip(event, 'fs10', 12)" onmouseover="showTip(event, 'fs10', 12)" class="fn">s</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs11', 13)" onmouseover="showTip(event, 'fs11', 13)" class="m">Effect</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs12', 14)" onmouseover="showTip(event, 'fs12', 14)" class="id">Create</span><span class="pn">(</span><span class="k">fun</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs13', 15)" onmouseover="showTip(event, 'fs13', 15)" class="fn">provider</span><span class="pn">:</span> <span class="pn">#</span><span onmouseout="hideTip(event, 'fs8', 16)" onmouseover="showTip(event, 'fs8', 16)" class="if">IMessageClientProvider</span><span class="pn">)</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs13', 17)" onmouseover="showTip(event, 'fs13', 17)" class="fn">provider</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs14', 18)" onmouseover="showTip(event, 'fs14', 18)" class="prop">Client</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs15', 19)" onmouseover="showTip(event, 'fs15', 19)" class="id">FetchData</span> <span onmouseout="hideTip(event, 'fs10', 20)" onmouseover="showTip(event, 'fs10', 20)" class="fn">s</span><span class="pn">)</span>
+
+<span class="k">type</span> <span onmouseout="hideTip(event, 'fs16', 21)" onmouseover="showTip(event, 'fs16', 21)" class="if">IMessageRepository</span> <span class="o">=</span> <span class="k">abstract</span> <span class="k">member</span> <span class="fn">StoreData</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs6', 22)" onmouseover="showTip(event, 'fs6', 22)" class="rt">string</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs7', 23)" onmouseover="showTip(event, 'fs7', 23)" class="d">Task</span><span class="pn">&lt;</span><span onmouseout="hideTip(event, 'fs17', 24)" onmouseover="showTip(event, 'fs17', 24)" class="rt">unit</span><span class="pn">&gt;</span>
+<span class="k">type</span> <span onmouseout="hideTip(event, 'fs18', 25)" onmouseover="showTip(event, 'fs18', 25)" class="if">IMessageRepositoryProvider</span> <span class="o">=</span> <span class="k">abstract</span> <span class="k">member</span> <span class="prop">Repository</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs16', 26)" onmouseover="showTip(event, 'fs16', 26)" class="if">IMessageRepository</span>
+<span class="k">module</span> <span class="m">MessageRepository</span> <span class="o">=</span> <span class="k">let</span> <span onmouseout="hideTip(event, 'fs19', 27)" onmouseover="showTip(event, 'fs19', 27)" class="fn">storeData</span> <span onmouseout="hideTip(event, 'fs10', 28)" onmouseover="showTip(event, 'fs10', 28)" class="fn">s</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs11', 29)" onmouseover="showTip(event, 'fs11', 29)" class="m">Effect</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs12', 30)" onmouseover="showTip(event, 'fs12', 30)" class="id">Create</span><span class="pn">(</span><span class="k">fun</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs20', 31)" onmouseover="showTip(event, 'fs20', 31)" class="fn">provider</span><span class="pn">:</span> <span class="pn">#</span><span onmouseout="hideTip(event, 'fs18', 32)" onmouseover="showTip(event, 'fs18', 32)" class="if">IMessageRepositoryProvider</span><span class="pn">)</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs20', 33)" onmouseover="showTip(event, 'fs20', 33)" class="fn">provider</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs21', 34)" onmouseover="showTip(event, 'fs21', 34)" class="prop">Repository</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs22', 35)" onmouseover="showTip(event, 'fs22', 35)" class="id">StoreData</span> <span onmouseout="hideTip(event, 'fs10', 36)" onmouseover="showTip(event, 'fs10', 36)" class="fn">s</span><span class="pn">)</span>
+
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs23', 37)" onmouseover="showTip(event, 'fs23', 37)" class="fn">fetchAndStore</span> <span onmouseout="hideTip(event, 'fs10', 38)" onmouseover="showTip(event, 'fs10', 38)" class="fn">s</span> <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs24', 39)" onmouseover="showTip(event, 'fs24', 39)" class="k">eff</span> <span class="pn">{</span>
+        <span class="k">let!</span> <span onmouseout="hideTip(event, 'fs25', 40)" onmouseover="showTip(event, 'fs25', 40)" class="fn">data</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs26', 41)" onmouseover="showTip(event, 'fs26', 41)" class="m">MessageClient</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs9', 42)" onmouseover="showTip(event, 'fs9', 42)" class="id">fetchData</span> <span onmouseout="hideTip(event, 'fs10', 43)" onmouseover="showTip(event, 'fs10', 43)" class="fn">s</span>
+        <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs27', 44)" onmouseover="showTip(event, 'fs27', 44)" class="m">MessageRepository</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs19', 45)" onmouseover="showTip(event, 'fs19', 45)" class="id">storeData</span> <span onmouseout="hideTip(event, 'fs25', 46)" onmouseover="showTip(event, 'fs25', 46)" class="fn">data</span>        
+    <span class="pn">}</span>
+</code></pre>
+<p>If functions are objects with a single method, we can view the function above as some bespoke domain-service, where injecting dependencies is as easy as just calling a function, while maintaining the benefits of testability and customizability of dependency injection.
+And in turn, reusing that bespoke service is as easy as calling a function. All dependencies are added and tracked automatically, and are visible in the function signature.</p>
+<p>And beyond reuse, it also unlocks aspect-like capabilities, but without any magic. Since the effects only execute when run, they can be safely passed around, and binding them with 'let!' creates natural join points.</p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs28', 47)" onmouseover="showTip(event, 'fs28', 47)" class="fn">weaver</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs29', 48)" onmouseover="showTip(event, 'fs29', 48)" class="fn">beforeAdvice</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs11', 49)" onmouseover="showTip(event, 'fs11', 49)" class="vt">Effect</span><span class="pn">&lt;</span><span class="id">_</span><span class="pn">,</span><span class="id">_</span><span class="pn">,</span><span class="id">_</span><span class="pn">&gt;</span><span class="pn">)</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs30', 50)" onmouseover="showTip(event, 'fs30', 50)" class="fn">effect</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs11', 51)" onmouseover="showTip(event, 'fs11', 51)" class="vt">Effect</span><span class="pn">&lt;</span><span class="id">_</span><span class="pn">,</span><span class="id">_</span><span class="pn">,</span><span class="id">_</span><span class="pn">&gt;</span><span class="pn">)</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs31', 52)" onmouseover="showTip(event, 'fs31', 52)" class="fn">afterAdvice</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs11', 53)" onmouseover="showTip(event, 'fs11', 53)" class="vt">Effect</span><span class="pn">&lt;</span><span class="id">_</span><span class="pn">,</span><span class="id">_</span><span class="pn">,</span><span class="id">_</span><span class="pn">&gt;</span><span class="pn">)</span> <span class="o">=</span>
+    <span onmouseout="hideTip(event, 'fs24', 54)" onmouseover="showTip(event, 'fs24', 54)" class="k">eff</span> <span class="pn">{</span>
+        <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs29', 55)" onmouseover="showTip(event, 'fs29', 55)" class="fn">beforeAdvice</span>
+        <span class="k">let!</span> <span onmouseout="hideTip(event, 'fs32', 56)" onmouseover="showTip(event, 'fs32', 56)" class="fn">result</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs30', 57)" onmouseover="showTip(event, 'fs30', 57)" class="fn">effect</span>
+        <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs31', 58)" onmouseover="showTip(event, 'fs31', 58)" class="fn">afterAdvice</span>
+        <span class="k">return</span> <span onmouseout="hideTip(event, 'fs32', 59)" onmouseover="showTip(event, 'fs32', 59)" class="fn">result</span>
+    <span class="pn">}</span>
+</code></pre>
+
+            <div class="fsdocs-tip" id="fs1">namespace Orsak</div>
+<div class="fsdocs-tip" id="fs2">namespace System</div>
+<div class="fsdocs-tip" id="fs3">namespace System.Threading</div>
+<div class="fsdocs-tip" id="fs4">namespace System.Threading.Tasks</div>
+<div class="fsdocs-tip" id="fs5">type IMessageClient =
+  abstract FetchData: string -&gt; Task&lt;string&gt;</div>
+<div class="fsdocs-tip" id="fs6">Multiple items<br />val string: value: &#39;T -&gt; string<br /><br />--------------------<br />type string = System.String</div>
+<div class="fsdocs-tip" id="fs7">Multiple items<br />type Task =
+  interface IAsyncResult
+  interface IDisposable
+  new: action: Action -&gt; unit + 7 overloads
+  member ConfigureAwait: continueOnCapturedContext: bool -&gt; ConfiguredTaskAwaitable
+  member ContinueWith: continuationAction: Action&lt;Task,obj&gt; * state: obj -&gt; Task + 19 overloads
+  member Dispose: unit -&gt; unit
+  member GetAwaiter: unit -&gt; TaskAwaiter
+  member RunSynchronously: unit -&gt; unit + 1 overload
+  member Start: unit -&gt; unit + 1 overload
+  member Wait: unit -&gt; unit + 5 overloads
+  ...<br /><em>&lt;summary&gt;Represents an asynchronous operation.&lt;/summary&gt;</em><br /><br />--------------------<br />type Task&lt;&#39;TResult&gt; =
+  inherit Task
+  new: ``function`` : Func&lt;obj,&#39;TResult&gt; * state: obj -&gt; unit + 7 overloads
+  member ConfigureAwait: continueOnCapturedContext: bool -&gt; ConfiguredTaskAwaitable&lt;&#39;TResult&gt;
+  member ContinueWith: continuationAction: Action&lt;Task&lt;&#39;TResult&gt;,obj&gt; * state: obj -&gt; Task + 19 overloads
+  member GetAwaiter: unit -&gt; TaskAwaiter&lt;&#39;TResult&gt;
+  member WaitAsync: cancellationToken: CancellationToken -&gt; Task&lt;&#39;TResult&gt; + 2 overloads
+  member Result: &#39;TResult
+  static member Factory: TaskFactory&lt;&#39;TResult&gt;<br /><em>&lt;summary&gt;Represents an asynchronous operation that can return a value.&lt;/summary&gt;<br />&lt;typeparam name=&quot;TResult&quot;&gt;The type of the result produced by this &lt;see cref=&quot;T:System.Threading.Tasks.Task`1&quot; /&gt;.&lt;/typeparam&gt;</em><br /><br />--------------------<br />Task(action: System.Action) : Task<br />Task(action: System.Action, cancellationToken: System.Threading.CancellationToken) : Task<br />Task(action: System.Action, creationOptions: TaskCreationOptions) : Task<br />Task(action: System.Action&lt;obj&gt;, state: obj) : Task<br />Task(action: System.Action, cancellationToken: System.Threading.CancellationToken, creationOptions: TaskCreationOptions) : Task<br />Task(action: System.Action&lt;obj&gt;, state: obj, cancellationToken: System.Threading.CancellationToken) : Task<br />Task(action: System.Action&lt;obj&gt;, state: obj, creationOptions: TaskCreationOptions) : Task<br />Task(action: System.Action&lt;obj&gt;, state: obj, cancellationToken: System.Threading.CancellationToken, creationOptions: TaskCreationOptions) : Task<br /><br />--------------------<br />Task(``function`` : System.Func&lt;&#39;TResult&gt;) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;obj,&#39;TResult&gt;, state: obj) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;&#39;TResult&gt;, cancellationToken: System.Threading.CancellationToken) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;&#39;TResult&gt;, creationOptions: TaskCreationOptions) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;obj,&#39;TResult&gt;, state: obj, cancellationToken: System.Threading.CancellationToken) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;obj,&#39;TResult&gt;, state: obj, creationOptions: TaskCreationOptions) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;&#39;TResult&gt;, cancellationToken: System.Threading.CancellationToken, creationOptions: TaskCreationOptions) : Task&lt;&#39;TResult&gt;<br />Task(``function`` : System.Func&lt;obj,&#39;TResult&gt;, state: obj, cancellationToken: System.Threading.CancellationToken, creationOptions: TaskCreationOptions) : Task&lt;&#39;TResult&gt;</div>
+<div class="fsdocs-tip" id="fs8">type IMessageClientProvider =
+  abstract Client: IMessageClient</div>
+<div class="fsdocs-tip" id="fs9">val fetchData: s: string -&gt; Effect&lt;#IMessageClientProvider,string,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs10">val s: string</div>
+<div class="fsdocs-tip" id="fs11">Multiple items<br />union case Effect.Effect: EffectDelegate&lt;&#39;r,&#39;a,&#39;e&gt; -&gt; Effect&lt;&#39;r,&#39;a,&#39;e&gt;<br /><br />--------------------<br />module Effect
+
+from Orsak<br /><br />--------------------<br />type Effect =
+  static member Create: f: (&#39;a -&gt; &#39;b) * [&lt;ParamArray&gt;] _a: Object array -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt; + 5 overloads
+  static member Error: error: &#39;e -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt;<br /><br />--------------------<br />[&lt;Struct&gt;]
+type Effect&lt;&#39;r,&#39;a,&#39;e&gt; =
+  | Effect of EffectDelegate&lt;&#39;r,&#39;a,&#39;e&gt;
+  member Run: r: &#39;r -&gt; AsyncResult&lt;&#39;a,&#39;e&gt;
+  member RunOrFail: r: &#39;r -&gt; Task&lt;&#39;a&gt;
+  static member (&lt;*&gt;) : f: Effect&lt;&#39;a3,(&#39;a4 -&gt; &#39;a5),&#39;a6&gt; * e: Effect&lt;&#39;a3,&#39;a4,&#39;a6&gt; -&gt; Effect&lt;&#39;a3,&#39;a5,&#39;a6&gt;
+  static member (&gt;&gt;=) : h: Effect&lt;&#39;r,&#39;a,&#39;e&gt; * f: (&#39;a -&gt; Effect&lt;&#39;r,&#39;b,&#39;e&gt;) -&gt; Effect&lt;&#39;r,&#39;b,&#39;e&gt;
+  static member Map: h: Effect&lt;&#39;r,&#39;a,&#39;e&gt; * f: (&#39;a -&gt; &#39;b) -&gt; Effect&lt;&#39;r,&#39;b,&#39;e&gt;
+  static member Return: a: &#39;a3 -&gt; Effect&lt;&#39;a4,&#39;a3,&#39;a5&gt;
+  static member ap: applicative: Effect&lt;&#39;r,(&#39;b -&gt; &#39;a),&#39;e&gt; -&gt; e: Effect&lt;&#39;r,&#39;b,&#39;e&gt; -&gt; Effect&lt;&#39;r,&#39;a,&#39;e&gt;<br /><em>&lt;summary&gt;
+ Describes an effect that can either succeed with &lt;typeparamref name=&quot;&#39;r&quot; /&gt;, or fails with &lt;typeparamref name=&quot;&#39;e&quot; /&gt;.
+ The effect is is &#39;cold&#39;, and only starts when run with an &lt;typeparamref name=&quot;&#39;r&quot; /&gt;.
+ &lt;/summary&gt;<br />&lt;typeparam name=&quot;&#39;r&quot;&gt; The environment required to run the effect &lt;/typeparam&gt;<br />&lt;typeparam name=&quot;&#39;a&quot;&gt; The resulting type when the effect runs successfully &lt;/typeparam&gt;<br />&lt;typeparam name=&quot;&#39;e&quot;&gt; The resulting type when the effect fails&lt;/typeparam&gt;<br />&lt;returns&gt;&lt;/returns&gt;</em></div>
+<div class="fsdocs-tip" id="fs12">static member Effect.Create: f: (&#39;a -&gt; Async&lt;&#39;b&gt;) -&gt; Effect&lt;&#39;a,&#39;b,&#39;a2&gt;<br />static member Effect.Create: f: (&#39;a -&gt; ValueTask&lt;Result&lt;&#39;b,&#39;e&gt;&gt;) -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt;<br />static member Effect.Create: f: (&#39;a -&gt; Task&lt;Result&lt;&#39;b,&#39;e&gt;&gt;) -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt;<br />static member Effect.Create: f: (&#39;a -&gt; ValueTask&lt;&#39;b&gt;) * _medium: byte -&gt; Effect&lt;&#39;a,&#39;b,&#39;a2&gt;<br />static member Effect.Create: f: (&#39;a -&gt; Task&lt;&#39;b&gt;) * _medium: byte -&gt; Effect&lt;&#39;a,&#39;b,&#39;c&gt;<br />static member Effect.Create: f: (&#39;a -&gt; &#39;b) * [&lt;System.ParamArray&gt;] _a: System.Object array -&gt; Effect&lt;&#39;a,&#39;b,&#39;e&gt;</div>
+<div class="fsdocs-tip" id="fs13">val provider: #IMessageClientProvider</div>
+<div class="fsdocs-tip" id="fs14">property IMessageClientProvider.Client: IMessageClient with get</div>
+<div class="fsdocs-tip" id="fs15">abstract IMessageClient.FetchData: string -&gt; Task&lt;string&gt;</div>
+<div class="fsdocs-tip" id="fs16">type IMessageRepository =
+  abstract StoreData: string -&gt; Task&lt;unit&gt;</div>
+<div class="fsdocs-tip" id="fs17">type unit = Unit</div>
+<div class="fsdocs-tip" id="fs18">type IMessageRepositoryProvider =
+  abstract Repository: IMessageRepository</div>
+<div class="fsdocs-tip" id="fs19">val storeData: s: string -&gt; Effect&lt;#IMessageRepositoryProvider,unit,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs20">val provider: #IMessageRepositoryProvider</div>
+<div class="fsdocs-tip" id="fs21">property IMessageRepositoryProvider.Repository: IMessageRepository with get</div>
+<div class="fsdocs-tip" id="fs22">abstract IMessageRepository.StoreData: string -&gt; Task&lt;unit&gt;</div>
+<div class="fsdocs-tip" id="fs23">val fetchAndStore: s: string -&gt; Effect&lt;&#39;a,unit,&#39;b&gt; (requires &#39;a :&gt; IMessageRepositoryProvider and &#39;a :&gt; IMessageClientProvider)</div>
+<div class="fsdocs-tip" id="fs24">val eff: EffBuilder</div>
+<div class="fsdocs-tip" id="fs25">val data: string</div>
+<div class="fsdocs-tip" id="fs26">module MessageClient
+
+from 2_Motivation</div>
+<div class="fsdocs-tip" id="fs27">module MessageRepository
+
+from 2_Motivation</div>
+<div class="fsdocs-tip" id="fs28">val weaver: beforeAdvice: Effect&lt;&#39;a,unit,&#39;b&gt; -&gt; effect: Effect&lt;&#39;a,&#39;c,&#39;b&gt; -&gt; afterAdvice: Effect&lt;&#39;a,unit,&#39;b&gt; -&gt; Effect&lt;&#39;a,&#39;c,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs29">val beforeAdvice: Effect&lt;&#39;a,unit,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs30">val effect: Effect&lt;&#39;a,&#39;c,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs31">val afterAdvice: Effect&lt;&#39;a,unit,&#39;b&gt;</div>
+<div class="fsdocs-tip" id="fs32">val result: &#39;c</div>
+
+        </div>
+
+        <!-- BEGIN SEARCH BOX: this adds support for the search box -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/JavaScript-autoComplete/1.0.4/auto-complete.css" />
+        <script type="text/javascript">var fsdocs_search_baseurl = 'https://johsand.github.io/Orsak/';</script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/lunr.js/2.3.8/lunr.min.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/JavaScript-autoComplete/1.0.4/auto-complete.min.js"></script>
+        <script type="text/javascript" src="https://johsand.github.io/Orsak/content/fsdocs-search.js"></script>
+        <!-- END SEARCH BOX: this adds support for the search box -->
+    </div>
+</body>
+
+</html>

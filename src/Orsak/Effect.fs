@@ -131,7 +131,7 @@ module Effect =
             let! a = e
             return! a
         }
-        
+
     /// <summary>
     /// Merges an outer result with its inner effect.
     /// </summary>
@@ -177,7 +177,7 @@ module Effect =
                     |> Array.foldBack
                         (fun curr agg ->
                             match agg with
-                            | Ok (list: 'a list) ->
+                            | Ok(list: 'a list) ->
                                 match curr with
                                 | Ok a -> Ok(a :: list)
                                 | Error e -> Error e
@@ -218,8 +218,8 @@ module Effect =
             vtask {
                 try
                     return! eff.Run(rEnv).AsTask().WaitAsync(ts)
-                with
-                | :? TimeoutException -> return Error onTimeout
+                with :? TimeoutException ->
+                    return Error onTimeout
             })
 
     /// <summary>
@@ -246,7 +246,7 @@ type Effect =
     /// <summary>
     /// Creates an effect from a function.
     /// </summary>
-    static member Create<'a, 'b, 'e>(f: 'a -> 'b, [<ParamArray>] _a: Object []) : Effect<'a, 'b, 'e> =
+    static member Create<'a, 'b, 'e>(f: 'a -> 'b, [<ParamArray>] _a: Object[]) : Effect<'a, 'b, 'e> =
         mkEffect (f >> Ok >> ValueTask.FromResult)
 
     /// <summary>
@@ -272,7 +272,7 @@ type Effect =
                 let! b = f a
                 return Ok b
             })
-        
+
     /// <summary>
     /// Creates an effect from a function.
     /// </summary>

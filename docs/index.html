@@ -56,16 +56,29 @@
                 <li class="nav-item" id="fsdocs-release-notes-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md">Release Notes</a></li>
                 <li class="nav-item" id="fsdocs-repository-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/">Source Repository</a></li>
                 <li class="nav-header">
-  Documentation
+  Motivation
 </li>             
 <li class="nav-item">
-  <a class="nav-link" href="https://johsand.github.io/Orsak/1_intro.html">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Motivation.html">
     Introduction
   </a>
 </li>             
 <li class="nav-item">
-  <a class="nav-link" href="https://johsand.github.io/Orsak/2_combinators.html">
-    Some other things
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Motivation.html">
+    Composition
+  </a>
+</li>             
+<li class="nav-header">
+  Examples
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Examples.html">
+    Scoped Effect Provider
+  </a>
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Examples.html">
+    Http
   </a>
 </li>
                 <li class="nav-header">
@@ -86,12 +99,24 @@
         <hr />
         <div class="container" id="fsdocs-content">
             <h1><a name="Orsak" class="anchor" href="#Orsak">Orsak</a></h1>
-<p>Orsak is a library for function effects in F#, allowing pragmatic and composable modelling of side-effects through interfaces. It is inspired by <a href="https://zio.dev">Zio</a>, with the F# encoding similar to the approach described by Bartosz Sypytkowski <a href="https://www.bartoszsypytkowski.com/dealing-with-complex-dependency-injection-in-f/">here</a>.</p>
+<hr />
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="id">eff</span> <span class="pn">{</span>
+    <span class="k">let!</span> <span class="id">line</span> <span class="o">=</span> <span class="id">Effects</span><span class="pn">.</span><span class="id">Console</span><span class="pn">.</span><span class="id">readLine</span><span class="pn">(</span><span class="pn">)</span>
+    <span class="k">do!</span> <span class="id">Effect</span><span class="pn">.</span><span class="id">Console</span><span class="pn">.</span><span class="id">writeLine</span> <span class="s">$&quot;Hello {</span><span class="id">line</span><span class="s">}&quot;</span>
+<span class="pn">}</span>
+</code></pre>
+<hr />
+<p>Orsak is a library for function effects in F#, allowing pragmatic and composable modelling of side-effects through interfaces.
+It is inspired by <a href="https://zio.dev">Zio</a>, with F# encoding similar to the approach described by Bartosz Sypytkowski <a href="https://www.bartoszsypytkowski.com/dealing-with-complex-dependency-injection-in-f/">here</a>.</p>
+<p>However, Orsak is not intended to be a framework. Rather, it is encouraged and recommended to make use of the existing .NET ecosystem, and
+Orsak is intended to make that as easy and friction-free as possible. It can be used piecemeal, and introduced to existing codebases in isolated chunks.</p>
 <hr />
 <p>This implementation makes use of resumable code to implement the computation expression builder for the lowest possible overhead.
-The builder also has various overloads for <code>Bind</code>, allowing for friction free interop with TaskLike, Async, Result<_,_> and more.
-It supports for, while, use, try-with and try-finally, and also applicative bind when the error-type supports <code>+</code>.
+The builder also has various overloads for <code>Bind</code>, allowing for friction free interop with <code>TaskLike&lt;'a&gt;</code>, <code>Async&lt;'a&gt;</code>, <code>Result&lt;'T,'E&gt;</code> and more.
+It supports <code>for</code>, <code>while</code>, <code>use</code>, <code>try-with</code> and <code>try-finally</code>, and also applicative bind when the error-type supports <code>+</code>.
 While the computation expression is the intended way of working with effects, the corresponding module should contain all the expected functions.</p>
+<hr />
+<p>Main documentation is available at <a href="https://johsand.github.io/Orsak/">https://johsand.github.io/Orsak/</a></p>
 
             
         </div>

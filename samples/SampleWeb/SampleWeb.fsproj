@@ -3,6 +3,7 @@
     <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Models.fs" />
     <Compile Include="Effects.fs" />
     <Compile Include="Routes.fs" />
     <Compile Include="Program.fs" />

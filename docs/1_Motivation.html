@@ -55,16 +55,29 @@
                 <li class="nav-item" id="fsdocs-release-notes-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md">Release Notes</a></li>
                 <li class="nav-item" id="fsdocs-repository-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/">Source Repository</a></li>
                 <li class="nav-header">
-  Documentation
+  Motivation
 </li>             
 <li class="nav-item">
-  <a class="nav-link" href="https://johsand.github.io/Orsak/1_intro.html">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Motivation.html">
     Introduction
   </a>
 </li>             
 <li class="nav-item">
-  <a class="nav-link" href="https://johsand.github.io/Orsak/2_combinators.html">
-    Some other things
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Motivation.html">
+    Composition
+  </a>
+</li>             
+<li class="nav-header">
+  Examples
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Examples.html">
+    Scoped Effect Provider
+  </a>
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Examples.html">
+    Http
   </a>
 </li>
                 <li class="nav-header">
@@ -99,10 +112,10 @@
 
 <span class="k">module</span> <span class="m">ButtonPusher</span> <span class="o">=</span>
     <span class="k">let</span> <span onmouseout="hideTip(event, 'fs13', 18)" onmouseover="showTip(event, 'fs13', 18)" class="fn">pushButton</span> <span class="pn">(</span><span class="pn">)</span> <span class="o">=</span>
-        <span onmouseout="hideTip(event, 'fs14', 19)" onmouseover="showTip(event, 'fs14', 19)" class="m">Effect</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs15', 20)" onmouseover="showTip(event, 'fs15', 20)" class="id">Create</span><span class="pn">(</span><span class="k">fun</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs16', 21)" onmouseover="showTip(event, 'fs16', 21)" class="fn">provider</span><span class="pn">:</span> <span class="pn">#</span><span onmouseout="hideTip(event, 'fs11', 22)" onmouseover="showTip(event, 'fs11', 22)" class="if">IButtonPusherProvider</span><span class="pn">)</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs16', 23)" onmouseover="showTip(event, 'fs16', 23)" class="fn">provider</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs17', 24)" onmouseover="showTip(event, 'fs17', 24)" class="prop">ButtonPusher</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs18', 25)" onmouseover="showTip(event, 'fs18', 25)" class="id">PushButton</span> <span class="pn">(</span><span class="pn">)</span><span class="pn">)</span>
+        <span onmouseout="hideTip(event, 'fs14', 19)" onmouseover="showTip(event, 'fs14', 19)" class="m">Effect</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs15', 20)" onmouseover="showTip(event, 'fs15', 20)" class="id">Create</span><span class="pn">(</span><span class="k">fun</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs16', 21)" onmouseover="showTip(event, 'fs16', 21)" class="fn">provider</span><span class="pn">:</span> <span class="pn">#</span><span onmouseout="hideTip(event, 'fs11', 22)" onmouseover="showTip(event, 'fs11', 22)" class="if">IButtonPusherProvider</span><span class="pn">)</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs16', 23)" onmouseover="showTip(event, 'fs16', 23)" class="fn">provider</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs17', 24)" onmouseover="showTip(event, 'fs17', 24)" class="prop">ButtonPusher</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs18', 25)" onmouseover="showTip(event, 'fs18', 25)" class="id">PushButton</span><span class="pn">(</span><span class="pn">)</span><span class="pn">)</span>
 </code></pre>
 <p>Then, we can the write code like</p>
-<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs19', 26)" onmouseover="showTip(event, 'fs19', 26)" class="fn">work</span> <span class="pn">(</span><span class="pn">)</span> <span class="pn">:</span> <span onmouseout="hideTip(event, 'fs14', 27)" onmouseover="showTip(event, 'fs14', 27)" class="vt">Effect</span><span class="pn">&lt;</span><span class="pn">#</span><span onmouseout="hideTip(event, 'fs11', 28)" onmouseover="showTip(event, 'fs11', 28)" class="if">IButtonPusherProvider</span><span class="pn">,</span><span onmouseout="hideTip(event, 'fs9', 29)" onmouseover="showTip(event, 'fs9', 29)" class="rt">unit</span><span class="pn">,</span><span class="id">_</span><span class="pn">&gt;</span> <span class="o">=</span>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs19', 26)" onmouseover="showTip(event, 'fs19', 26)" class="fn">work</span> <span class="pn">(</span><span class="pn">)</span> <span class="pn">:</span> <span onmouseout="hideTip(event, 'fs14', 27)" onmouseover="showTip(event, 'fs14', 27)" class="vt">Effect</span><span class="pn">&lt;</span><span class="pn">#</span><span onmouseout="hideTip(event, 'fs11', 28)" onmouseover="showTip(event, 'fs11', 28)" class="if">IButtonPusherProvider</span><span class="pn">,</span> <span onmouseout="hideTip(event, 'fs9', 29)" onmouseover="showTip(event, 'fs9', 29)" class="rt">unit</span><span class="pn">,</span> <span class="id">_</span><span class="pn">&gt;</span> <span class="o">=</span>
     <span onmouseout="hideTip(event, 'fs20', 30)" onmouseover="showTip(event, 'fs20', 30)" class="k">eff</span> <span class="pn">{</span>
         <span class="c">//code</span>
         <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs21', 31)" onmouseover="showTip(event, 'fs21', 31)" class="m">ButtonPusher</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs13', 32)" onmouseover="showTip(event, 'fs13', 32)" class="id">pushButton</span> <span class="pn">(</span><span class="pn">)</span>
@@ -118,7 +131,7 @@ simply add effects, which will constrain the effect runner type to implement bot
 <span class="k">let</span> <span onmouseout="hideTip(event, 'fs25', 36)" onmouseover="showTip(event, 'fs25', 36)" class="fn">logInformation</span> <span onmouseout="hideTip(event, 'fs26', 37)" onmouseover="showTip(event, 'fs26', 37)" class="fn">a</span> <span class="o">=</span>
     <span onmouseout="hideTip(event, 'fs14', 38)" onmouseover="showTip(event, 'fs14', 38)" class="m">Effect</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs15', 39)" onmouseover="showTip(event, 'fs15', 39)" class="id">Create</span><span class="pn">(</span><span class="k">fun</span> <span class="pn">(</span><span onmouseout="hideTip(event, 'fs27', 40)" onmouseover="showTip(event, 'fs27', 40)" class="fn">provider</span><span class="pn">:</span> <span class="pn">#</span><span onmouseout="hideTip(event, 'fs22', 41)" onmouseover="showTip(event, 'fs22', 41)" class="if">ILoggerProvider</span><span class="pn">)</span> <span class="k">-&gt;</span> <span onmouseout="hideTip(event, 'fs27', 42)" onmouseover="showTip(event, 'fs27', 42)" class="fn">provider</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs28', 43)" onmouseover="showTip(event, 'fs28', 43)" class="prop">Logger</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs29', 44)" onmouseover="showTip(event, 'fs29', 44)" class="id">Log</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs30', 45)" onmouseover="showTip(event, 'fs30', 45)" class="en">LogLevel</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs31', 46)" onmouseover="showTip(event, 'fs31', 46)" class="id">Information</span><span class="pn">,</span> <span onmouseout="hideTip(event, 'fs26', 47)" onmouseover="showTip(event, 'fs26', 47)" class="fn">a</span><span class="pn">)</span><span class="pn">)</span>
 
-<span class="k">let</span> <span onmouseout="hideTip(event, 'fs32', 48)" onmouseover="showTip(event, 'fs32', 48)" class="fn">workThenLog</span><span class="pn">(</span><span class="pn">)</span> <span class="o">=</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs32', 48)" onmouseover="showTip(event, 'fs32', 48)" class="fn">workThenLog</span> <span class="pn">(</span><span class="pn">)</span> <span class="o">=</span>
     <span onmouseout="hideTip(event, 'fs20', 49)" onmouseover="showTip(event, 'fs20', 49)" class="k">eff</span> <span class="pn">{</span>
         <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs19', 50)" onmouseover="showTip(event, 'fs19', 50)" class="fn">work</span> <span class="pn">(</span><span class="pn">)</span>
         <span class="k">do!</span> <span onmouseout="hideTip(event, 'fs25', 51)" onmouseover="showTip(event, 'fs25', 51)" class="fn">logInformation</span> <span class="s">&quot;Did the work.&quot;</span>
@@ -128,13 +141,14 @@ simply add effects, which will constrain the effect runner type to implement bot
 <pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs33', 52)" onmouseover="showTip(event, 'fs33', 52)" class="rt">EffectRunner</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs34', 53)" onmouseover="showTip(event, 'fs34', 53)" class="fn">buttonPusher</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs8', 54)" onmouseover="showTip(event, 'fs8', 54)" class="if">IButtonPusher</span><span class="pn">)</span> <span class="o">=</span>
     <span class="k">interface</span> <span onmouseout="hideTip(event, 'fs22', 55)" onmouseover="showTip(event, 'fs22', 55)" class="if">ILoggerProvider</span> <span class="k">with</span>
         <span class="k">member</span> <span class="id">_</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs23', 56)" onmouseover="showTip(event, 'fs23', 56)" class="prop">Logger</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs35', 57)" onmouseover="showTip(event, 'fs35', 57)" class="rt">NullLogger</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs36', 58)" onmouseover="showTip(event, 'fs36', 58)" class="id">Instance</span>
+
     <span class="k">interface</span> <span onmouseout="hideTip(event, 'fs11', 59)" onmouseover="showTip(event, 'fs11', 59)" class="if">IButtonPusherProvider</span> <span class="k">with</span>
         <span class="k">member</span> <span class="id">_</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs21', 60)" onmouseover="showTip(event, 'fs21', 60)" class="prop">ButtonPusher</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs34', 61)" onmouseover="showTip(event, 'fs34', 61)" class="fn">buttonPusher</span>
 </code></pre>
 <p>And then run the effects:</p>
-<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs37', 62)" onmouseover="showTip(event, 'fs37', 62)" class="id">runner</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs33', 63)" onmouseover="showTip(event, 'fs33', 63)" class="rt">EffectRunner</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs33', 64)" onmouseover="showTip(event, 'fs33', 64)" class="fn">EffectRunner</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs38', 65)" onmouseover="showTip(event, 'fs38', 65)" class="m">Unchecked</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs39', 66)" onmouseover="showTip(event, 'fs39', 66)" class="id">defaultof</span><span class="pn">&lt;</span><span class="id">_</span><span class="pn">&gt;</span><span class="pn">)</span>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">let</span> <span onmouseout="hideTip(event, 'fs37', 62)" onmouseover="showTip(event, 'fs37', 62)" class="id">runner</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs33', 63)" onmouseover="showTip(event, 'fs33', 63)" class="rt">EffectRunner</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs33', 64)" onmouseover="showTip(event, 'fs33', 64)" class="fn">EffectRunner</span><span class="pn">(</span><span class="pn">{</span> <span class="k">new</span> <span onmouseout="hideTip(event, 'fs8', 65)" onmouseover="showTip(event, 'fs8', 65)" class="if">IButtonPusher</span> <span class="k">with</span> <span class="k">member</span> <span onmouseout="hideTip(event, 'fs38', 66)" onmouseover="showTip(event, 'fs38', 66)" class="fn">this</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs18', 67)" onmouseover="showTip(event, 'fs18', 67)" class="fn">PushButton</span><span class="pn">(</span><span class="pn">)</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs10', 68)" onmouseover="showTip(event, 'fs10', 68)" class="d">Task</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs39', 69)" onmouseover="showTip(event, 'fs39', 69)" class="id">FromResult</span> <span class="pn">(</span><span class="pn">)</span> <span class="pn">}</span><span class="pn">)</span>
 
-<span onmouseout="hideTip(event, 'fs32', 67)" onmouseover="showTip(event, 'fs32', 67)" class="fn">workThenLog</span><span class="pn">(</span><span class="pn">)</span><span class="pn">.</span><span class="id">Run</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs37', 68)" onmouseover="showTip(event, 'fs37', 68)" class="id">runner</span><span class="pn">)</span>
+<span onmouseout="hideTip(event, 'fs32', 70)" onmouseover="showTip(event, 'fs32', 70)" class="fn">workThenLog</span><span class="pn">(</span><span class="pn">)</span><span class="pn">.</span><span class="id">Run</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs37', 71)" onmouseover="showTip(event, 'fs37', 71)" class="id">runner</span><span class="pn">)</span>
 </code></pre>
 
             <div class="fsdocs-tip" id="fs1">namespace System</div>
@@ -196,7 +210,7 @@ type Effect&lt;&#39;r,&#39;a,&#39;e&gt; =
 <div class="fsdocs-tip" id="fs20">val eff: EffBuilder</div>
 <div class="fsdocs-tip" id="fs21">module ButtonPusher
 
-from 1_intro</div>
+from 1_Motivation</div>
 <div class="fsdocs-tip" id="fs22">type ILoggerProvider =
   abstract Logger: ILogger</div>
 <div class="fsdocs-tip" id="fs23">Multiple items<br />type Logger&lt;&#39;T&gt; =
@@ -263,10 +277,8 @@ type LogLevel =
             Returns the shared instance of &lt;see cref=&quot;T:Microsoft.Extensions.Logging.Abstractions.NullLogger&quot; /&gt;.
             &lt;/summary&gt;</em></div>
 <div class="fsdocs-tip" id="fs37">val runner: EffectRunner</div>
-<div class="fsdocs-tip" id="fs38">module Unchecked
-
-from Microsoft.FSharp.Core.Operators</div>
-<div class="fsdocs-tip" id="fs39">val defaultof&lt;&#39;T&gt; : &#39;T</div>
+<div class="fsdocs-tip" id="fs38">val this: IButtonPusher</div>
+<div class="fsdocs-tip" id="fs39">Task.FromResult&lt;&#39;TResult&gt;(result: &#39;TResult) : Task&lt;&#39;TResult&gt;</div>
 
         </div>
 

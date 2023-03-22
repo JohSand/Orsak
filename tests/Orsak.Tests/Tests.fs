@@ -12,43 +12,51 @@ open System
 
 [<AutoOpen>]
 module Helpers =
-   
+
     let waiting (ss: SemaphoreSlim) =
         eff {
             do! ss.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
+
             try
                 return ()
             finally
                 ss.Release(1) |> ignore
         }
 
-    let takeAndRelease (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) =        
+    let takeAndRelease (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) =
         eff {
             do! ss1.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
+
             ss2.Release 1 |> ignore
+
             try
                 return ()
             finally
                 ss1.Release(1) |> ignore
         }
 
-    let releaseAndTake (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) : Effect<_,_, string> =        
+    let releaseAndTake (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) : Effect<_, _, string> =
         eff {
             ss1.Release 1 |> ignore
+
             do! ss2.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
+
             try
                 return ()
             finally
                 ss2.Release(1) |> ignore
         }
 
-    let run(e: Effect<unit, 'b, string >) = 
-        e.RunOrFail()
+    let run (e: Effect<unit, 'b, string>) = e.RunOrFail()
 
-    let expectError (error: 'err) (e: Effect<unit,_,'err>) =
+    let expectError (error: 'err) (e: Effect<unit, _, 'err>) =
         e
         |> Effect.map (fun v -> failwith $"Got value %A{v} when expecting error %A{error}")
-        |> Effect.tryRecover (fun es -> if es = error then Ok () else failwith $"Got error %O{es} when expecting error %O{error}")
+        |> Effect.tryRecover (fun es ->
+            if es = error then
+                Ok()
+            else
+                failwith $"Got error %O{es} when expecting error %O{error}")
 
 module BuilderTests =
 
@@ -64,8 +72,10 @@ module BuilderTests =
 
     [<Fact>]
     let ``Builder should support while`` () =
-        run <| eff {
+        run
+        <| eff {
             let mutable runme = true
+
             while runme do
                 runme <- false
 
@@ -74,8 +84,10 @@ module BuilderTests =
 
     [<Fact>]
     let ``Builder should support for with IEnumerable`` () =
-        run <| eff {
+        run
+        <| eff {
             let mutable i = 0
+
             for j in 1..5 do
                 i <- i + j
 
@@ -84,8 +96,10 @@ module BuilderTests =
 
     [<Fact>]
     let ``Builder should support for with tuple`` () =
-        run <| eff {
+        run
+        <| eff {
             let mutable i = 0
+
             for j in struct (1, 2, 3, 4, 5, 6, 7) do
                 i <- i + j
 
@@ -94,12 +108,17 @@ module BuilderTests =
 
     [<Fact>]
     let ``Builder should support for with IAsyncEnumerable`` () =
-        run <| eff {
+        run
+        <| eff {
             let chan = Channel.CreateBounded(5)
-            for i in 1..5 do chan.Writer.TryWrite i |> ignore
+
+            for i in 1..5 do
+                chan.Writer.TryWrite i |> ignore
+
             chan.Writer.Complete()
 
             let mutable i = 0
+
             for j in chan.Reader.ReadAllAsync() do
                 i <- i + j
 
@@ -114,12 +133,12 @@ module BuilderTests =
             do lock1.Wait()
             do lock2.Wait()
 
-            let! () = takeAndRelease lock1 lock2 
+            let! () = takeAndRelease lock1 lock2
             and! () = releaseAndTake lock1 lock2
-            return ()          
+            return ()
         }
         |> run
-        
+
     [<Fact>]
     let ``And! should work with different return types`` () =
         eff {
@@ -127,16 +146,16 @@ module BuilderTests =
             and! j = eff { return 1m }
             let result = int j + i
             Assert.Equal(2, result)
-            return ()     
+            return ()
         }
         |> run
-        
+
     [<Fact>]
     let ``And! should combine errors`` () =
         eff {
             let! () = eff { return! Error "1" }
             and! () = eff { return! Error "2" }
-            return ()     
+            return ()
         }
         |> expectError "12"
         |> run
@@ -148,30 +167,32 @@ module BuilderTests =
             and! j = eff { return 1m }
             let result = int j + i
             Assert.Equal(2, result)
-            return ()     
+            return ()
         }
 
         |> run
-        
+
     [<Fact>]
     let ``And! works with 5 values`` () =
-        run <| eff {
+        run
+        <| eff {
             use lock1 = new SemaphoreSlim(1)
             use lock2 = new SemaphoreSlim(2)
             do lock1.Wait()
             do lock2.Wait()
 
-            let! () = takeAndRelease lock1 lock2 
+            let! () = takeAndRelease lock1 lock2
             and! () = waiting lock1
             and! () = waiting lock1
             and! () = waiting lock1
             and! () = releaseAndTake lock1 lock2
-            return ()          
+            return ()
         }
 
     [<Fact>]
     let ``Builder should support asyncdisposable`` () =
-        run <| eff {
+        run
+        <| eff {
             let p = System.IO.Path.Combine(Environment.CurrentDirectory, "Orsak.xml")
             use f = System.IO.File.Open(p, System.IO.FileMode.Open)
             let e = f.ReadByte()
@@ -180,9 +201,11 @@ module BuilderTests =
 
     [<Fact>]
     let ``Builder should support tryfinally`` () =
-        run <| eff {
+        run
+        <| eff {
             let p = System.IO.Path.Combine(Environment.CurrentDirectory, "Orsak.xml")
             let f = System.IO.File.Open(p, System.IO.FileMode.Open)
+
             try
                 let buf = Memory(Array.zeroCreate 1)
                 let! e = f.ReadAsync buf
@@ -201,12 +224,12 @@ module BuilderTests =
 
     [<Fact>]
     let ``Builder should support trywith`` () =
-        run <| eff {
+        run
+        <| eff {
             try
-                do! functionThatThrows()
+                do! functionThatThrows ()
                 return ()
-            with
-            | e -> 
+            with e ->
                 let d = e.Demystify()
                 let _trace = e.StackTrace
                 let _trace2 = d.StackTrace
@@ -219,13 +242,14 @@ module BuilderTests =
         let inlineEffect i =
             eff {
                 if i <> 2 then
-                    return! Ok ()
+                    return! Ok()
                 else
-                    return! Error "Expected error"                
+                    return! Error "Expected error"
             }
-        
+
         eff {
             let mutable counter = 0
+
             while counter < 5 do
                 do! inlineEffect counter
                 counter <- counter + 1
@@ -244,20 +268,20 @@ module BuilderTests =
                 if i = 2 then
                     return! Error "Expected error"
                 else
-                    return! Ok ()
+                    return! Ok()
 
             }
-        (
-        eff {
+
+        (eff {
             let mutable counter = 1
+
             for j in struct (1, 2, 3, 4, 5) do
                 do! inlineEffect j
                 counter <- counter + 1
-            
+
             failwithf "Loop continued past 2, got to %i" counter
             return ()
-        }
-        )
+        })
         |> expectError "Expected error"
         |> run
 
@@ -267,49 +291,46 @@ module CombinatorTests =
     let parTest (lock1: SemaphoreSlim) (lock2: SemaphoreSlim) =
         do lock1.Wait()
         do lock2.Wait()
-        [| 
+
+        [|
             yield takeAndRelease lock1 lock2
             for _ in 1..5 do
                 yield waiting lock1
 
             yield releaseAndTake lock1 lock2
-        |]  
+        |]
 
     ///Setup so that the effect must be run sequencially
-    let sequenceTest (lock1: SemaphoreSlim) =
-        [|
-            for _ in 1..5 do
-                eff { 
-                    Assert.Equal(2, lock1.CurrentCount)
-                    do! lock1.WaitAsync()
-                    try
-                        do! Task.Delay(10)
-                    finally
-                        lock1.Release(1) |> ignore              
-                    Assert.Equal(2, lock1.CurrentCount)
-                }
-        |] 
+    let sequenceTest (lock1: SemaphoreSlim) = [|
+        for _ in 1..5 do
+            eff {
+                Assert.Equal(2, lock1.CurrentCount)
+                do! lock1.WaitAsync()
+
+                try
+                    do! Task.Delay(10)
+                finally
+                    lock1.Release(1) |> ignore
+
+                Assert.Equal(2, lock1.CurrentCount)
+            }
+    |]
 
     [<Fact>]
-    let parCombinatorTest () =       
+    let parCombinatorTest () =
         task {
             use lock1 = new SemaphoreSlim(1)
             use lock2 = new SemaphoreSlim(2)
-            do! 
-                parTest lock1 lock2
-                |> Effect.par
-                |> Effect.map ignore
-                |> run
+
+            do! parTest lock1 lock2 |> Effect.par |> Effect.map ignore |> run
         }
 
     [<Fact>]
-    let sequenceFailsParTest () =       
+    let sequenceFailsParTest () =
         task {
             use lock1 = new SemaphoreSlim(1)
             use lock2 = new SemaphoreSlim(2)
-            let effects = 
-                parTest lock1 lock2
-                |> Effect.sequence
+            let effects = parTest lock1 lock2 |> Effect.sequence
 
             let! _ = Assert.ThrowsAsync<TimeoutException>(fun () -> run effects)
             return ()
@@ -319,33 +340,28 @@ module CombinatorTests =
     let sequenceCombinatorTest () =
         task {
             use lock1 = new SemaphoreSlim(2)
-            do!
-                sequenceTest lock1
-                |> Effect.sequence   
-                |> Effect.map ignore
-                |> run
+
+            do! sequenceTest lock1 |> Effect.sequence |> Effect.map ignore |> run
         }
 
     [<Fact>]
     let parFailsSequenceTest () =
         task {
             use lock1 = new SemaphoreSlim(2)
-            let effects = 
-                sequenceTest lock1 
-                |> Effect.par   
-                
+            let effects = sequenceTest lock1 |> Effect.par
+
             let! _ = Assert.ThrowsAsync<Xunit.Sdk.EqualException>(fun () -> run effects)
             return ()
         }
 
 module EffSeqTests =
     [<Fact>]
-    let yieldValuesWorks () =        
+    let yieldValuesWorks () =
         effSeq {
             1
             2
         }
-        |> fun es -> 
+        |> fun es ->
             eff {
                 let! e = es
                 e =! [ 1; 2 ]
@@ -354,20 +370,22 @@ module EffSeqTests =
         |> run
 
     [<Fact>]
-    let letYieldValuesWorks () = 
+    let letYieldValuesWorks () =
         let mutable i = 0
+
         let incrementer () =
             eff {
                 i <- i + 1
                 return i
             }
+
         effSeq {
             let! i = incrementer ()
             i
             let! j = incrementer ()
-            j 
+            j
         }
-        |> fun es -> 
+        |> fun es ->
             eff {
                 let! e = es
                 e =! [ 1; 2 ]
@@ -376,29 +394,27 @@ module EffSeqTests =
         |> run
 
 module Laws =
-    let (===) (e1: Effect<_,_,_>) (e2: Effect<_,_,_>) = task {
-        let! r1 = run e1
-        let! r2 = run e2
-        return r1 =! r2
-    }
+    let (===) (e1: Effect<_, _, _>) (e2: Effect<_, _, _>) =
+        task {
+            let! r1 = run e1
+            let! r2 = run e2
+            return r1 =! r2
+        }
 
-    let h a =
-        Effect.Create( fun () -> a + 1)
+    let h a = Effect.Create(fun () -> a + 1)
 
     let (>>=) m f = Effect.bind f m
 
     [<Fact>]
-    let ``Right identity`` () = 
+    let ``Right identity`` () =
         let e = Effect.ret 1
         e >>= Effect.ret === e
 
     [<Fact>]
-    let ``Left identity`` () = 
-        Effect.ret 1 >>= h === h 1
+    let ``Left identity`` () = Effect.ret 1 >>= h === h 1
 
     [<Fact>]
-    let Associativity () = 
+    let Associativity () =
         let m = Effect.ret 1
-        let g a =
-            Effect.Create( fun () -> a + 2)
+        let g a = Effect.Create(fun () -> a + 2)
         ((m >>= g) >>= h) === (m >>= (fun x -> g x >>= h))

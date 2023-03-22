@@ -1,7 +1,7 @@
 (**
 ---
 title: Introduction
-category: Documentation
+category: Motivation
 categoryindex: 1
 index: 1
 ---
@@ -10,6 +10,7 @@ index: 1
 #r "nuget: Microsoft.Extensions.Logging.Abstractions, 7.0.0"
 #I "../src/Orsak/bin/Release/net6.0"
 #r "Orsak.dll"
+
 open System.Threading.Tasks
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Logging.Abstractions
@@ -35,13 +36,13 @@ open Orsak
 
 module ButtonPusher =
     let pushButton () =
-        Effect.Create(fun (provider: #IButtonPusherProvider) -> provider.ButtonPusher.PushButton ())
+        Effect.Create(fun (provider: #IButtonPusherProvider) -> provider.ButtonPusher.PushButton())
 
 (**
-Then, we can the write code like 
+Then, we can the write code like
 *)
 
-let work () : Effect<#IButtonPusherProvider,unit,_> =
+let work () : Effect<#IButtonPusherProvider, unit, _> =
     eff {
         //code
         do! ButtonPusher.pushButton ()
@@ -60,7 +61,7 @@ type ILoggerProvider =
 let logInformation a =
     Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger.Log(LogLevel.Information, a))
 
-let workThenLog() =
+let workThenLog () =
     eff {
         do! work ()
         do! logInformation "Did the work."
@@ -70,9 +71,10 @@ let workThenLog() =
 type EffectRunner(buttonPusher: IButtonPusher) =
     interface ILoggerProvider with
         member _.Logger = NullLogger.Instance
+
     interface IButtonPusherProvider with
         member _.ButtonPusher = buttonPusher
 (** And then run the effects: *)
-let runner: EffectRunner = EffectRunner(Unchecked.defaultof<_>)
+let runner: EffectRunner = EffectRunner({ new IButtonPusher with member this.PushButton() = Task.FromResult () })
 
 workThenLog().Run(runner)

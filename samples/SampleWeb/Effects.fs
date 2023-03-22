@@ -9,12 +9,11 @@ type ILoggerProvider =
     abstract member Logger: ILogger
 
 type Log =
-    static member getLogger () =
+    static member getLogger() =
         Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger)
 
-    static member logInformation(message, [<ParamArray>]args) =
-        Effect.Create(fun (provider: #ILoggerProvider) -> 
-            provider.Logger.LogInformation(message, args))
+    static member logInformation(message, [<ParamArray>] args) =
+        Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger.LogInformation(message, args))
 
 type IContextProvider =
     abstract member Context: HttpContext

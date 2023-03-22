@@ -1127,35 +1127,28 @@ module Medium =
             let mutable awaiter1 = task1.GetAwaiter()      
 
             let cont =
-                (EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm ->
-                        let mutable awaiter2 = task2.GetAwaiter()
-                        let cont =  
-                            (EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm -> 
-                                    let mutable awaiter3 = task3.GetAwaiter()
-                                    let cont =  
-                                        (EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm -> 
-                                            failwith ""
-                 
-                                                ))
+                EffectResumptionFunc<_,_,_>(fun sm ->
+                    let mutable awaiter2 = task2.GetAwaiter()
+                    let cont =  
+                        EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm -> 
+                            let mutable awaiter3 = task3.GetAwaiter()
+                            let cont = EffectResumptionFunc<'Env,'TOverall,'Err>(fun sm -> failwith "")                        
+                            if awaiter3.IsCompleted then
+                                cont.Invoke(&sm)
+                            else
+                                sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
+                                sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                false                   
+                        )
                         
-                                    if awaiter3.IsCompleted then
-                                        cont.Invoke(&sm)
-                                     else
-                                        sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
-                                        sm.ResumptionDynamicInfo.ResumptionFunc <- cont
-                                        false  
-                 
-                                    ))
-                        
-                        if awaiter2.IsCompleted then
-                            cont.Invoke(&sm)
-                         else
-                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
-                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
-                            false  
+                    if awaiter2.IsCompleted then
+                        cont.Invoke(&sm)
+                    else
+                        sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                        sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                        false  
                     )
-                )
-            
+                            
             if awaiter1.IsCompleted then
                 cont.Invoke(&sm)
             else

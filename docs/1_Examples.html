@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Some other things</title>
+    <title>Scoped Effect Provider</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="author" content="Orsak">
 
@@ -55,16 +55,29 @@
                 <li class="nav-item" id="fsdocs-release-notes-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md">Release Notes</a></li>
                 <li class="nav-item" id="fsdocs-repository-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/">Source Repository</a></li>
                 <li class="nav-header">
-  Documentation
+  Motivation
 </li>             
 <li class="nav-item">
-  <a class="nav-link" href="https://johsand.github.io/Orsak/1_intro.html">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Motivation.html">
     Introduction
   </a>
 </li>             
 <li class="nav-item">
-  <a class="nav-link" href="https://johsand.github.io/Orsak/2_combinators.html">
-    Some other things
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Motivation.html">
+    Composition
+  </a>
+</li>             
+<li class="nav-header">
+  Examples
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Examples.html">
+    Scoped Effect Provider
+  </a>
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Examples.html">
+    Http
   </a>
 </li>
                 <li class="nav-header">
@@ -85,10 +98,16 @@
         <hr />
         <div class="container" id="fsdocs-content">
             
-<p>Other stuff</p>
-<p>asd</p>
+<h3><a name="Scopes" class="anchor" href="#Scopes">Scopes</a></h3>
+<p>The point of creating an additional indirection with the <code>IEffectProvider</code> both to decouple the effect implementation, but also to allow for various factory patterns. After all, a factory is just a <a href="https://vimeo.com/113588389">function</a>.
+So for example, some effects might require singleton implementations, other per-request implementations, and creating an effect-provider per request, partially applied with singleton dependencies is a natural solution. That also means that
+the provider can be made to hold state that is local to that effect. Also transactions</p>
 
-            
+            <div class="fsdocs-tip" id="fs1">namespace Orsak</div>
+<div class="fsdocs-tip" id="fs2">namespace System</div>
+<div class="fsdocs-tip" id="fs3">namespace System.Threading</div>
+<div class="fsdocs-tip" id="fs4">namespace System.Threading.Tasks</div>
+
         </div>
 
         <!-- BEGIN SEARCH BOX: this adds support for the search box -->

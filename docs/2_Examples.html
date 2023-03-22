@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Http</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="author" content="Orsak">
+
+    <link rel="stylesheet" id="theme_link" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/4.6.0/materia/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns" crossorigin="anonymous"></script>
+
+    <script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+
+    <link rel="shortcut icon" type="image/x-icon" href="https://johsand.github.io/Orsak/img/favicon.ico">
+    <link type="text/css" rel="stylesheet" href="https://johsand.github.io/Orsak/content/navbar-fixed-left.css" />
+    <link type="text/css" rel="stylesheet" href="https://johsand.github.io/Orsak/content/fsdocs-default.css" />
+    <link type="text/css" rel="stylesheet" href="https://johsand.github.io/Orsak/content/fsdocs-custom.css" />
+    <script type="text/javascript" src="https://johsand.github.io/Orsak/content/fsdocs-tips.js"></script>
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- BEGIN SEARCH BOX: this adds support for the search box -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/JavaScript-autoComplete/1.0.4/auto-complete.css" />
+    <!-- END SEARCH BOX: this adds support for the search box -->
+    
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-md navbar-light bg-secondary fixed-left" id="fsdocs-nav">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse navbar-nav-scroll" id="navbarsExampleDefault">
+            <a href="https://johsand.github.io/Orsak/"><img id="fsdocs-logo" src="https://johsand.github.io/Orsak/content/img/o.png" /></a>
+            <!-- BEGIN SEARCH BOX: this adds support for the search box -->
+            <div id="header">
+                <div class="searchbox" id="fsdocs-searchbox">
+                    <label for="search-by">
+                        <i class="fas fa-search"></i>
+                    </label>
+                    <input data-search-input="" id="search-by" type="search" placeholder="Search..." />
+                    <span data-search-clear="">
+                        <i class="fas fa-times"></i>
+                    </span>
+                </div>
+            </div>
+
+            <!-- END SEARCH BOX: this adds support for the search box -->
+            <ul class="navbar-nav">
+                <li class="nav-header">Links</li>
+                <li class="nav-item" id="fsdocs-license-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/blob/main/LICENSE.txt">License</a></li>
+                <li class="nav-item" id="fsdocs-release-notes-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md">Release Notes</a></li>
+                <li class="nav-item" id="fsdocs-repository-link"><a class="nav-link" href="https://github.com/JohSand/Orsak/">Source Repository</a></li>
+                <li class="nav-header">
+  Motivation
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Motivation.html">
+    Introduction
+  </a>
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Motivation.html">
+    Composition
+  </a>
+</li>             
+<li class="nav-header">
+  Examples
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/1_Examples.html">
+    Scoped Effect Provider
+  </a>
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/2_Examples.html">
+    Http
+  </a>
+</li>
+                <li class="nav-header">
+  API Reference
+</li>             
+<li class="nav-item">
+  <a class="nav-link" href="https://johsand.github.io/Orsak/reference/index.html">
+    All Namespaces
+  </a>
+</li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="masthead">
+            <h3 class="muted"><a href="https://johsand.github.io/Orsak/">Orsak</a></h3>
+        </div>
+        <hr />
+        <div class="container" id="fsdocs-content">
+            
+<h3><a name="Manual" class="anchor" href="#Manual">Manual</a></h3>
+<p>While also achievable with effects directly, using <code>DelegatingHandler</code>s is easy and allows making use of the wider ecosystem.</p>
+<pre class="fssnip highlighted"><code lang="fsharp"><span class="k">open</span> <span onmouseout="hideTip(event, 'fs1', 1)" onmouseover="showTip(event, 'fs1', 1)" class="id">System</span>
+<span class="k">open</span> <span onmouseout="hideTip(event, 'fs1', 2)" onmouseover="showTip(event, 'fs1', 2)" class="id">System</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs2', 3)" onmouseover="showTip(event, 'fs2', 3)" class="id">Net</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs3', 4)" onmouseover="showTip(event, 'fs3', 4)" class="id">Http</span>
+<span class="c">//make sure your .NET version has sensible defaults for these:</span>
+
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs4', 5)" onmouseover="showTip(event, 'fs4', 5)" class="d">inner</span> <span class="o">=</span> <span class="k">new</span> <span onmouseout="hideTip(event, 'fs5', 6)" onmouseover="showTip(event, 'fs5', 6)" class="d">SocketsHttpHandler</span><span class="pn">(</span><span class="fn">PooledConnectionIdleTimeout</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs6', 7)" onmouseover="showTip(event, 'fs6', 7)" class="vt">TimeSpan</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs7', 8)" onmouseover="showTip(event, 'fs7', 8)" class="id">FromMinutes</span><span class="pn">(</span><span class="n">1</span><span class="pn">)</span><span class="pn">,</span> <span class="fn">PooledConnectionLifetime</span> <span class="o">=</span> <span onmouseout="hideTip(event, 'fs6', 9)" onmouseover="showTip(event, 'fs6', 9)" class="vt">TimeSpan</span><span class="pn">.</span><span onmouseout="hideTip(event, 'fs7', 10)" onmouseover="showTip(event, 'fs7', 10)" class="id">FromMinutes</span><span class="pn">(</span><span class="n">1</span><span class="pn">)</span><span class="pn">)</span>
+<span class="k">let</span> <span onmouseout="hideTip(event, 'fs8', 11)" onmouseover="showTip(event, 'fs8', 11)" class="fn">clientFactory</span> <span onmouseout="hideTip(event, 'fs9', 12)" onmouseover="showTip(event, 'fs9', 12)" class="fn">f</span> <span onmouseout="hideTip(event, 'fs10', 13)" onmouseover="showTip(event, 'fs10', 13)" class="fn">handlers</span> <span class="o">=</span>
+    <span class="k">let</span> <span onmouseout="hideTip(event, 'fs11', 14)" onmouseover="showTip(event, 'fs11', 14)" class="d">client</span> <span class="o">=</span> <span class="k">new</span> <span onmouseout="hideTip(event, 'fs12', 15)" onmouseover="showTip(event, 'fs12', 15)" class="d">HttpClient</span><span class="pn">(</span><span onmouseout="hideTip(event, 'fs10', 16)" onmouseover="showTip(event, 'fs10', 16)" class="fn">handlers</span> <span onmouseout="hideTip(event, 'fs4', 17)" onmouseover="showTip(event, 'fs4', 17)" class="d">inner</span><span class="pn">,</span> <span class="k">false</span><span class="pn">)</span>
+    <span onmouseout="hideTip(event, 'fs9', 18)" onmouseover="showTip(event, 'fs9', 18)" class="fn">f</span> <span onmouseout="hideTip(event, 'fs11', 19)" onmouseover="showTip(event, 'fs11', 19)" class="d">client</span>
+    
+</code></pre>
+<h3><a name="IHttpClientFactory" class="anchor" href="#IHttpClientFactory">IHttpClientFactory</a></h3>
+
+            <div class="fsdocs-tip" id="fs1">namespace System</div>
+<div class="fsdocs-tip" id="fs2">namespace System.Net</div>
+<div class="fsdocs-tip" id="fs3">namespace System.Net.Http</div>
+<div class="fsdocs-tip" id="fs4">val inner: SocketsHttpHandler</div>
+<div class="fsdocs-tip" id="fs5">Multiple items<br />type SocketsHttpHandler =
+  inherit HttpMessageHandler
+  new: unit -&gt; unit
+  member ActivityHeadersPropagator: DistributedContextPropagator
+  member AllowAutoRedirect: bool
+  member AutomaticDecompression: DecompressionMethods
+  member ConnectCallback: Func&lt;SocketsHttpConnectionContext,CancellationToken,ValueTask&lt;Stream&gt;&gt;
+  member ConnectTimeout: TimeSpan
+  member CookieContainer: CookieContainer
+  member Credentials: ICredentials
+  member DefaultProxyCredentials: ICredentials
+  ...<br /><em>&lt;summary&gt;Provides the default message handler used by &lt;see cref=&quot;T:System.Net.Http.HttpClient&quot; /&gt; in .NET Core 2.1 and later.&lt;/summary&gt;</em><br /><br />--------------------<br />SocketsHttpHandler() : SocketsHttpHandler</div>
+<div class="fsdocs-tip" id="fs6">Multiple items<br />[&lt;Struct&gt;]
+type TimeSpan =
+  new: hours: int * minutes: int * seconds: int -&gt; unit + 4 overloads
+  member Add: ts: TimeSpan -&gt; TimeSpan
+  member CompareTo: value: obj -&gt; int + 1 overload
+  member Divide: divisor: float -&gt; TimeSpan + 1 overload
+  member Duration: unit -&gt; TimeSpan
+  member Equals: value: obj -&gt; bool + 2 overloads
+  member GetHashCode: unit -&gt; int
+  member Multiply: factor: float -&gt; TimeSpan
+  member Negate: unit -&gt; TimeSpan
+  member Subtract: ts: TimeSpan -&gt; TimeSpan
+  ...<br /><em>&lt;summary&gt;Represents a time interval.&lt;/summary&gt;</em><br /><br />--------------------<br />TimeSpan ()<br />TimeSpan(ticks: int64) : TimeSpan<br />TimeSpan(hours: int, minutes: int, seconds: int) : TimeSpan<br />TimeSpan(days: int, hours: int, minutes: int, seconds: int) : TimeSpan<br />TimeSpan(days: int, hours: int, minutes: int, seconds: int, milliseconds: int) : TimeSpan<br />TimeSpan(days: int, hours: int, minutes: int, seconds: int, milliseconds: int, microseconds: int) : TimeSpan</div>
+<div class="fsdocs-tip" id="fs7">TimeSpan.FromMinutes(value: float) : TimeSpan</div>
+<div class="fsdocs-tip" id="fs8">val clientFactory: f: (HttpClient -&gt; &#39;a) -&gt; handlers: (SocketsHttpHandler -&gt; #HttpMessageHandler) -&gt; &#39;a</div>
+<div class="fsdocs-tip" id="fs9">val f: (HttpClient -&gt; &#39;a)</div>
+<div class="fsdocs-tip" id="fs10">val handlers: (SocketsHttpHandler -&gt; #HttpMessageHandler)</div>
+<div class="fsdocs-tip" id="fs11">val client: HttpClient</div>
+<div class="fsdocs-tip" id="fs12">Multiple items<br />type HttpClient =
+  inherit HttpMessageInvoker
+  new: unit -&gt; unit + 2 overloads
+  member CancelPendingRequests: unit -&gt; unit
+  member DeleteAsync: requestUri: string -&gt; Task&lt;HttpResponseMessage&gt; + 3 overloads
+  member GetAsync: requestUri: string -&gt; Task&lt;HttpResponseMessage&gt; + 7 overloads
+  member GetByteArrayAsync: requestUri: string -&gt; Task&lt;byte array&gt; + 3 overloads
+  member GetStreamAsync: requestUri: string -&gt; Task&lt;Stream&gt; + 3 overloads
+  member GetStringAsync: requestUri: string -&gt; Task&lt;string&gt; + 3 overloads
+  member PatchAsync: requestUri: string * content: HttpContent -&gt; Task&lt;HttpResponseMessage&gt; + 3 overloads
+  member PostAsync: requestUri: string * content: HttpContent -&gt; Task&lt;HttpResponseMessage&gt; + 3 overloads
+  ...<br /><em>&lt;summary&gt;Provides a class for sending HTTP requests and receiving HTTP responses from a resource identified by a URI.&lt;/summary&gt;</em><br /><br />--------------------<br />HttpClient() : HttpClient<br />HttpClient(handler: HttpMessageHandler) : HttpClient<br />HttpClient(handler: HttpMessageHandler, disposeHandler: bool) : HttpClient</div>
+
+        </div>
+
+        <!-- BEGIN SEARCH BOX: this adds support for the search box -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/JavaScript-autoComplete/1.0.4/auto-complete.css" />
+        <script type="text/javascript">var fsdocs_search_baseurl = 'https://johsand.github.io/Orsak/';</script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/lunr.js/2.3.8/lunr.min.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/JavaScript-autoComplete/1.0.4/auto-complete.min.js"></script>
+        <script type="text/javascript" src="https://johsand.github.io/Orsak/content/fsdocs-search.js"></script>
+        <!-- END SEARCH BOX: this adds support for the search box -->
+    </div>
+</body>
+
+</html>

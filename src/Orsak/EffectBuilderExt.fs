@@ -25,6 +25,7 @@ module EffectBuilderExt =
     open System.Threading.Tasks
 
     type EffBuilder with
+
         member inline this.Bind3Return
             (
                 m1: Effect<'Env, 'a, 'Err>,
@@ -42,7 +43,7 @@ module EffectBuilderExt =
 
             this.ReturnFrom(
                 Effect(
-                    EffectDelegate (fun rEnv ->
+                    EffectDelegate(fun rEnv ->
                         ValueTask<_>(
                             task =
                                 task {
@@ -79,7 +80,7 @@ module EffectBuilderExt =
 
             this.ReturnFrom(
                 Effect(
-                    EffectDelegate (fun rEnv ->
+                    EffectDelegate(fun rEnv ->
                         ValueTask<_>(
                             task =
                                 task {
@@ -121,7 +122,7 @@ module EffectBuilderExt =
 
             this.ReturnFrom(
                 Effect(
-                    EffectDelegate (fun rEnv ->
+                    EffectDelegate(fun rEnv ->
                         ValueTask<_>(
                             task =
                                 task {

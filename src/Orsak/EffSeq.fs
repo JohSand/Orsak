@@ -17,13 +17,10 @@ type EffectSeqBuilder() =
     member _.Delay(f: unit -> EffectSeq<'r, 'a, 'e>) = f ()
 
     member _.Combine(eff1: EffectSeq<'r, 'a, 'e>, eff2: EffectSeq<'r, 'a, 'e>) : EffectSeq<'r, 'a, 'e> =
-        eff1
-        |> Effect.bind (fun l1 -> eff2 |> Effect.map (List.append l1))
+        eff1 |> Effect.bind (fun l1 -> eff2 |> Effect.map (List.append l1))
 
     member this.For(s: seq<'a>, f: 'a -> EffectSeq<'r, 'b, 'e>) : EffectSeq<'r, 'b, 'e> =
-        s
-        |> Seq.map f
-        |> Seq.fold (fun a b -> this.Combine(a, b)) (Effect.ret [])
+        s |> Seq.map f |> Seq.fold (fun a b -> this.Combine(a, b)) (Effect.ret [])
 
 [<AutoOpen>]
 module EffectSeqBuilder =
