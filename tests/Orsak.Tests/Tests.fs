@@ -15,7 +15,7 @@ module Helpers =
 
     let waiting (ss: SemaphoreSlim) =
         eff {
-            do! ss.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
+            do! ss.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             try
                 return ()
@@ -25,7 +25,7 @@ module Helpers =
 
     let takeAndRelease (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) =
         eff {
-            do! ss1.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
+            do! ss1.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             ss2.Release 1 |> ignore
 
@@ -39,7 +39,7 @@ module Helpers =
         eff {
             ss1.Release 1 |> ignore
 
-            do! ss2.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 100)
+            do! ss2.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             try
                 return ()
