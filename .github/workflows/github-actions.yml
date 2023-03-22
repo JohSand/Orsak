@@ -9,7 +9,7 @@ jobs:
       - name: Setup .NET Core
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: 6.0.x
+          dotnet-version: 7.0.x
       - name: Restore tools
         run: dotnet tool restore
       - name: Restore NuGet packages
