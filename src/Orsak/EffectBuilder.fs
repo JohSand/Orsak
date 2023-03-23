@@ -602,12 +602,12 @@ type EffBuilderBase() =
             [<InlineIfLambda>] continuation: 'Err -> Effect<'Env, 'TResult, 'Err>
         ) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
         EffectCode<'Env, 'TResult, _, 'Err>(fun sm ->
-            let task = eff.Run sm.Data.Environment
+            let task1 = eff.Run sm.Data.Environment
 
             if __useResumableCode then
                 //-- RESUMABLE CODE START
                 // Get an awaiter from the task
-                let mutable awaiter = task.GetAwaiter()
+                let mutable awaiter = task1.GetAwaiter()
 
                 let mutable __stack_fin = true
 
@@ -625,16 +625,28 @@ type EffBuilderBase() =
                         sm.Data.Result <- Ok result
                         true
                     | Error error ->
-                        let e = continuation error
-                        let task = e.Run sm.Data.Environment
-                        let mutable awaiter = task.GetAwaiter()
-                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
-                        false
+                        let task2 = (continuation error).Run sm.Data.Environment
+                        let mutable awaiter = task2.GetAwaiter()
+
+                        let mutable __stack_fin = true
+
+                        if not awaiter.IsCompleted then
+                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                            __stack_fin <- __stack_yield_fin
+
+                        if __stack_fin then
+                            let result = awaiter.GetResult()
+                            sm.Data.Result <- result
+                            true
+                        else
+                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                            false
+ 
                 else
                     sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                     false
             else
-                EffBuilderBase.TryRecoverDynamic(&sm, task, continuation))
+                EffBuilderBase.TryRecoverDynamic(&sm, task1, continuation))
 
 
     member inline this.Bind2Return(m1: Effect<'Env, 'a, 'Err>, m2: Effect<'Env, 'b, 'Err>, [<InlineIfLambda>] f) =

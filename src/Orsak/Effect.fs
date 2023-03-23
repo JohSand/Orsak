@@ -88,6 +88,21 @@ module Effect =
         eff.Run(eff.TryRecover(e, f))
 
 
+    let inline retry (e: Effect<'r, 'a, 'e>) =
+        onError (fun _ -> e) e
+
+    let inline retryIf cond (e: Effect<'r, 'a, 'e>) =
+        onError (fun err -> if cond err then e else eff { return! Error err }) e
+
+    let rec retryWhile cond (e: Effect<'r, 'a, 'e>) =
+        eff {
+            return! onError (fun err -> if (cond err) then retryWhile cond e else eff { return! Error err }) e
+        }
+
+    let inline retryTimes times (e: Effect<'r, 'a, 'e>) =
+        let mutable count = times
+        retryWhile (fun _ -> if count = 0 then false else count <- count - 1; true) e
+
     /// <summary>
     /// Transforms an effect which fails with an error of <typeparamref name="'e1"/> to an effect which fails with
     /// an error of type <typeparamref name="'e2"/>.
@@ -184,6 +199,35 @@ module Effect =
                             | Error e -> Error e)
                         results
             })
+
+    ///Executes effects in parallel if possible. Currently not efficiently implemented.
+    let inline par_ (eff: Effect<'r, unit, 'e> seq) : Effect<'r, unit, 'e> =
+        mkEffect (fun rEnv ->
+            vtask {
+                let! results =
+                    eff
+                    |> Seq.map (run rEnv)
+                    |> Seq.map (fun (t: AsyncResult<unit, 'e>) -> t.AsTask())
+                    |> Task.WhenAll
+
+                let a =
+                    Ok []
+                    |> Array.foldBack
+                        (fun curr agg ->
+                            match agg with
+                            | Ok(list: _ list) ->
+                                match curr with
+                                | Ok a -> Ok(a :: list)
+                                | Error e -> Error e
+                            | Error e -> Error e)
+                        results
+                match a with
+                | Ok _ ->
+                    return Ok ()
+                | Error e ->
+                    return Error e
+            })
+
 
     ///Traverses an array of effects, turning it in to an effect of an array.
     ///For a more generic implementation, consider FSharpPlus

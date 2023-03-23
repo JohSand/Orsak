@@ -15,7 +15,10 @@ module Helpers =
 
     let waiting (ss: SemaphoreSlim) =
         eff {
-            do! ss.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
+            do!
+                ss
+                    .WaitAsync()
+                    .WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             try
                 return ()
@@ -25,7 +28,10 @@ module Helpers =
 
     let takeAndRelease (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) =
         eff {
-            do! ss1.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
+            do!
+                ss1
+                    .WaitAsync()
+                    .WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             ss2.Release 1 |> ignore
 
@@ -39,7 +45,10 @@ module Helpers =
         eff {
             ss1.Release 1 |> ignore
 
-            do! ss2.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
+            do!
+                ss2
+                    .WaitAsync()
+                    .WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             try
                 return ()
@@ -229,7 +238,8 @@ module BuilderTests =
             try
                 do! functionThatThrows ()
                 return ()
-            with e ->
+            with
+            | e ->
                 let d = e.Demystify()
                 let _trace = e.StackTrace
                 let _trace2 = d.StackTrace
@@ -292,29 +302,26 @@ module CombinatorTests =
         do lock1.Wait()
         do lock2.Wait()
 
-        [|
-            yield takeAndRelease lock1 lock2
-            for _ in 1..5 do
-                yield waiting lock1
+        [| yield takeAndRelease lock1 lock2
+           for _ in 1..5 do
+               yield waiting lock1
 
-            yield releaseAndTake lock1 lock2
-        |]
+           yield releaseAndTake lock1 lock2 |]
 
     ///Setup so that the effect must be run sequencially
-    let sequenceTest (lock1: SemaphoreSlim) = [|
-        for _ in 1..5 do
-            eff {
-                Assert.Equal(2, lock1.CurrentCount)
-                do! lock1.WaitAsync()
+    let sequenceTest (lock1: SemaphoreSlim) =
+        [| for _ in 1..5 do
+               eff {
+                   Assert.Equal(2, lock1.CurrentCount)
+                   do! lock1.WaitAsync()
 
-                try
-                    do! Task.Delay(10)
-                finally
-                    lock1.Release(1) |> ignore
+                   try
+                       do! Task.Delay(10)
+                   finally
+                       lock1.Release(1) |> ignore
 
-                Assert.Equal(2, lock1.CurrentCount)
-            }
-    |]
+                   Assert.Equal(2, lock1.CurrentCount)
+               } |]
 
     [<Fact>]
     let parCombinatorTest () =
@@ -322,7 +329,11 @@ module CombinatorTests =
             use lock1 = new SemaphoreSlim(1)
             use lock2 = new SemaphoreSlim(2)
 
-            do! parTest lock1 lock2 |> Effect.par |> Effect.map ignore |> run
+            do!
+                parTest lock1 lock2
+                |> Effect.par
+                |> Effect.map ignore
+                |> run
         }
 
     [<Fact>]
@@ -341,7 +352,11 @@ module CombinatorTests =
         task {
             use lock1 = new SemaphoreSlim(2)
 
-            do! sequenceTest lock1 |> Effect.sequence |> Effect.map ignore |> run
+            do!
+                sequenceTest lock1
+                |> Effect.sequence
+                |> Effect.map ignore
+                |> run
         }
 
     [<Fact>]
