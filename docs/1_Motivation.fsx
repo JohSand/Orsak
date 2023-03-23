@@ -52,7 +52,7 @@ let work () : Effect<#IButtonPusherProvider, unit, _> =
 (**
 Which can be run with some type which implements ``IButtonPusherProvider``.
 
-The big win with effects is that they compose. By using a flexible constraints the the effect creation function, we can
+The big win with effects is that they compose. By using a flexible constraint in the effect creation function, we can
 simply add effects, which will constrain the effect runner type to implement both ``IButtonPusherProvider`` and ``ILoggerFactory``
 *)
 type ILoggerProvider =

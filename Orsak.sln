@@ -14,7 +14,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFiles", "SolutionFiles", "{55957464-5E47-42EB-9DF5-8E5A3BA56DFD}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
-		.github\workflows\github-actions-demo.yml = .github\workflows\github-actions.yml
 		GitVersion.yml = GitVersion.yml
 		global.json = global.json
 		LICENSE.txt = LICENSE.txt

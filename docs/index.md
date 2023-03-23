@@ -21,7 +21,3 @@ This implementation makes use of resumable code to implement the computation exp
 The builder also has various overloads for ``Bind``, allowing for friction free interop with ``TaskLike<'a>``, ``Async<'a>``, ``Result<'T,'E>`` and more.
 It supports ``for``, ``while``, ``use``, ``try-with`` and ``try-finally``, and also applicative bind when the error-type supports ``+``.
 While the computation expression is the intended way of working with effects, the corresponding module should contain all the expected functions.
-
----
-
-Main documentation is available at https://johsand.github.io/Orsak/

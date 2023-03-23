@@ -34,7 +34,7 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse navbar-nav-scroll" id="navbarsExampleDefault">
-            <a href="https://johsand.github.io/Orsak/"><img id="fsdocs-logo" src="https://johsand.github.io/Orsak/content/img/o.png" /></a>
+            <a href="https://johsand.github.io/Orsak/"><img id="fsdocs-logo" src="https://johsand.github.io/Orsak/content/img/orsak.webp" /></a>
             <!-- BEGIN SEARCH BOX: this adds support for the search box -->
             <div id="header">
                 <div class="searchbox" id="fsdocs-searchbox">
@@ -123,7 +123,7 @@
     <span class="pn">}</span>
 </code></pre>
 <p>Which can be run with some type which implements <code>IButtonPusherProvider</code>.</p>
-<p>The big win with effects is that they compose. By using a flexible constraints the the effect creation function, we can
+<p>The big win with effects is that they compose. By using a flexible constraint in the effect creation function, we can
 simply add effects, which will constrain the effect runner type to implement both <code>IButtonPusherProvider</code> and <code>ILoggerFactory</code></p>
 <pre class="fssnip highlighted"><code lang="fsharp"><span class="k">type</span> <span onmouseout="hideTip(event, 'fs22', 33)" onmouseover="showTip(event, 'fs22', 33)" class="if">ILoggerProvider</span> <span class="o">=</span>
     <span class="k">abstract</span> <span class="k">member</span> <span onmouseout="hideTip(event, 'fs23', 34)" onmouseover="showTip(event, 'fs23', 34)" class="prop">Logger</span><span class="pn">:</span> <span onmouseout="hideTip(event, 'fs24', 35)" onmouseover="showTip(event, 'fs24', 35)" class="if">ILogger</span>
