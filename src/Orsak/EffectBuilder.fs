@@ -876,44 +876,6 @@ module Medium =
                 sm.ResumptionDynamicInfo.ResumptionFunc <- cont
                 false
 
-        member inline _.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
-            (
-                task: ValueTask<Result<'TResult1, 'Err>>,
-                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
-            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
-
-            EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
-                if __useResumableCode then
-                    //-- RESUMABLE CODE START
-                    // Get an awaiter from the task
-                    let mutable awaiter = task.GetAwaiter()
-
-                    let mutable __stack_fin = true
-
-                    if not awaiter.IsCompleted then
-                        // This will yield with __stack_yield_fin = false
-                        // This will resume with __stack_yield_fin = true
-                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
-                        __stack_fin <- __stack_yield_fin
-
-                    if __stack_fin then
-                        let result = awaiter.GetResult()
-
-                        match result with
-                        | Ok result -> (continuation result).Invoke(&sm)
-                        | Error error ->
-                            sm.Data.Result <- Error error
-                            true
-                    else
-                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
-                        false
-                else
-                    EffBuilder.BindDynamic(&sm, task, continuation)
-            //-- RESUMABLE CODE END
-            )
-
-
-
         [<NoEagerConstraintApplication>]
         member inline _.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
@@ -987,26 +949,22 @@ module Medium =
 
         member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
-                task: Task<Result<'TResult1, 'Err>>,
-                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
-            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
-            this.Bind(ValueTask<_>(task = task), continuation)
-
-        member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
-            (
                 t: Task<'TResult1>,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(
-                vtask {
-                    let! result = t
-                    return Ok result
-                },
+                ValueTask<_>(task = t),
                 continuation
             )
 
-        member inline this.Bind(result: Result<_, _>, f) =
-            this.Bind(ValueTask<_>(result = result), f)
+        member inline _.Bind(result: Result<_, _>, [<InlineIfLambda>]f) =
+            match result with
+            | Ok ok ->
+                f ok
+            | Error e ->
+                EffectCode<'Env, 'T, _, 'Err>(fun sm ->
+                    sm.Data.Result <- Error e
+                    true)
 
         member inline _.Using<'Resource, 'TOverall, 'T, 'Env, 'Err when 'Resource :> IDisposable>
             (
@@ -1124,7 +1082,10 @@ module Medium =
             this.Bind(task, (fun (t: 'T) -> this.Return t))
 
         member inline this.ReturnFrom(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
-            this.Bind(ValueTask<_>(result), this.Return)
+            EffectCode<'Env, 'T, _, 'Err>(fun sm ->
+                sm.Data.Result <- result
+                true)
+
 
 
         //meh

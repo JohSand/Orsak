@@ -69,6 +69,22 @@ module Helpers =
 
 module BuilderTests =
 
+
+    [<Fact>]
+    let ``Overload resolution for nested tupled results works`` () =
+        let a1 () : Result< ((_*_) *_) ,_> =
+            Ok ((1, 2), 3)
+
+        let a2 (a, b, c) =
+            eff {
+                return (a, b, c)
+            }
+        eff {
+            let! ((a, b), c) = a1()
+            return! a2 (a, b, c)
+        }
+        |> run
+
     [<Fact>]
     let ``Builder should propagate errors`` () =
         eff {
