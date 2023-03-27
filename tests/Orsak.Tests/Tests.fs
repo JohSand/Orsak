@@ -384,7 +384,50 @@ module CombinatorTests =
             let! _ = Assert.ThrowsAsync<Xunit.Sdk.EqualException>(fun () -> run effects)
             return ()
         }
+        
+    [<Fact>]
+    let changeErrorTest () =
+        eff {
+            do! Task.Yield()
+            return! Error 1
+        }
+        |> Effect.changeError string
+        |> expectError "1"
 
+    [<Fact>]
+    let changeErrorOnOkTest () =
+        eff {
+            do! Task.Yield()
+            return ()
+        }
+        |> Effect.changeError (fun (i: int) -> string i)
+        |> run
+        
+    [<Fact>]
+    let timeOutTests () =
+        eff {
+            do! Task.Delay(TimeSpan.FromSeconds 10)
+            return ()
+        }
+        |> Effect.timeout (TimeSpan.FromMicroseconds 5) "timeout"
+        |> expectError "timeout"
+        
+        
+    [<Fact>]
+    let withCancellationTests () =
+        task {
+            use cts = new CancellationTokenSource(TimeSpan.FromMicroseconds 5)
+            do!
+                eff {
+                    do! Task.Yield()
+                    while true do
+                        ()
+                    return ()
+                }
+                |> Effect.withCancellation cts.Token
+                |> run
+        }
+        
 module EffSeqTests =
     [<Fact>]
     let yieldValuesWorks () =

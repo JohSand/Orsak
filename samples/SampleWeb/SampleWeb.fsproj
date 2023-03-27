@@ -1,6 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <InformationalVersion>0.1.0-beta.28+Branch.main.Sha.de0812bbd4257b3581e40b032397d238a9bfe3a9</InformationalVersion>
+    <Version>0.1.0-beta0028</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Models.fs" />

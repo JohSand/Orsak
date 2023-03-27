@@ -1,5 +1,6 @@
 ﻿namespace Orsak
 
+open System.Threading
 open FSharp.Control
 open System.Threading.Tasks
 open System.Runtime.InteropServices
@@ -18,6 +19,8 @@ module Effect =
     /// <param name="e">The effect to run</param>
     let inline run<'r, 'a, 'e> (env: 'r) (e: Effect<'r, 'a, 'e>) = e.Run env
 
+    let inline runOrFail<'r, 'a, 'e> (env: 'r) (e: Effect<'r, 'a, 'e>) = e.RunOrFail env
+    
     /// <summary>
     /// Creates a new effect from <paramref name="a"/>.
     /// </summary>
@@ -91,13 +94,11 @@ module Effect =
     let inline retry (e: Effect<'r, 'a, 'e>) =
         onError (fun _ -> e) e
 
-    let inline retryIf cond (e: Effect<'r, 'a, 'e>) =
+    let inline retryIf ([<InlineIfLambda>]cond) (e: Effect<'r, 'a, 'e>) =
         onError (fun err -> if cond err then e else eff { return! Error err }) e
 
     let rec retryWhile cond (e: Effect<'r, 'a, 'e>) =
-        eff {
-            return! onError (fun err -> if (cond err) then retryWhile cond e else eff { return! Error err }) e
-        }
+        onError (fun err -> if (cond err) then retryWhile cond e else eff { return! Error err }) e
 
     let inline retryTimes times (e: Effect<'r, 'a, 'e>) =
         let mutable count = times
@@ -253,6 +254,7 @@ module Effect =
 
     /// <summary>
     /// Configures an effect to fail after a given amount of time, unless it has already succeeded.
+    /// The original effect still executes.
     /// </summary>
     /// <param name="ts"></param>
     /// <param name="onTimeout"></param>
@@ -262,8 +264,18 @@ module Effect =
             vtask {
                 try
                     return! eff.Run(rEnv).AsTask().WaitAsync(ts)
-                with :? TimeoutException ->
+                with :? TaskCanceledException ->
                     return Error onTimeout
+            })
+        
+    //not cooperative, but could be useful for graceful shutdown maybe
+    let withCancellation (ct: CancellationToken) (eff: Effect<_, unit,_>) =
+        mkEffect (fun rEnv ->
+            vtask {
+                try
+                    return! eff.Run(rEnv).AsTask().WaitAsync(ct)
+                with :? TaskCanceledException ->
+                    return Ok ()                
             })
 
     /// <summary>
