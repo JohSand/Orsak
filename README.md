@@ -46,7 +46,7 @@ type IButtonPusherProvider =
 type IBeanCounterProvider =
     abstract member BeanCounter: IBeanCounter
 ```
-and the following helpers[CHANGELOG.md](CHANGELOG.md)
+and the following helpers
 ```fsharp
 let pushButton () =
     Effect.Create(fun (provider: #IButtonPusherProvider) -> provider.ButtonPusher.PushButton())
@@ -56,10 +56,11 @@ let countBeans () =
 ```
 then it is possible to partially apply, or 'inject' these interfaces into your code by simply making functions calls:
 ```fsharp
-let pushAndCount<'a, 'b when 'a :> IButtonPusherProvider and 'a :> IBeanCounterProvider> () : Effect<'a,int,'b> =
+let pushAndCount<'a, 'b when 'a :> IButtonPusherProvider and 'a :> IBeanCounterProvider> ()
+    : Effect<'a, int, 'b> =
     eff {
-        do! pushButton()
-        let! beans = countBeans()[CHANGELOG.md](CHANGELOG.md)
+        do! pushButton ()
+        let! beans = countBeans ()
         return beans * 2
     }
 ```
@@ -71,7 +72,7 @@ let pushAndCount () =
         do! pushButton()
         let! beans = countBeans()
         return beans * 2
-    }[CHANGELOG.md](CHANGELOG.md)
+    }
 ```
 And adding further calls to functions with side-effects will apply the correct constraints seamlessly. 
 
