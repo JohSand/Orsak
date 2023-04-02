@@ -1,6 +1,11 @@
 ﻿name: Build and Test .NET App
 
-on: [ push ]
+on: 
+  push: 
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
