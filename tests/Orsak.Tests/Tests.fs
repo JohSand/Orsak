@@ -1,7 +1,6 @@
 namespace Orsak.Tests
 
 open Orsak
-open Orsak.Extensions
 open System.Diagnostics
 open Xunit
 open Swensen.Unquote
@@ -197,6 +196,56 @@ module BuilderTests =
         |> run
 
     [<Fact>]
+    let ``And! 3 should combine errors`` () =
+        eff {
+            let! () = eff { return! Error "1" }
+            and! () = eff { return! Error "2" }
+            and! () = eff { return! Error "3" }
+            return ()
+        }
+        |> expectError "123"
+        |> run
+
+    [<Fact>]
+    let ``And! 4 should combine errors`` () =
+        eff {
+            let! () = eff { return! Error "1" }
+            and! () = eff { return! Error "2" }
+            and! () = eff { return! Error "3" }
+            and! () = eff { return! Error "4" }
+            return ()
+        }
+        |> expectError "1234"
+        |> run
+
+    [<Fact>]
+    let ``And! 5 should combine errors`` () =
+        eff {
+            let! () = eff { return! Error "1" }
+            and! () = eff { return! Error "2" }
+            and! () = eff { return! Error "3" }
+            and! () = eff { return! Error "4" }
+            and! () = eff { return! Error "5" }
+            return ()
+        }
+        |> expectError "12345"
+        |> run
+
+    [<Fact>]
+    let ``And! 5 only should combine errors`` () =
+        eff {
+            let! () = eff { return! Error "1" }
+            and! i = eff { return 1 }
+            and! () = eff { return! Error "3" }
+            and! j = eff { return 1 }
+            and! () = eff { return! Error "5" }
+            return ()
+        }
+        |> expectError "135"
+        |> run
+
+
+    [<Fact>]
     let ``And! works with different types`` () =
         eff {
             let! i = eff { return 1 }
@@ -205,7 +254,77 @@ module BuilderTests =
             Assert.Equal(2, result)
             return ()
         }
+        |> run
 
+    [<Fact>]
+    let ``And! 3 works with different types`` () =
+        eff {
+            let! i = eff { return 1 }
+            and! j = eff { return 1m }
+            and! k = eff { return 1L }
+            let result = int64 j + int64 i + k
+            Assert.Equal(3L, result)
+            return ()
+        }
+        |> run
+
+    [<Fact>]
+    let ``And! 4 works with different types`` () =
+        eff {
+            let! i = eff { return 1 }
+            and! j = eff { return 1m }
+            and! k = eff { return 1L }
+            and! l = eff { return 1uy }
+            let result = int64 j + int64 i + k + int64 l
+            Assert.Equal(4L, result)
+            return ()
+        }
+        |> run
+
+    [<Fact>]
+    let ``And! 5 works with different types`` () =
+        eff {
+            let! i = eff { return 1 }
+            and! j = eff { return 1m }
+            and! k = eff { return 1L }
+            and! l = eff { return 1uy }
+            and! m = eff { return 1.0 }
+            let result = int64 j + int64 i + k + int64 l + int64 m
+            Assert.Equal(5L, result)
+            return ()
+        }
+        |> run
+
+
+    [<Fact>]
+    let ``And! works with 3 values`` () =
+        eff {
+            use lock1 = new SemaphoreSlim(1)
+            use lock2 = new SemaphoreSlim(2)
+            do lock1.Wait()
+            do lock2.Wait()
+
+            let! () = takeAndRelease lock1 lock2
+            and! () = waiting lock1
+            and! () = releaseAndTake lock1 lock2
+            return ()
+        }
+        |> run
+
+    [<Fact>]
+    let ``And! works with 4 values`` () =
+        eff {
+            use lock1 = new SemaphoreSlim(1)
+            use lock2 = new SemaphoreSlim(2)
+            do lock1.Wait()
+            do lock2.Wait()
+
+            let! () = takeAndRelease lock1 lock2
+            and! () = waiting lock1
+            and! () = waiting lock1
+            and! () = releaseAndTake lock1 lock2
+            return ()
+        }
         |> run
 
     [<Fact>]

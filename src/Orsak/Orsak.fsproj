@@ -27,7 +27,6 @@
   <ItemGroup>
     <Compile Include="ValueTaskBuilder.fs" />
     <Compile Include="EffectBuilder.fs" />
-    <Compile Include="EffectBuilderExt.fs" />
     <Compile Include="Effect.fs" />
     <Compile Include="EffSeq.fs" />
   </ItemGroup>

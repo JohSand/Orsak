@@ -1,7 +1,6 @@
 ﻿module Orsak.Tests.RecoveryTests
 
 open Orsak
-open Orsak.Extensions
 open System.Diagnostics
 open Xunit
 open Swensen.Unquote
