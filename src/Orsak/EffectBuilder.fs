@@ -79,6 +79,55 @@ type EffBuilderBase() =
     static member inline GetResumptionFunc(sm: byref<ResumableStateMachine<'Data>>) =
         sm.ResumptionDynamicInfo.ResumptionFunc
 
+    member inline _.Delay
+        (generator: unit -> EffectCode<'Env, 'TOverall, 'T, 'Err>)
+        : EffectCode<'Env, 'TOverall, 'T, 'Err> =
+        EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm -> (generator ()).Invoke(&sm))
+
+    [<DefaultValue>]
+    member inline _.Zero() : EffectCode<'Env, 'TOverall, unit, 'Err> = ResumableCode.Zero()
+
+    static member CombineDynamic
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<_,_,_>>>,
+            code1: EffectCode<_, 'TOverall, unit, 'Err>,
+            code2: EffectCode<_, 'TOverall, 'T, 'Err>
+        ) : bool =
+        if code1.Invoke(&sm) then
+            code2.Invoke(&sm)
+        else
+            let rec resume (mf: ResumptionFunc<EffectStateMachineData<_,_,_>>) =
+                ResumptionFunc<EffectStateMachineData<_,_,_>>(fun sm ->
+                    if mf.Invoke(&sm) then
+                        match sm.Data.Result with
+                        | Ok _ -> code2.Invoke(&sm)
+                        | Error _ -> true
+                    else
+                        sm.ResumptionDynamicInfo.ResumptionFunc <- (resume (EffBuilderBase.GetResumptionFunc &sm))
+                        false)
+
+            sm.ResumptionDynamicInfo.ResumptionFunc <- (resume (EffBuilderBase.GetResumptionFunc &sm))
+            false
+
+    member inline _.Combine
+        (
+            task1: EffectCode<_, 'TOverall, unit, 'Err>,
+            task2: EffectCode<_, 'TOverall, 'T, 'Err>
+        ) : EffectCode<_, 'TOverall, 'T, 'Err> =
+        ResumableCode(fun sm ->
+            if __useResumableCode then
+                let __stack_fin = task1.Invoke(&sm)
+
+                if __stack_fin then
+                    match sm.Data.Result with
+                    | Ok _ -> task2.Invoke(&sm)
+                    | Error _ -> true
+
+                else
+                    false
+            else
+                EffBuilderBase.CombineDynamic(&sm, task1, task2))
+    
     static member WhileDynamic
         (
             sm: byref<EffectStateMachine<'Env, 'TOverall, 'Err>>,
@@ -117,35 +166,6 @@ type EffBuilderBase() =
 
             false
 
-    member inline _.Delay
-        (generator: unit -> EffectCode<'Env, 'TOverall, 'T, 'Err>)
-        : EffectCode<'Env, 'TOverall, 'T, 'Err> =
-        EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm -> (generator ()).Invoke(&sm))
-
-
-    [<DefaultValue>]
-    member inline _.Zero() : EffectCode<'Env, 'TOverall, unit, 'Err> = ResumableCode.Zero()
-
-    member inline _.Combine
-        (
-            task1: EffectCode<_, 'TOverall, unit, 'Err>,
-            task2: EffectCode<_, 'TOverall, 'T, 'Err>
-        ) : EffectCode<_, 'TOverall, 'T, 'Err> =
-        ResumableCode(fun sm ->
-            if __useResumableCode then
-                let __stack_fin = task1.Invoke(&sm)
-
-                if __stack_fin then
-                    match sm.Data.Result with
-                    | Ok _ -> task2.Invoke(&sm)
-                    | Error _ -> true
-
-                else
-                    false
-            else
-                //todo stock CombineDynamic does not propagate error on first task1
-                ResumableCode.CombineDynamic(&sm, task1, task2))
-
     member inline _.While
         (
             [<InlineIfLambda>] condition: unit -> bool,
@@ -153,18 +173,13 @@ type EffBuilderBase() =
         ) : EffectCode<'Env, 'TOverall, unit, 'Err> =
         EffectCode<'Env, 'TOverall, unit, 'Err>(fun sm ->
             if __useResumableCode then
-                //-- RESUMABLE CODE START
                 let mutable __stack_go = true
                 let mutable cc = true
 
                 while __stack_go && condition () && cc do
-                    // NOTE: The body of the state machine code for 'while' may contain await points, so resuming
-                    // the code will branch directly into the expanded 'body', branching directly into the while loop
                     let __stack_body_fin = body.Invoke(&sm)
 
                     if __stack_body_fin then
-                        // If the body completed, we go back around the loop (__stack_go = true)
-                        // If the body yielded, we yield (__stack_go = false)
                         __stack_go <- __stack_body_fin
 
                         match sm.Data.Result with
@@ -173,15 +188,10 @@ type EffBuilderBase() =
                     else
                         __stack_go <- false
 
-
                 __stack_go
-            //-- RESUMABLE CODE END
             else
                 EffBuilderBase.WhileDynamic(&sm, condition, body))
 
-
-    /// Wraps a step in a try/with. This catches exceptions both in the evaluation of the function
-    /// to retrieve the step, and in the continuation of the step (if any).
     member inline _.TryWith
         (
             body: EffectCode<_, 'TOverall, 'T, _>,
@@ -189,8 +199,6 @@ type EffBuilderBase() =
         ) : EffectCode<_, 'TOverall, 'T, _> =
         ResumableCode.TryWith(body, catch)
 
-    /// Wraps a step in a try/finally. This catches exceptions both in the evaluation of the function
-    /// to retrieve the step, and in the continuation of the step (if any).
     member inline _.TryFinally
         (
             body: EffectCode<_, 'TOverall, 'T, _>,
@@ -256,12 +264,14 @@ type EffBuilderBase() =
                     ValueTask())
         )
 
-
     member inline _.Return(value: 'T) : EffectCode<'Env, 'T, 'T, 'Err> =
         EffectCode<'Env, 'T, _, 'Err>(fun sm ->
             sm.Data.Result <- Ok value
             true)
 
+    //--------------------------------------------------------------------
+    // Errors and recovery
+    //--------------------------------------------------------------------
     static member inline RecoverDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err>
         (
             sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TResult, 'Err>>>,
@@ -321,7 +331,6 @@ type EffBuilderBase() =
                     false
             else
                 EffBuilderBase.RecoverDynamic(&sm, task, continuation))
-
 
     static member inline ChangeErrorDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err1, 'Err2>
         (
@@ -383,109 +392,6 @@ type EffBuilderBase() =
             else
                 EffBuilderBase.ChangeErrorDynamic(&sm, task, f))
 
-    static member inline ZipDynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err
-        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
-        (
-            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>>,
-            task1: ValueTask<Result<'TResult1, 'Err>>,
-            task2: ValueTask<Result<'TResult2, 'Err>>,
-            f
-        ) : bool =
-        let mutable awaiter1 = task1.GetAwaiter()
-        let mutable awaiter2 = task2.GetAwaiter()
-
-        let cont =
-            (EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
-                let cont =
-                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
-                        let result = awaiter1.GetResult()
-                        let result2 = awaiter2.GetResult()
-
-                        match result, result2 with
-                        | Ok result, Ok result2 ->
-                            sm.Data.Result <- Ok(f struct (result, result2))
-                            true
-                        | Error error, Ok _ ->
-                            sm.Data.Result <- Error error
-                            true
-                        | Ok _, Error result ->
-                            sm.Data.Result <- Error result
-                            true
-                        | Error error, Error result ->
-                            sm.Data.Result <- Error(error + result)
-                            true)
-
-                if awaiter2.IsCompleted then
-                    cont.Invoke(&sm)
-                else
-                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
-                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
-                    false))
-
-        if awaiter1.IsCompleted then
-            cont.Invoke(&sm)
-        else
-            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
-            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
-            false
-
-
-    member inline _.Zip<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err
-        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
-        (
-            eff: Effect<'Env, 'TResult1, 'Err>,
-            eff2: Effect<'Env, 'TResult2, 'Err>,
-            f
-        ) : EffectCode<'Env, _, 'T, 'Err> =
-        EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
-            let task = eff.Run sm.Data.Environment
-            let task2 = eff2.Run sm.Data.Environment
-
-            if __useResumableCode then
-                //-- RESUMABLE CODE START
-                // Get an awaiter from the task
-                let mutable awaiter = task.GetAwaiter()
-
-                let mutable __stack_fin = true
-
-                if not awaiter.IsCompleted then
-                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
-                    __stack_fin <- __stack_yield_fin
-
-                if __stack_fin then
-                    let mutable awaiter2 = task2.GetAwaiter()
-
-                    if not awaiter2.IsCompleted then
-                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
-                        __stack_fin <- __stack_yield_fin
-
-                    if __stack_fin then
-                        let result = awaiter.GetResult()
-                        let result2 = awaiter2.GetResult()
-
-                        match result, result2 with
-                        | Ok result, Ok result2 ->
-                            sm.Data.Result <- Ok(f struct (result, result2))
-                            true
-                        | Error error, Ok _ ->
-                            sm.Data.Result <- Error error
-                            true
-                        | Ok _, Error result ->
-                            sm.Data.Result <- Error result
-                            true
-                        | Error error, Error result ->
-                            sm.Data.Result <- Error(error + result)
-                            true
-                    else
-                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
-                        false
-                else
-                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
-                    false
-            else
-                EffBuilderBase.ZipDynamic(&sm, task, task2, f))
-
-
     static member inline TryRecoverDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err>
         (
             sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TResult, 'Err>>>,
@@ -522,15 +428,11 @@ type EffBuilderBase() =
             let task = eff.Run sm.Data.Environment
 
             if __useResumableCode then
-                //-- RESUMABLE CODE START
-                // Get an awaiter from the task
                 let mutable awaiter = task.GetAwaiter()
 
                 let mutable __stack_fin = true
 
                 if not awaiter.IsCompleted then
-                    // This will yield with __stack_yield_fin = false
-                    // This will resume with __stack_yield_fin = true
                     let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                     __stack_fin <- __stack_yield_fin
 
@@ -599,15 +501,11 @@ type EffBuilderBase() =
             let task1 = eff.Run sm.Data.Environment
 
             if __useResumableCode then
-                //-- RESUMABLE CODE START
-                // Get an awaiter from the task
                 let mutable awaiter = task1.GetAwaiter()
 
                 let mutable __stack_fin = true
 
                 if not awaiter.IsCompleted then
-                    // This will yield with __stack_yield_fin = false
-                    // This will resume with __stack_yield_fin = true
                     let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                     __stack_fin <- __stack_yield_fin
 
@@ -643,6 +541,151 @@ type EffBuilderBase() =
                 EffBuilderBase.TryRecoverDynamic(&sm, task1, continuation))
 
 
+    //--------------------------------------------------------------------------
+    // Zips and merges
+    //--------------------------------------------------------------------------
+    static member inline ZipDynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>>,
+            task1: ValueTask<Result<'TResult1, 'Err>>,
+            task2: ValueTask<Result<'TResult2, 'Err>>,
+            f
+        ) : bool =
+        let mutable awaiter1 = task1.GetAwaiter()
+        let mutable awaiter2 = task2.GetAwaiter()
+
+        let cont =
+            (EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                let cont =
+                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                        let result = awaiter1.GetResult()
+                        let result2 = awaiter2.GetResult()
+
+                        match result, result2 with
+                        | Ok result, Ok result2 ->
+                            sm.Data.Result <- Ok(f struct (result, result2))
+                            true
+                        | Error error, Ok _ ->
+                            sm.Data.Result <- Error error
+                            true
+                        | Ok _, Error result ->
+                            sm.Data.Result <- Error result
+                            true
+                        | Error error, Error result ->
+                            sm.Data.Result <- Error(error + result)
+                            true)
+
+                if awaiter2.IsCompleted then
+                    cont.Invoke(&sm)
+                else
+                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                    false))
+
+        if awaiter1.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+            false
+
+
+    member inline _.Zip<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            eff: Effect<'Env, 'TResult1, 'Err>,
+            eff2: Effect<'Env, 'TResult2, 'Err>,
+            f
+        ) : EffectCode<'Env, _, 'T, 'Err> =
+        EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
+            let task = eff.Run sm.Data.Environment
+            let task2 = eff2.Run sm.Data.Environment
+
+            if __useResumableCode then
+                let mutable awaiter = task.GetAwaiter()
+
+                let mutable __stack_fin = true
+
+                if not awaiter.IsCompleted then
+                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                    __stack_fin <- __stack_yield_fin
+
+                if __stack_fin then
+                    let mutable awaiter2 = task2.GetAwaiter()
+
+                    if not awaiter2.IsCompleted then
+                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                        __stack_fin <- __stack_yield_fin
+
+                    if __stack_fin then
+                        let result = awaiter.GetResult()
+                        let result2 = awaiter2.GetResult()
+
+                        match result, result2 with
+                        | Ok result, Ok result2 ->
+                            sm.Data.Result <- Ok(f struct (result, result2))
+                            true
+                        | Error error, Ok _ ->
+                            sm.Data.Result <- Error error
+                            true
+                        | Ok _, Error result ->
+                            sm.Data.Result <- Error result
+                            true
+                        | Error error, Error result ->
+                            sm.Data.Result <- Error(error + result)
+                            true
+                    else
+                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
+                        false
+                else
+                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                    false
+            else
+                EffBuilderBase.ZipDynamic(&sm, task, task2, f))
+
+    static member inline ZipDynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>>,
+            task1: ValueTask<Result<'TResult1, 'Err>>,
+            task2: ValueTask<Result<'TResult2, 'Err>>,
+            task3: ValueTask<Result<'TResult2, 'Err>>,
+            _f
+        ) : bool =
+        let mutable awaiter1 = task1.GetAwaiter()
+
+        let cont =
+            EffectResumptionFunc<_, _, _>(fun sm ->
+                let mutable awaiter2 = task2.GetAwaiter()
+
+                let cont =
+                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                        let mutable awaiter3 = task3.GetAwaiter()
+                        let cont = EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm -> failwith "")
+
+                        if awaiter3.IsCompleted then
+                            cont.Invoke(&sm)
+                        else
+                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
+                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                            false)
+
+                if awaiter2.IsCompleted then
+                    cont.Invoke(&sm)
+                else
+                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                    false)
+
+        if awaiter1.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+
+            false
+
     member inline this.Bind2Return(m1: Effect<'Env, 'a, 'Err>, m2: Effect<'Env, 'b, 'Err>, [<InlineIfLambda>] f) =
         this.Zip(m1, m2, f)
 
@@ -652,12 +695,6 @@ type EffBuilderBase() =
 type EffBuilder() =
     inherit EffBuilderBase()
 
-    // This is the dynamic implementation - this is not used
-    // for statically compiled tasks.  An executor (resumptionFuncExecutor) is
-    // registered with the state machine, plus the initial resumption.
-    // The executor stays constant throughout the execution, it wraps each step
-    // of the execution in a try/with.  The resumption is changed at each step
-    // to represent the continuation of the computation.
     static member inline RunDynamic(code: EffectCode<'Env, 'T, 'T, 'Err>) : Effect<'Env, 'T, 'Err> =
 
         let mutable sm = EffectStateMachine<'Env, 'T, 'Err>()
@@ -708,7 +745,6 @@ type EffBuilder() =
         if __useResumableCode then
             __stateMachine<EffectStateMachineData<'Env, 'T, 'Err>, Effect<'Env, 'T, 'Err>>
                 (MoveNextMethodImpl<_>(fun sm ->
-                    //-- RESUMABLE CODE START
                     __resumeAt sm.ResumptionPoint
                     let mutable __stack_exn: Exception = null
 
@@ -750,7 +786,6 @@ module Builder =
 module LowPriority =
     type EffBuilderBase with
 
-        (*  Not sure I want *)
         [<NoEagerConstraintApplication>]
         static member inline BindDynamic< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
             when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
@@ -791,15 +826,11 @@ module LowPriority =
 
             EffectCode<'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
                 if __useResumableCode then
-                    //-- RESUMABLE CODE START
-                    // Get an awaiter from the awaitable
                     let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) task)
 
                     let mutable __stack_fin = true
 
                     if not (^Awaiter: (member get_IsCompleted: unit -> bool) awaiter) then
-                        // This will yield with __stack_yield_fin = false
-                        // This will resume with __stack_yield_fin = true
                         let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                         __stack_fin <- __stack_yield_fin
 
@@ -811,7 +842,6 @@ module LowPriority =
                         false
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation)
-            //-- RESUMABLE CODE END
             )
 
 /// <exclude/>
@@ -882,15 +912,11 @@ module Medium =
                 let task = eff.Run sm.Data.Environment
 
                 if __useResumableCode then
-                    //-- RESUMABLE CODE START
-                    // Get an awaiter from the task
                     let mutable awaiter = task.GetAwaiter()
 
                     let mutable __stack_fin = true
 
                     if not awaiter.IsCompleted then
-                        // This will yield with __stack_yield_fin = false
-                        // This will resume with __stack_yield_fin = true
                         let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                         __stack_fin <- __stack_yield_fin
 
@@ -907,7 +933,6 @@ module Medium =
                         false
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation)
-            //-- RESUMABLE CODE END
             )
 
         member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
@@ -917,15 +942,11 @@ module Medium =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
                 if __useResumableCode then
-                    //-- RESUMABLE CODE START
-                    // Get an awaiter from the task
                     let mutable awaiter = task.GetAwaiter()
 
                     let mutable __stack_fin = true
 
                     if not awaiter.IsCompleted then
-                        // This will yield with __stack_yield_fin = false
-                        // This will resume with __stack_yield_fin = true
                         let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                         __stack_fin <- __stack_yield_fin
 
@@ -938,7 +959,6 @@ module Medium =
                         false
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation)
-            //-- RESUMABLE CODE END
             )
 
         member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
@@ -956,6 +976,14 @@ module Medium =
                     sm.Data.Result <- Error e
                     true)
 
+        member inline this.ReturnFrom(task: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
+            this.Bind(task, (fun (t: 'T) -> this.Return t))
+
+        member inline this.ReturnFrom(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
+            EffectCode<'Env, 'T, _, 'Err>(fun sm ->
+                sm.Data.Result <- result
+                true)
+
         member inline _.Using<'Resource, 'TOverall, 'T, 'Env, 'Err when 'Resource :> IDisposable>
             (
                 resource: 'Resource,
@@ -963,6 +991,9 @@ module Medium =
             ) =
             ResumableCode.Using(resource, body)
 
+        //-------------------------------------------------------------------------------
+        // Extra for and while
+        //-------------------------------------------------------------------------------
         member inline this.For(s: IAsyncEnumerable<'a>, [<InlineIfLambda>] f1) =
             this.Delay(fun () ->
                 this.Using(
@@ -1089,55 +1120,10 @@ module Medium =
                     fn g
                 ))
 
-        member inline this.ReturnFrom(task: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
-            this.Bind(task, (fun (t: 'T) -> this.Return t))
-
-        member inline this.ReturnFrom(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
-            EffectCode<'Env, 'T, _, 'Err>(fun sm ->
-                sm.Data.Result <- result
-                true)
 
 
-        static member inline ZipDynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err
-            when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
-            (
-                sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>>,
-                task1: ValueTask<Result<'TResult1, 'Err>>,
-                task2: ValueTask<Result<'TResult2, 'Err>>,
-                task3: ValueTask<Result<'TResult2, 'Err>>,
-                _f
-            ) : bool =
-            let mutable awaiter1 = task1.GetAwaiter()
 
-            let cont =
-                EffectResumptionFunc<_, _, _>(fun sm ->
-                    let mutable awaiter2 = task2.GetAwaiter()
 
-                    let cont =
-                        EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
-                            let mutable awaiter3 = task3.GetAwaiter()
-                            let cont = EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm -> failwith "")
-
-                            if awaiter3.IsCompleted then
-                                cont.Invoke(&sm)
-                            else
-                                sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
-                                sm.ResumptionDynamicInfo.ResumptionFunc <- cont
-                                false)
-
-                    if awaiter2.IsCompleted then
-                        cont.Invoke(&sm)
-                    else
-                        sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
-                        sm.ResumptionDynamicInfo.ResumptionFunc <- cont
-                        false)
-
-            if awaiter1.IsCompleted then
-                cont.Invoke(&sm)
-            else
-                sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
-                sm.ResumptionDynamicInfo.ResumptionFunc <- cont
-                false
 
 
 
