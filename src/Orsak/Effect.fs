@@ -20,7 +20,7 @@ module Effect =
     let inline run<'r, 'a, 'e> (env: 'r) (e: Effect<'r, 'a, 'e>) = e.Run env
 
     let inline runOrFail<'r, 'a, 'e> (env: 'r) (e: Effect<'r, 'a, 'e>) = e.RunOrFail env
-    
+
     /// <summary>
     /// Creates a new effect from <paramref name="a"/>.
     /// </summary>
@@ -222,11 +222,10 @@ module Effect =
                                 | Error e -> Error e
                             | Error e -> Error e)
                         results
+
                 match a with
-                | Ok _ ->
-                    return Ok ()
-                | Error e ->
-                    return Error e
+                | Ok _ -> return Ok()
+                | Error e -> return Error e
             })
 
 
@@ -267,15 +266,15 @@ module Effect =
                 with :? TaskCanceledException ->
                     return Error onTimeout
             })
-        
+
     //not cooperative, but could be useful for graceful shutdown maybe
-    let withCancellation (ct: CancellationToken) (eff: Effect<_, unit,_>) =
+    let withCancellation (ct: CancellationToken) (eff: Effect<_, unit, _>) =
         mkEffect (fun rEnv ->
             vtask {
                 try
                     return! eff.Run(rEnv).AsTask().WaitAsync(ct)
                 with :? TaskCanceledException ->
-                    return Ok ()                
+                    return Ok()
             })
 
     /// <summary>

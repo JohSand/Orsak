@@ -24,7 +24,8 @@ The builder also has various overloads for ``Bind``, allowing for friction free 
 It supports ``for``, ``while``, ``use``, ``try-with`` and ``try-finally``, and also applicative bind when the error-type supports ``+``.
 While the computation expression is the intended way of working with effects, the corresponding module should contain all the expected functions.
 
-[![NuGet Badge](https://img.shields.io/nuget/v/Orsak.svg?style=flat)](https://www.nuget.org/packages/Orsak)
+[![NuGet Badge](https://img.shields.io/nuget/v/Orsak.svg?style=flat)](https://www.nuget.org/packages/Orsak) 
+[![Build & Tests](https://github.com/JohSand/Orsak/actions/workflows/github-actions.yml/badge.svg)](https://github.com/JohSand/Orsak/actions/workflows/github-actions.yml?query=branch%3Amain)
 
 
 ### Show me the code

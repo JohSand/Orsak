@@ -1,9 +1,11 @@
-﻿name: Build and Test .NET App
+﻿name: Build and Test
 
 on: 
   push: 
     paths-ignore:
       - 'docs/**'
+      - 'samples/**'
+      - 'experiments/**'
       - 'README.md'
       - 'CHANGELOG.md'
 jobs:

@@ -15,10 +15,7 @@ module Helpers =
 
     let waiting (ss: SemaphoreSlim) =
         eff {
-            do!
-                ss
-                    .WaitAsync()
-                    .WaitAsync(TimeSpan.FromMilliseconds 1000)
+            do! ss.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             try
                 return ()
@@ -28,10 +25,7 @@ module Helpers =
 
     let takeAndRelease (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) =
         eff {
-            do!
-                ss1
-                    .WaitAsync()
-                    .WaitAsync(TimeSpan.FromMilliseconds 1000)
+            do! ss1.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             ss2.Release 1 |> ignore
 
@@ -45,10 +39,7 @@ module Helpers =
         eff {
             ss1.Release 1 |> ignore
 
-            do!
-                ss2
-                    .WaitAsync()
-                    .WaitAsync(TimeSpan.FromMilliseconds 1000)
+            do! ss2.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
             try
                 return ()
@@ -72,15 +63,12 @@ module BuilderTests =
 
     [<Fact>]
     let ``Overload resolution for nested tupled results works`` () =
-        let a1 () : Result< ((_*_) *_) ,_> =
-            Ok ((1, 2), 3)
+        let a1 () : Result<((_ * _) * _), _> = Ok((1, 2), 3)
 
-        let a2 (a, b, c) =
-            eff {
-                return (a, b, c)
-            }
+        let a2 (a, b, c) = eff { return (a, b, c) }
+
         eff {
-            let! ((a, b), c) = a1()
+            let! ((a, b), c) = a1 ()
             return! a2 (a, b, c)
         }
         |> run
@@ -151,6 +139,29 @@ module BuilderTests =
         }
 
     [<Fact>]
+    let ``Builder should support while with ValueTask<bool>`` () =
+        eff {
+            let chan = Channel.CreateBounded(5)
+
+            for i in 1..5 do
+                chan.Writer.TryWrite i |> ignore
+
+            let mutable i = 0
+
+            while chan.Reader.WaitToReadAsync() do
+                let mutable j = 0
+
+                while chan.Reader.TryRead &j do
+                    i <- i + j
+
+                chan.Writer.Complete()
+
+            return i =! 15
+        }
+        |> run
+
+
+    [<Fact>]
     let ``Builder should support and! in an asynchronous fashion`` () =
         eff {
             use lock1 = new SemaphoreSlim(1)
@@ -199,8 +210,7 @@ module BuilderTests =
 
     [<Fact>]
     let ``And! works with 5 values`` () =
-        run
-        <| eff {
+        eff {
             use lock1 = new SemaphoreSlim(1)
             use lock2 = new SemaphoreSlim(2)
             do lock1.Wait()
@@ -213,21 +223,21 @@ module BuilderTests =
             and! () = releaseAndTake lock1 lock2
             return ()
         }
+        |> run
 
     [<Fact>]
     let ``Builder should support asyncdisposable`` () =
-        run
-        <| eff {
+        eff {
             let p = System.IO.Path.Combine(Environment.CurrentDirectory, "Orsak.xml")
             use f = System.IO.File.Open(p, System.IO.FileMode.Open)
             let e = f.ReadByte()
             return e >! 0
         }
+        |> run
 
     [<Fact>]
     let ``Builder should support tryfinally`` () =
-        run
-        <| eff {
+        eff {
             let p = System.IO.Path.Combine(Environment.CurrentDirectory, "Orsak.xml")
             let f = System.IO.File.Open(p, System.IO.FileMode.Open)
 
@@ -238,6 +248,7 @@ module BuilderTests =
             finally
                 (f :> IDisposable).Dispose()
         }
+        |> run
 
     let private functionThatThrows () =
         task {
@@ -249,18 +260,17 @@ module BuilderTests =
 
     [<Fact>]
     let ``Builder should support trywith`` () =
-        run
-        <| eff {
+        eff {
             try
                 do! functionThatThrows ()
                 return ()
-            with
-            | e ->
+            with e ->
                 let d = e.Demystify()
                 let _trace = e.StackTrace
                 let _trace2 = d.StackTrace
                 return ()
         }
+        |> run
 
 
     [<Fact>]
@@ -318,26 +328,29 @@ module CombinatorTests =
         do lock1.Wait()
         do lock2.Wait()
 
-        [| yield takeAndRelease lock1 lock2
-           for _ in 1..5 do
-               yield waiting lock1
+        [|
+            yield takeAndRelease lock1 lock2
+            for _ in 1..5 do
+                yield waiting lock1
 
-           yield releaseAndTake lock1 lock2 |]
+            yield releaseAndTake lock1 lock2
+        |]
 
     ///Setup so that the effect must be run sequencially
-    let sequenceTest (lock1: SemaphoreSlim) =
-        [| for _ in 1..5 do
-               eff {
-                   Assert.Equal(2, lock1.CurrentCount)
-                   do! lock1.WaitAsync()
+    let sequenceTest (lock1: SemaphoreSlim) = [|
+        for _ in 1..5 do
+            eff {
+                Assert.Equal(2, lock1.CurrentCount)
+                do! lock1.WaitAsync()
 
-                   try
-                       do! Task.Delay(10)
-                   finally
-                       lock1.Release(1) |> ignore
+                try
+                    do! Task.Delay(10)
+                finally
+                    lock1.Release(1) |> ignore
 
-                   Assert.Equal(2, lock1.CurrentCount)
-               } |]
+                Assert.Equal(2, lock1.CurrentCount)
+            }
+    |]
 
     [<Fact>]
     let parCombinatorTest () =
@@ -345,11 +358,7 @@ module CombinatorTests =
             use lock1 = new SemaphoreSlim(1)
             use lock2 = new SemaphoreSlim(2)
 
-            do!
-                parTest lock1 lock2
-                |> Effect.par
-                |> Effect.map ignore
-                |> run
+            do! parTest lock1 lock2 |> Effect.par |> Effect.map ignore |> run
         }
 
     [<Fact>]
@@ -368,11 +377,7 @@ module CombinatorTests =
         task {
             use lock1 = new SemaphoreSlim(2)
 
-            do!
-                sequenceTest lock1
-                |> Effect.sequence
-                |> Effect.map ignore
-                |> run
+            do! sequenceTest lock1 |> Effect.sequence |> Effect.map ignore |> run
         }
 
     [<Fact>]
@@ -384,7 +389,7 @@ module CombinatorTests =
             let! _ = Assert.ThrowsAsync<Xunit.Sdk.EqualException>(fun () -> run effects)
             return ()
         }
-        
+
     [<Fact>]
     let changeErrorTest () =
         eff {
@@ -402,7 +407,7 @@ module CombinatorTests =
         }
         |> Effect.changeError (fun (i: int) -> string i)
         |> run
-        
+
     [<Fact>]
     let timeOutTests () =
         eff {
@@ -411,23 +416,26 @@ module CombinatorTests =
         }
         |> Effect.timeout (TimeSpan.FromMicroseconds 5) "timeout"
         |> expectError "timeout"
-        
-        
+
+
     [<Fact>]
     let withCancellationTests () =
         task {
             use cts = new CancellationTokenSource(TimeSpan.FromMicroseconds 5)
+
             do!
                 eff {
                     do! Task.Yield()
+
                     while true do
                         ()
+
                     return ()
                 }
                 |> Effect.withCancellation cts.Token
                 |> run
         }
-        
+
 module EffSeqTests =
     [<Fact>]
     let yieldValuesWorks () =

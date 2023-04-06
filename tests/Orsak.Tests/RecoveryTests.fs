@@ -24,10 +24,7 @@ let createFailingEffect timesToFail =
 [<Fact>]
 let ``the effect is executed again on retry`` () =
     task {
-        let! result =
-            createFailingEffect 1
-            |> Effect.retry
-            |> Effect.run ()
+        let! result = createFailingEffect 1 |> Effect.retry |> Effect.run ()
 
         Ok() =! result
     }
@@ -35,10 +32,7 @@ let ``the effect is executed again on retry`` () =
 [<Fact>]
 let ``the effect is only executed once again on retry`` () =
     task {
-        let! result =
-            createFailingEffect 2
-            |> Effect.retry
-            |> Effect.run ()
+        let! result = createFailingEffect 2 |> Effect.retry |> Effect.run ()
 
         Error "This is error nr 2 out of 2" =! result
     }
@@ -46,21 +40,15 @@ let ``the effect is only executed once again on retry`` () =
 [<Fact>]
 let ``the effect is executed up to the requested time on retryTimes`` () =
     task {
-        let! result =
-            createFailingEffect 2
-            |> Effect.retryTimes 3
-            |> Effect.run ()
+        let! result = createFailingEffect 2 |> Effect.retryTimes 3 |> Effect.run ()
 
-        result =! Ok ()
+        result =! Ok()
     }
 
 [<Fact>]
 let ``the effect is executed only up to the requested time on retryTimes`` () =
     task {
-        let! result =
-            createFailingEffect 4
-            |> Effect.retryTimes 3
-            |> Effect.run ()
+        let! result = createFailingEffect 4 |> Effect.retryTimes 3 |> Effect.run ()
 
         result =! Error "This is error nr 4 out of 4"
     }
@@ -70,10 +58,7 @@ let ``the effect is executed again on if cond is matched on retryIf`` () =
     let cond s = s = "This is error nr 1 out of 1"
 
     task {
-        let! result =
-            createFailingEffect 1
-            |> Effect.retryIf cond
-            |> Effect.run ()
+        let! result = createFailingEffect 1 |> Effect.retryIf cond |> Effect.run ()
 
         result =! Ok()
     }
