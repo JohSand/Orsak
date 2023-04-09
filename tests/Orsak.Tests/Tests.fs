@@ -441,8 +441,8 @@ module BuilderTests =
         |> run
 
 module CombinatorTests =
-    ///Setup so that sequencial execution hangs, will fail with timeout
-    ///Parrallel execution will make progress
+    ///Setup so that sequential execution hangs, will fail with timeout
+    ///Parallel execution will make progress
     let parTest (lock1: SemaphoreSlim) (lock2: SemaphoreSlim) =
         do lock1.Wait()
         do lock2.Wait()
@@ -455,7 +455,7 @@ module CombinatorTests =
             yield releaseAndTake lock1 lock2
         |]
 
-    ///Setup so that the effect must be run sequencially
+    ///Setup so that the effect must be run sequentially
     let sequenceTest (lock1: SemaphoreSlim) = [|
         for _ in 1..5 do
             eff {
@@ -558,7 +558,7 @@ module CombinatorTests =
 module EffSeqTests =
     [<Fact>]
     let yieldValuesWorks () =
-        effSeq {
+        effList {
             1
             2
         }
@@ -580,7 +580,7 @@ module EffSeqTests =
                 return i
             }
 
-        effSeq {
+        effList {
             let! i = incrementer ()
             i
             let! j = incrementer ()

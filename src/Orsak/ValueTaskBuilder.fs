@@ -10,6 +10,7 @@
 // To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring rights
 // to this software to the public domain worldwide. This software is distributed without any warranty.
 
+//remove once this becomes part of fsharp proper.
 namespace FSharp.Control
 
 #nowarn "57"
@@ -313,6 +314,37 @@ module LowPriority =
             //-- RESUMABLE CODE END
             )
 
+        member inline this.For
+            (
+                sequence: System.Collections.Generic.IAsyncEnumerable<'T>,
+                body: 'T -> ValueTaskCode<'TOverall, unit>
+            ) : ValueTaskCode<'TOverall, unit> =
+            this.Delay(fun () ->
+                this.Using(
+                    sequence.GetAsyncEnumerator(),
+                    fun enum ->
+                        let mutable cont = false
+
+                        this.Bind(
+                            enum.MoveNextAsync(),
+                            fun b ->
+                                cont <- b
+
+                                this.While(
+                                    (fun () -> cont),
+                                    this.Combine(
+                                        body enum.Current,
+                                        this.Bind(
+                                            enum.MoveNextAsync(),
+                                            fun b ->
+                                                cont <- b
+                                                this.Zero()
+                                        )
+                                    )
+                                )
+                        )
+                ))
+
         [<NoEagerConstraintApplication>]
         member inline this.ReturnFrom< ^TaskLike, ^Awaiter, 'T
             when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
@@ -322,7 +354,7 @@ module LowPriority =
             (task: ^TaskLike)
             : ValueTaskCode<'T, 'T> =
 
-            this.Bind(task, (fun v -> this.Return v))
+            this.Bind(task, this.Return)
 
         member inline _.Using<'Resource, 'TOverall, 'T when 'Resource :> IDisposable>
             (
