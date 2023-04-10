@@ -343,7 +343,7 @@ type Effect =
     ///         Orsak.Effect.Create(fun (e: #MyEffectProvider) -> e.Effect.DoEffect(x))
     ///   </code>
     /// </example>
-    static member Create(f: 'a -> Task<'b>, [<Optional>] _medium: byte) : Effect<'a, 'b, _> =
+    static member Create(f: 'a -> Task<'b>) : Effect<'a, 'b, _> =
         mkEffect (fun a ->
             vtask {
                 let! b = f a
@@ -353,9 +353,16 @@ type Effect =
     /// <summary>
     /// Creates an effect from a function.
     /// </summary>
-    static member Create(f: 'a -> ValueTask<'b>, [<Optional>] _medium: byte) : Effect<'a, 'b, _> =
+    static member Create(f: 'a -> ValueTask<'b>) : Effect<'a, 'b, _> =
         mkEffect (fun a ->
             vtask {
                 let! b = f a
                 return Ok b
             })
+
+    /// <summary>
+    /// Creates an effect from a function returning Result.
+    /// </summary>
+    static member Create(f: 'a -> Result<'b, 'e>) : Effect<'a, 'b, 'e> =
+        mkEffect (f >> ValueTask.FromResult)
+
