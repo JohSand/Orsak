@@ -619,3 +619,27 @@ module Laws =
         let m = Effect.ret 1
         let g a = Effect.Create(fun () -> a + 2)
         ((m >>= g) >>= h) === (m >>= (fun x -> g x >>= h))
+
+
+module CreationTests =
+    open FSharp.Control
+
+    [<Fact>]
+    let ``Has working overload for Task<Result<_,_>>`` () =
+        Effect.Create(fun () -> task { return Ok ()}).RunOrFail()
+
+    [<Fact>]
+    let ``Has working overload for Task<_>`` () =
+        Effect.Create(fun () -> task { return ()}).RunOrFail()
+
+    [<Fact>]
+    let ``Has working overload for ValueTask<Result<_,_>>`` () =
+        Effect.Create(fun () -> vtask { return Ok ()}).RunOrFail()
+
+    [<Fact>]
+    let ``Has working overload for ValueTask<_>`` () =
+        Effect.Create(fun () -> vtask { return ()}).RunOrFail()
+
+    [<Fact>]
+    let ``Has working overload for 'a`` () =
+        Effect.Create(fun () -> ()).RunOrFail()

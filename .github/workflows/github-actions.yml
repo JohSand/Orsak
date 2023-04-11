@@ -1,6 +1,9 @@
 ﻿name: Build and Test
 
 on: 
+  pull_request:
+    branches:
+      - main
   push: 
     paths-ignore:
       - 'docs/**'
@@ -31,8 +34,10 @@ jobs:
 
       - name: Restore NuGet packages
         run: dotnet restore
+
       - name: Build the project
         run: dotnet build --configuration Release
+
       - name: Run unit tests
         run: dotnet test
 
@@ -45,5 +50,7 @@ jobs:
         uses: nuget/setup-nuget@v1
         with:
           nuget-api-key: ${{ secrets.NUGET_API_KEY }}
+
       - name: Push generated package to GitHub registry
+        if: ${{ success() && github.event_name != 'pull_request' }}
         run: nuget push ./nupkg/*.nupkg -Source https://api.nuget.org/v3/index.json
