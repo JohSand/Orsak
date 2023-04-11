@@ -641,5 +641,9 @@ module CreationTests =
         Effect.Create(fun () -> vtask { return ()}).RunOrFail()
 
     [<Fact>]
+    let ``Has working overload for Result<_,_>`` () =
+        Effect.Create(fun () -> Ok()).RunOrFail()
+
+    [<Fact>]
     let ``Has working overload for 'a`` () =
         Effect.Create(fun () -> ()).RunOrFail()
