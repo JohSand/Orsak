@@ -292,17 +292,12 @@ module Effect =
             })
 
 type Effect =
+
     /// <summary>
     /// Creates a failed effect from the provided error.
     /// </summary>
     /// <param name="error">The error the effect will fail with.</param>
     static member Error(error: 'e) : Effect<'a, 'b, 'e> = eff { return! Error error }
-
-    /// <summary>
-    /// Creates an effect from a function.
-    /// </summary>
-    static member Create<'a, 'b, 'e>(f: 'a -> 'b, [<ParamArray>] _a: Object[]) : Effect<'a, 'b, 'e> =
-        mkEffect (f >> Ok >> ValueTask.FromResult)
 
     /// <summary>
     /// Creates an effect from a function.
@@ -321,12 +316,44 @@ type Effect =
     /// Creates an effect from a function.
     /// </summary>
     /// <param name="f">The effect creation function</param>
+    static member Create(f: 'a -> Async<Result<'b, 'e>>) =
+        mkEffect (fun a -> ValueTask<_>(task = Async.StartAsTask(f a)))
+
+[<AutoOpen>]
+module WrapTwice = 
+    //extensions for Effect for things weed need to wrap twice. lowest prio
+    type Effect with
+
+
+    /// <summary>
+    /// Creates an effect from a function.
+    /// </summary>
+    static member Create<'a, 'b, 'e>(f: 'a -> 'b) : Effect<'a, 'b, 'e> =
+        mkEffect (f >> Ok >> ValueTask.FromResult)
+
+[<AutoOpen>]
+module WrapOnce = 
+    //extensions for Effect for things weed need to wrap once, or which wraps once
+    //we want this to have higher prio than wrapTwice, but lower than non-extensions.
+    type Effect with
+    
+    /// <summary>
+    /// Creates an effect from a function.
+    /// </summary>
+    /// <param name="f">The effect creation function</param>
     static member Create(f: 'a -> Async<'b>) : Effect<'a, 'b, _> =
         mkEffect (fun a ->
             vtask {
                 let! b = f a
                 return Ok b
             })
+
+    /// <summary>
+    /// Creates an effect from a function returning Result.
+    /// </summary>
+    /// <param name="f">The effect creation function</param>
+    static member Create(f: 'a -> Result<'b, 'e>) : Effect<'a, 'b, 'e> =
+        mkEffect (f >> ValueTask.FromResult)
 
     /// <summary>
     /// Creates an effect from a function.
@@ -344,8 +371,7 @@ type Effect =
     ///   </code>
     /// </example>
     /// <param name="f">The effect creation function</param>
-    /// <param name="_medium">This is a workaround for overload resolution</param>
-    static member Create(f: 'a -> Task<'b>, [<Optional>] _medium: byte) : Effect<'a, 'b, _> =
+    static member Create(f: 'a -> Task<'b>) : Effect<'a, 'b, _> =
         mkEffect (fun a ->
             vtask {
                 let! b = f a
@@ -356,18 +382,10 @@ type Effect =
     /// Creates an effect from a function.
     /// </summary>
     /// <param name="f">The effect creation function</param>
-    /// <param name="_medium">This is a workaround for overload resolution</param>
-    static member Create(f: 'a -> ValueTask<'b>, [<Optional>] _medium: byte) : Effect<'a, 'b, _> =
+    static member Create(f: 'a -> ValueTask<'b>) : Effect<'a, 'b, _> =
         mkEffect (fun a ->
             vtask {
                 let! b = f a
                 return Ok b
             })
-
-    /// <summary>
-    /// Creates an effect from a function returning Result.
-    /// </summary>
-    /// <param name="f">The effect creation function</param>
-    static member Create(f: 'a -> Result<'b, 'e>) : Effect<'a, 'b, 'e> =
-        mkEffect (f >> ValueTask.FromResult)
-
+            
