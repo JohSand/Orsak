@@ -186,6 +186,18 @@ module BuilderTests =
         |> run
 
     [<Fact>]
+    let ``And! should allow result to be bound after`` () =
+        eff {
+            let! i = eff { return 1 }
+            and! j = eff { return 1m }
+            let result = int j + i
+            Assert.Equal(2, result)
+            do! Ok ()
+            return ()
+        }
+        |> run
+
+    [<Fact>]
     let ``And! should combine errors`` () =
         eff {
             let! () = eff { return! Error "1" }
@@ -340,6 +352,40 @@ module BuilderTests =
             and! () = waiting lock1
             and! () = waiting lock1
             and! () = releaseAndTake lock1 lock2
+            return ()
+        }
+        |> run
+
+    let rand = new System.Random()
+
+    [<Theory>]
+    [<Repeat.Repeat(10)>]
+    let ``And! order is not specified`` (_) =
+        eff {
+            use lock1 = new SemaphoreSlim(1)
+            use lock2 = new SemaphoreSlim(2)
+            do lock1.Wait()
+            do lock2.Wait()
+            let arr = Array.zeroCreate<Effect<_,_,_>> 5
+            arr[0] <- takeAndRelease lock1 lock2
+            arr[1] <- releaseAndTake lock1 lock2
+            arr[2] <- waiting lock1
+            arr[3] <- waiting lock1
+            arr[4] <- waiting lock1
+
+
+            let swap x y (a: 'a []) =
+                let tmp = a[x]
+                a[x] <- a[y]
+                a[y] <- tmp
+
+            Array.iteri (fun i _ -> arr |> swap i (rand.Next(i, Array.length arr))) arr
+
+            let! () = arr[0]
+            and! () = arr[1]
+            and! () = arr[2]
+            and! () = arr[3]
+            and! () = arr[4]
             return ()
         }
         |> run
