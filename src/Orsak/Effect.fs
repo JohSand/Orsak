@@ -125,6 +125,17 @@ module Effect =
         }
 
     /// <summary>
+    /// Runs an effect with the provided environment, resolving the dependencies of the providers in that environment
+    /// </summary>
+    /// <param name="env">Provider needed to run the effect</param>
+    /// <param name="effect"> The effect to resolve </param>
+    let inline resolveEnvironment (env: 'env) (effect: Effect<'env, 'a, 'err>): Effect<'r, 'a, 'err> =
+        eff {
+            let! result = effect |> run env
+            return! result
+        }
+
+    /// <summary>
     /// Zips two effects together, the resulting effect will fail if either of the effects failed. In case both failed,
     /// the error is combined. The effects will execute in parallel if possible.
     /// </summary>
