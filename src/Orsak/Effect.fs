@@ -87,6 +87,10 @@ module Effect =
     let inline onError ([<InlineIfLambda>] f: 'e -> Effect<'r, 'a, 'e>) (e: Effect<'r, 'a, 'e>) =
         eff.Run(eff.TryRecover(e, f))
 
+    let rec repeatWhileTrue (e: Effect<'r, bool, 'e>) = eff {
+        while e do
+            ()
+    }
 
     let inline retry (e: Effect<'r, 'a, 'e>) = onError (fun _ -> e) e
 
