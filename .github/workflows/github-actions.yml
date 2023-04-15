@@ -5,6 +5,8 @@ on:
     branches:
       - main
   push:
+    tags:
+      - '*'
     branches:
       - main
     paths-ignore:
