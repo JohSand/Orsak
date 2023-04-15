@@ -480,6 +480,20 @@ module BuilderTests =
         |> expectError "Expected error"
         |> run
 
+    [<Fact>]
+    let ``repeat 100_000 times`` () =
+        let mutable itr = 0
+        let inlineEffect () = eff {
+            itr <- itr + 1
+            if itr = 100_000 then
+                return false
+            else
+                return true
+        }
+        inlineEffect ()
+        |> Effect.repeatWhileTrue
+        |> run
+
 module CombinatorTests =
     ///Setup so that sequential execution hangs, will fail with timeout
     ///Parallel execution will make progress
