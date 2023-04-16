@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>WrapTwice (Orsak)</title>
+    <title>ScopeProvider<'Scope> (Orsak)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="author" content="Orsak">
 
@@ -99,7 +99,7 @@
         <div class="container" id="fsdocs-content">
             <div>
   <h2>
-    WrapTwice Module
+    ScopeProvider<'Scope> Type
   </h2>
   <dl class="fsdocs-metadata">
     <dt>
@@ -111,6 +111,20 @@
     <dt>
       Assembly: Orsak.dll
     </dt>
+    <dt>
+      Parent Module: 
+      <a href="https://johsand.github.io/Orsak/reference/orsak-scoped.html">
+        Scoped
+      </a>
+    </dt>
+    <dt>
+      Base Type: 
+      <code>obj</code>
+    </dt>
+    <dt>
+      All Interfaces: 
+      <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-scoped-scopeprovider-1.html">ScopeProvider</a>&lt;'Scope&gt;</span></code>
+    </dt>
   </dl>
   <div class="fsdocs-xmldoc">
     <div>
@@ -120,15 +134,21 @@
     </div>
   </div>
   <div></div>
+  <div></div>
+  <div></div>
+  <div></div>
+  <div></div>
+  <div></div>
+  <div></div>
   <div>
     <h3>
-      Type extensions
+      Instance members
     </h3>
     <table class="table outer-list fsdocs-member-list">
       <thead>
         <tr>
           <td class="fsdocs-member-list-header">
-            Type extension
+            Instance member
           </td>
           <td class="fsdocs-member-list-header">
             Description
@@ -139,37 +159,28 @@
         <tr>
           <td class="fsdocs-member-usage">
             <div>
-              <code onmouseout="hideTip(event, '35', 35)" onmouseover="showTip(event, '35', 35)">
+              <code onmouseout="hideTip(event, '37', 37)" onmouseover="showTip(event, '37', 37)">
                 <p>
-                  <a id="Create">
-                    <a href="#Create">
-                      <code><span>Effect.Create<span><span>(<span>f</span>)</span></span></span></code>
+                  <a id="Scope">
+                    <a href="#Scope">
+                      <code><span>this.Scope</span></code>
                     </a>
                   </a>
                 </p>
               </code>
-              <div class="fsdocs-tip" id="35">
+              <div class="fsdocs-tip" id="37">
                 <div class="member-tooltip">
                   Full Usage: 
-                  <code><span>Effect.Create<span><span>(<span>f</span>)</span></span></span></code>
+                  <code><span>this.Scope</span></code>
                   <br/>
-                  <br/>
-                  Parameters: 
-                  <ul>
-                    <span>
-                      <b>
-                        f
-                      </b>
-                      :
-                      <code><span>'a&#32;->&#32;'b</span></code>
-                    </span>
-                    <br/>
-                  </ul>
                   <br/>
                   <span>
                     Returns: 
-                    <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'a,&#32;'b,&#32;'e</span>&gt;</span></code>
+                    <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask-1">ValueTask</a>&lt;'Scope&gt;</span></code>
                   </span>
+                  <br/>
+                  Modifiers: 
+                  abstract
                   <br/>
                 </div>
               </div>
@@ -177,44 +188,28 @@
           </td>
           <td class="fsdocs-member-xmldoc">
             <div class="fsdocs-summary">
-              <div class="fsdocs-source-link" title="Copy signature (Markdown)" onclick="Clipboard_CopyTo('```cref:M:Orsak.WrapTwice.Effect.Create.Static``3```')">
+              <div class="fsdocs-source-link" title="Copy signature (Markdown)" onclick="Clipboard_CopyTo('``cref:M:Orsak.Scoped.ScopeProvider`1.Scope``')">
                 <img src="https://johsand.github.io/Orsak/content/img/copy-md.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/copy-md-hover.png" class="hover"/>
               </div>
-              <div class="fsdocs-source-link" title="Copy signature (XML)" onclick="Clipboard_CopyTo('<see cref=\'M:Orsak.WrapTwice.Effect.Create.Static``3\'/>')">
+              <div class="fsdocs-source-link" title="Copy signature (XML)" onclick="Clipboard_CopyTo('<see cref=\'M:Orsak.Scoped.ScopeProvider`1.Scope\'/>')">
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/copy-xml-hover.png" class="hover"/>
               </div>
-              <a href="https://johsand.github.io/Orsak//src/Orsak/Effect.fs#L331-331" class="fsdocs-source-link" title="Source on GitHub">
+              <a href="https://johsand.github.io/Orsak//src/Orsak/ScopedEffect.fs#L64-64" class="fsdocs-source-link" title="Source on GitHub">
                 <img src="https://johsand.github.io/Orsak/content/img/github.png" class="normal"/>
                 <img src="https://johsand.github.io/Orsak/content/img/github-hover.png" class="hover"/>
               </a>
               <p class="fsdocs-summary">
                 
- Creates an effect from a function.
- 
               </p>
             </div>
-            <p>
-              Extended Type: 
-              <code><a href="https://johsand.github.io/Orsak/reference/orsak-effect.html">Effect</a></code>
-            </p>
-            <dl class="fsdocs-params">
-              <dt class="fsdocs-param">
-                <span class="fsdocs-param-name">
-                  f
-                </span>
-                :
-                <code><span>'a&#32;->&#32;'b</span></code>
-              </dt>
-              <dd class="fsdocs-param-docs"></dd>
-            </dl>
             <dl class="fsdocs-returns">
               <dt>
                 <span class="fsdocs-return-name">
                   Returns: 
                 </span>
-                <code><span><a href="https://johsand.github.io/Orsak/reference/orsak-effect-3.html">Effect</a>&lt;<span>'a,&#32;'b,&#32;'e</span>&gt;</span></code>
+                <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask-1">ValueTask</a>&lt;'Scope&gt;</span></code>
               </dt>
               <dd class="fsdocs-return-docs"></dd>
             </dl>
@@ -223,12 +218,6 @@
       </tbody>
     </table>
   </div>
-  <div></div>
-  <div></div>
-  <div></div>
-  <div></div>
-  <div></div>
-  <div></div>
   <div></div>
 </div>
             

@@ -12,39 +12,36 @@ open System
 [<AutoOpen>]
 module Helpers =
 
-    let waiting (ss: SemaphoreSlim) =
-        eff {
-            do! ss.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
+    let waiting (ss: SemaphoreSlim) = eff {
+        do! ss.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
-            try
-                return ()
-            finally
-                ss.Release(1) |> ignore
-        }
+        try
+            return ()
+        finally
+            ss.Release(1) |> ignore
+    }
 
-    let takeAndRelease (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) =
-        eff {
-            do! ss1.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
+    let takeAndRelease (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) = eff {
+        do! ss1.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
-            ss2.Release 1 |> ignore
+        ss2.Release 1 |> ignore
 
-            try
-                return ()
-            finally
-                ss1.Release(1) |> ignore
-        }
+        try
+            return ()
+        finally
+            ss1.Release(1) |> ignore
+    }
 
-    let releaseAndTake (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) : Effect<_, _, string> =
-        eff {
-            ss1.Release 1 |> ignore
+    let releaseAndTake (ss1: SemaphoreSlim) (ss2: SemaphoreSlim) : Effect<_, _, string> = eff {
+        ss1.Release 1 |> ignore
 
-            do! ss2.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
+        do! ss2.WaitAsync().WaitAsync(TimeSpan.FromMilliseconds 1000)
 
-            try
-                return ()
-            finally
-                ss2.Release(1) |> ignore
-        }
+        try
+            return ()
+        finally
+            ss2.Release(1) |> ignore
+    }
 
     let run (e: Effect<unit, 'b, string>) = e.RunOrFail()
 
@@ -192,7 +189,7 @@ module BuilderTests =
             and! j = eff { return 1m }
             let result = int j + i
             Assert.Equal(2, result)
-            do! Ok ()
+            do! Ok()
             return ()
         }
         |> run
@@ -366,7 +363,7 @@ module BuilderTests =
             use lock2 = new SemaphoreSlim(2)
             do lock1.Wait()
             do lock2.Wait()
-            let arr = Array.zeroCreate<Effect<_,_,_>> 5
+            let arr = Array.zeroCreate<Effect<_, _, _>> 5
             arr[0] <- takeAndRelease lock1 lock2
             arr[1] <- releaseAndTake lock1 lock2
             arr[2] <- waiting lock1
@@ -374,7 +371,7 @@ module BuilderTests =
             arr[4] <- waiting lock1
 
 
-            let swap x y (a: 'a []) =
+            let swap x y (a: 'a[]) =
                 let tmp = a[x]
                 a[x] <- a[y]
                 a[y] <- tmp
@@ -415,13 +412,12 @@ module BuilderTests =
         }
         |> run
 
-    let private functionThatThrows () =
-        task {
-            do! Task.Delay(100)
-            printf "before"
-            invalidArg "A" "B"
-            printf "there is no after"
-        }
+    let private functionThatThrows () = task {
+        do! Task.Delay(100)
+        printf "before"
+        invalidArg "A" "B"
+        printf "there is no after"
+    }
 
     [<Fact>]
     let ``Builder should support trywith`` () =
@@ -440,13 +436,12 @@ module BuilderTests =
 
     [<Fact>]
     let ``while-Builder should abort on error`` () =
-        let inlineEffect i =
-            eff {
-                if i <> 2 then
-                    return! Ok()
-                else
-                    return! Error "Expected error"
-            }
+        let inlineEffect i = eff {
+            if i <> 2 then
+                return! Ok()
+            else
+                return! Error "Expected error"
+        }
 
         eff {
             let mutable counter = 0
@@ -464,14 +459,13 @@ module BuilderTests =
 
     [<Fact>]
     let ``for-Builder should abort on error`` () =
-        let inlineEffect i =
-            eff {
-                if i = 2 then
-                    return! Error "Expected error"
-                else
-                    return! Ok()
+        let inlineEffect i = eff {
+            if i = 2 then
+                return! Error "Expected error"
+            else
+                return! Ok()
 
-            }
+        }
 
         (eff {
             let mutable counter = 1
@@ -518,42 +512,38 @@ module CombinatorTests =
     |]
 
     [<Fact>]
-    let parCombinatorTest () =
-        task {
-            use lock1 = new SemaphoreSlim(1)
-            use lock2 = new SemaphoreSlim(2)
+    let parCombinatorTest () = task {
+        use lock1 = new SemaphoreSlim(1)
+        use lock2 = new SemaphoreSlim(2)
 
-            do! parTest lock1 lock2 |> Effect.par |> Effect.map ignore |> run
-        }
-
-    [<Fact>]
-    let sequenceFailsParTest () =
-        task {
-            use lock1 = new SemaphoreSlim(1)
-            use lock2 = new SemaphoreSlim(2)
-            let effects = parTest lock1 lock2 |> Effect.sequence
-
-            let! _ = Assert.ThrowsAsync<TimeoutException>(fun () -> run effects)
-            return ()
-        }
+        do! parTest lock1 lock2 |> Effect.par |> Effect.map ignore |> run
+    }
 
     [<Fact>]
-    let sequenceCombinatorTest () =
-        task {
-            use lock1 = new SemaphoreSlim(2)
+    let sequenceFailsParTest () = task {
+        use lock1 = new SemaphoreSlim(1)
+        use lock2 = new SemaphoreSlim(2)
+        let effects = parTest lock1 lock2 |> Effect.sequence
 
-            do! sequenceTest lock1 |> Effect.sequence |> Effect.map ignore |> run
-        }
+        let! _ = Assert.ThrowsAsync<TimeoutException>(fun () -> run effects)
+        return ()
+    }
 
     [<Fact>]
-    let parFailsSequenceTest () =
-        task {
-            use lock1 = new SemaphoreSlim(2)
-            let effects = sequenceTest lock1 |> Effect.par
+    let sequenceCombinatorTest () = task {
+        use lock1 = new SemaphoreSlim(2)
 
-            let! _ = Assert.ThrowsAsync<Xunit.Sdk.EqualException>(fun () -> run effects)
-            return ()
-        }
+        do! sequenceTest lock1 |> Effect.sequence |> Effect.map ignore |> run
+    }
+
+    [<Fact>]
+    let parFailsSequenceTest () = task {
+        use lock1 = new SemaphoreSlim(2)
+        let effects = sequenceTest lock1 |> Effect.par
+
+        let! _ = Assert.ThrowsAsync<Xunit.Sdk.EqualException>(fun () -> run effects)
+        return ()
+    }
 
     [<Fact>]
     let changeErrorTest () =
@@ -584,22 +574,21 @@ module CombinatorTests =
 
 
     [<Fact>]
-    let withCancellationTests () =
-        task {
-            use cts = new CancellationTokenSource(TimeSpan.FromMicroseconds 5)
+    let withCancellationTests () = task {
+        use cts = new CancellationTokenSource(TimeSpan.FromMicroseconds 5)
 
-            do!
-                eff {
-                    do! Task.Yield()
+        do!
+            eff {
+                do! Task.Yield()
 
-                    while true do
-                        ()
+                while true do
+                    ()
 
-                    return ()
-                }
-                |> Effect.withCancellation cts.Token
-                |> run
-        }
+                return ()
+            }
+            |> Effect.withCancellation cts.Token
+            |> run
+    }
 
 module EffSeqTests =
     [<Fact>]
@@ -608,23 +597,21 @@ module EffSeqTests =
             1
             2
         }
-        |> fun es ->
-            eff {
-                let! e = es
-                e =! [ 1; 2 ]
-                return ()
-            }
+        |> fun es -> eff {
+            let! e = es
+            e =! [ 1; 2 ]
+            return ()
+        }
         |> run
 
     [<Fact>]
     let letYieldValuesWorks () =
         let mutable i = 0
 
-        let incrementer () =
-            eff {
-                i <- i + 1
-                return i
-            }
+        let incrementer () = eff {
+            i <- i + 1
+            return i
+        }
 
         effList {
             let! i = incrementer ()
@@ -632,21 +619,19 @@ module EffSeqTests =
             let! j = incrementer ()
             j
         }
-        |> fun es ->
-            eff {
-                let! e = es
-                e =! [ 1; 2 ]
-                return ()
-            }
+        |> fun es -> eff {
+            let! e = es
+            e =! [ 1; 2 ]
+            return ()
+        }
         |> run
 
 module Laws =
-    let (===) (e1: Effect<_, _, _>) (e2: Effect<_, _, _>) =
-        task {
-            let! r1 = run e1
-            let! r2 = run e2
-            return r1 =! r2
-        }
+    let (===) (e1: Effect<_, _, _>) (e2: Effect<_, _, _>) = task {
+        let! r1 = run e1
+        let! r2 = run e2
+        return r1 =! r2
+    }
 
     let h a = Effect.Create(fun () -> a + 1)
 
@@ -672,32 +657,31 @@ module CreationTests =
 
     [<Fact>]
     let ``Has working overload for Task<Result<_,_>>`` () =
-        Effect.Create(fun () -> task { return Ok ()}).RunOrFail()
+        Effect.Create(fun () -> task { return Ok() }).RunOrFail()
 
     [<Fact>]
     let ``Has working overload for Task<_>`` () =
-        Effect.Create(fun () -> task { return ()}).RunOrFail()
+        Effect.Create(fun () -> task { return () }).RunOrFail()
 
     [<Fact>]
     let ``Has working overload for ValueTask<Result<_,_>>`` () =
-        Effect.Create(fun () -> vtask { return Ok ()}).RunOrFail()
+        Effect.Create(fun () -> vtask { return Ok() }).RunOrFail()
 
     [<Fact>]
     let ``Has working overload for ValueTask<_>`` () =
-        Effect.Create(fun () -> vtask { return ()}).RunOrFail()
+        Effect.Create(fun () -> vtask { return () }).RunOrFail()
 
     [<Fact>]
     let ``Has working overload for Async<Result<_,_>>`` () =
-        Effect.Create(fun () -> async { return Ok ()}).RunOrFail()
+        Effect.Create(fun () -> async { return Ok() }).RunOrFail()
 
     [<Fact>]
     let ``Has working overload for Async<_>`` () =
-        Effect.Create(fun () -> async { return ()}).RunOrFail()
+        Effect.Create(fun () -> async { return () }).RunOrFail()
 
     [<Fact>]
     let ``Has working overload for Result<_,_>`` () =
         Effect.Create(fun () -> Ok()).RunOrFail()
 
     [<Fact>]
-    let ``Has working overload for 'a`` () =
-        Effect.Create(fun () -> ()).RunOrFail()
+    let ``Has working overload for 'a`` () = Effect.Create(fun () -> ()).RunOrFail()

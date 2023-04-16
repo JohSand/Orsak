@@ -42,12 +42,11 @@ module ButtonPusher =
 Then, we can the write code like
 *)
 
-let work () : Effect<#IButtonPusherProvider, unit, _> =
-    eff {
-        //code
-        do! ButtonPusher.pushButton ()
-        //more code
-    }
+let work () : Effect<#IButtonPusherProvider, unit, _> = eff {
+    //code
+    do! ButtonPusher.pushButton ()
+//more code
+}
 
 (**
 Which can be run with some type which implements ``IButtonPusherProvider``.
@@ -61,11 +60,10 @@ type ILoggerProvider =
 let logInformation a =
     Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger.Log(LogLevel.Information, a))
 
-let workThenLog () =
-    eff {
-        do! work ()
-        do! logInformation "Did the work."
-    }
+let workThenLog () = eff {
+    do! work ()
+    do! logInformation "Did the work."
+}
 
 (** Then, in the composition root of the program, one could define: *)
 type EffectRunner(buttonPusher: IButtonPusher) =
@@ -75,6 +73,11 @@ type EffectRunner(buttonPusher: IButtonPusher) =
     interface IButtonPusherProvider with
         member _.ButtonPusher = buttonPusher
 (** And then run the effects: *)
-let runner: EffectRunner = EffectRunner({ new IButtonPusher with member this.PushButton() = Task.FromResult () })
+let runner: EffectRunner =
+    EffectRunner(
+        { new IButtonPusher with
+            member this.PushButton() = Task.FromResult()
+        }
+    )
 
 workThenLog().Run(runner)

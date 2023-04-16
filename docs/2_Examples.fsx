@@ -17,11 +17,16 @@ open System
 open System.Net.Http
 //make sure your .NET version has sensible defaults for these:
 
-let inner = new SocketsHttpHandler(PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1), PooledConnectionLifetime = TimeSpan.FromMinutes(1))
+let inner =
+    new SocketsHttpHandler(
+        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+    )
+
 let clientFactory f handlers =
     let client = new HttpClient(handlers inner, false)
     f client
-    
+
 (**
 ###IHttpClientFactory
 *)

@@ -31,19 +31,30 @@ But in OO the object is the natural method of composition, and even with depende
 closures](http://people.csail.mit.edu/gregs/ll1-discuss-archive-html/msg03277.html), maybe we can unlock reuse and composability some other way? 
 *)
 
-type IMessageClient = abstract member FetchData: string -> Task<string>
-type IMessageClientProvider = abstract member Client: IMessageClient
-module MessageClient = let fetchData s = Effect.Create(fun (provider: #IMessageClientProvider) -> provider.Client.FetchData s)
+type IMessageClient =
+    abstract member FetchData: string -> Task<string>
 
-type IMessageRepository = abstract member StoreData: string -> Task<unit>
-type IMessageRepositoryProvider = abstract member Repository: IMessageRepository
-module MessageRepository = let storeData s = Effect.Create(fun (provider: #IMessageRepositoryProvider) -> provider.Repository.StoreData s)
+type IMessageClientProvider =
+    abstract member Client: IMessageClient
 
-let fetchAndStore s =
-    eff {
-        let! data = MessageClient.fetchData s
-        do! MessageRepository.storeData data        
-    }
+module MessageClient =
+    let fetchData s =
+        Effect.Create(fun (provider: #IMessageClientProvider) -> provider.Client.FetchData s)
+
+type IMessageRepository =
+    abstract member StoreData: string -> Task<unit>
+
+type IMessageRepositoryProvider =
+    abstract member Repository: IMessageRepository
+
+module MessageRepository =
+    let storeData s =
+        Effect.Create(fun (provider: #IMessageRepositoryProvider) -> provider.Repository.StoreData s)
+
+let fetchAndStore s = eff {
+    let! data = MessageClient.fetchData s
+    do! MessageRepository.storeData data
+}
 (**
 If functions are objects with a single method, we can view the function above as some bespoke domain-service, where injecting dependencies is as easy as just calling a function, while maintaining the benefits of testability and customizability of dependency injection.
 And in turn, reusing that bespoke service is as easy as calling a function. All dependencies are added and tracked automatically, and are visible in the function signature.
@@ -51,10 +62,9 @@ And in turn, reusing that bespoke service is as easy as calling a function. All 
 And beyond reuse, it also unlocks aspect-like capabilities, but without any magic. Since the effects only execute when run, they can be safely passed around, and binding them with 'let!' creates natural join points.
 *)
 
-let weaver (beforeAdvice: Effect<_,_,_>) (effect: Effect<_,_,_>) (afterAdvice: Effect<_,_,_>) =
-    eff {
-        do! beforeAdvice
-        let! result = effect
-        do! afterAdvice
-        return result
-    }
+let weaver (beforeAdvice: Effect<_, _, _>) (effect: Effect<_, _, _>) (afterAdvice: Effect<_, _, _>) = eff {
+    do! beforeAdvice
+    let! result = effect
+    do! afterAdvice
+    return result
+}

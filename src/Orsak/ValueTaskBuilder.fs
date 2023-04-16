@@ -262,13 +262,14 @@ type ValueTaskBuilder() =
                     sm.Data.MethodBuilder <- PoolingAsyncValueTaskMethodBuilder<unit>.Create()
                     sm.Data.MethodBuilder.Start(&sm)
                     let t = sm.Data.MethodBuilder.Task
+
                     if t.IsCompletedSuccessfully then
                         ValueTask.CompletedTask
                     else
-                        ValueTask(task = t.AsTask())
-                    ))
+                        ValueTask(task = t.AsTask())))
         else
             let t = ValueTaskBuilder.RunDynamic(code)
+
             if t.IsCompletedSuccessfully then
                 ValueTask.CompletedTask
             else
@@ -469,6 +470,7 @@ module MediumPriority =
 
     // Medium priority extensions
     type ValueTaskBuilder with
+
         member inline this.While
             (
                 [<InlineIfLambda>] condition: unit -> Task<bool>,
@@ -476,17 +478,25 @@ module MediumPriority =
             ) : ValueTaskCode<'TOverall, unit> =
             this.Delay(fun () ->
                 let mutable cont = false
-                this.Bind(condition(), fun b ->
-                    cont <- b
-                    ResumableCode.While((fun () -> cont), 
-                        this.Combine(body, this.Bind(condition(), fun b ->
-                                cont <- b
-                                this.Zero()
-                            )                        
+
+                this.Bind(
+                    condition (),
+                    fun b ->
+                        cont <- b
+
+                        ResumableCode.While(
+                            (fun () -> cont),
+                            this.Combine(
+                                body,
+                                this.Bind(
+                                    condition (),
+                                    fun b ->
+                                        cont <- b
+                                        this.Zero()
+                                )
+                            )
                         )
-                    )                    
-                )
-            )
+                ))
 
         member inline this.Bind
             (

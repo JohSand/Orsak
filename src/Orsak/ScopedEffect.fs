@@ -24,12 +24,11 @@ type ScopedEffectBuilder() =
 //shenanigans to make overload resolution work nicely.
 [<AutoOpen>]
 module Extension =
-    type ScopedEffectBuilder with     
-    
+    type ScopedEffectBuilder with
+
         member inline this.ReturnFrom<'Scope, 'Env, 'T, 'TOverall, 'Err>
-            (
-                eff: Effect<'Env, 'TOverall, 'Err>
-            ) : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
+            (eff: Effect<'Env, 'TOverall, 'Err>)
+            : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
             ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
                 let (env, _) = sm.Data.Environment
                 let task = eff.Run env
@@ -96,14 +95,13 @@ type ScopedEffectBuilder<'Scope when 'Scope :> IAsyncDisposable>() =
     member _.Run<'r, 'a, 'err when 'r :> ScopeProvider<'Scope>>
         (effect: ScopedEffectCode<'Scope, 'r, 'a, 'a, 'err>)
         : Effect<'r, 'a, 'err> =
-        mkEffect (fun env ->
-            vtask {
-                use! scope = (env :> ScopeProvider<'Scope>).Scope()
+        mkEffect (fun env -> vtask {
+            use! scope = (env :> ScopeProvider<'Scope>).Scope()
 
-                match! eff.Run(effect).Run((env, scope)) with
-                | Ok a -> return Ok a
-                | Error e -> return Error e
-            })
+            match! eff.Run(effect).Run((env, scope)) with
+            | Ok a -> return Ok a
+            | Error e -> return Error e
+        })
 
 type ExceptionHandler<'err> =
     abstract member Handle: exn -> 'err
@@ -117,7 +115,9 @@ type TransactionScopeProvider<'Scope when 'Scope :> TransactionScope> = ScopePro
 type TransactionalEffectBuilder<'Scope when 'Scope :> TransactionScope>() =
     inherit ScopedEffectBuilder()
 
-    member inline this.ReturnFrom<'Scope, 'Env, 'TOverall, 'Err>(eff: Effect<'Scope, 'TOverall, 'Err>)  : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> = 
+    member inline this.ReturnFrom<'Scope, 'Env, 'TOverall, 'Err>
+        (eff: Effect<'Scope, 'TOverall, 'Err>)
+        : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
         ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
             let (_, scope) = sm.Data.Environment
             let task = eff.Run scope
@@ -179,17 +179,16 @@ type TransactionalEffectBuilder<'Scope when 'Scope :> TransactionScope>() =
     member _.Run<'r, 'a, 'err when 'r :> ExceptionHandler<'err> and 'r :> TransactionScopeProvider<'Scope>>
         (effect: ScopedEffectCode<'Scope, 'r, 'a, 'a, 'err>)
         : Effect<'r, 'a, 'err> =
-        mkEffect (fun env ->
-            vtask {
-                try
-                    use! scope = (env :> TransactionScopeProvider<'Scope>).Scope()
+        mkEffect (fun env -> vtask {
+            try
+                use! scope = (env :> TransactionScopeProvider<'Scope>).Scope()
 
-                    match! eff.Run(effect).Run((env, scope)) with
-                    | Ok a ->
-                        do! scope.CommitAsync()
-                        return Ok a
-                    | Error e -> return Error e
-                with e ->
-                    let (err: 'err) = (env :> ExceptionHandler<'err>).Handle e
-                    return Error err
-            })
+                match! eff.Run(effect).Run((env, scope)) with
+                | Ok a ->
+                    do! scope.CommitAsync()
+                    return Ok a
+                | Error e -> return Error e
+            with e ->
+                let (err: 'err) = (env :> ExceptionHandler<'err>).Handle e
+                return Error err
+        })

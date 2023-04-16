@@ -604,8 +604,7 @@ type EffBuilderBase() =
             false
 
 
-    member inline _.Zip<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err
-        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+    member inline _.Zip<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
         (
             eff: Effect<'Env, 'TResult1, 'Err>,
             eff2: Effect<'Env, 'TResult2, 'Err>,
@@ -1234,8 +1233,7 @@ type EffBuilderBase() =
                         let result2 = awaiter2.GetResult()
 
                         match result, result2 with
-                        | Ok result, Ok result2 ->
-                            (f struct (result, result2)).Invoke(&sm)                            
+                        | Ok result, Ok result2 -> (f struct (result, result2)).Invoke(&sm)
                         | Error error, Ok _ ->
                             sm.Data.Result <- Error error
                             true
@@ -1293,9 +1291,8 @@ type EffBuilderBase() =
                         let result2 = awaiter2.GetResult()
 
                         match result, result2 with
-                        | Ok result, Ok result2 ->
-                            (f struct (result, result2)).Invoke(&sm)
-                            
+                        | Ok result, Ok result2 -> (f struct (result, result2)).Invoke(&sm)
+
                         | Error error, _ ->
                             sm.Data.Result <- Error(error.Merge(result2))
                             true
@@ -1337,9 +1334,8 @@ type EffBuilderBase() =
                                 let result3 = awaiter3.GetResult()
 
                                 match result, result2, result3 with
-                                | Ok result, Ok result2, Ok result3 ->
-                                    (f (result, result2, result3)).Invoke(&sm)
-                                    
+                                | Ok result, Ok result2, Ok result3 -> (f (result, result2, result3)).Invoke(&sm)
+
                                 | Error error, _, _ ->
                                     sm.Data.Result <- Error(error.Merge(result2).Merge(result3))
                                     true
@@ -1415,9 +1411,8 @@ type EffBuilderBase() =
                             let result3 = awaiter3.GetResult()
 
                             match result1, result2, result3 with
-                            | Ok result, Ok result2, Ok result3 ->
-                                (f (result, result2, result3)).Invoke(&sm)
-                                
+                            | Ok result, Ok result2, Ok result3 -> (f (result, result2, result3)).Invoke(&sm)
+
                             | Error error, _, _ ->
                                 sm.Data.Result <- Error(error.Merge(result2).Merge(result3))
                                 true
@@ -1475,7 +1470,7 @@ type EffBuilderBase() =
                                         match result1, result2, result3, result4 with
                                         | Ok result, Ok result2, Ok result3, Ok result4 ->
                                             (f (result, result2, result3, result4)).Invoke(&sm)
-                                            
+
                                         | Error error, _, _, _ ->
                                             sm.Data.Result <-
                                                 Error(error.Merge(result2).Merge(result3).Merge(result4))
@@ -1581,7 +1576,7 @@ type EffBuilderBase() =
                                 match result1, result2, result3, result4 with
                                 | Ok result, Ok result2, Ok result3, Ok result4 ->
                                     (f (result, result2, result3, result4)).Invoke(&sm)
-                                    
+
                                 | Error error, _, _, _ ->
                                     sm.Data.Result <- Error(error.Merge(result2).Merge(result3).Merge(result4))
                                     true
@@ -1650,7 +1645,7 @@ type EffBuilderBase() =
                                                 match result1, result2, result3, result4, result5 with
                                                 | Ok result, Ok result2, Ok result3, Ok result4, Ok result5 ->
                                                     (f (result, result2, result3, result4, result5)).Invoke(&sm)
-                                                    
+
                                                 | Error error, _, _, _, _ ->
                                                     sm.Data.Result <-
                                                         Error(
@@ -1817,7 +1812,7 @@ type EffBuilderBase() =
                                     match result1, result2, result3, result4, result5 with
                                     | Ok result, Ok result2, Ok result3, Ok result4, Ok result5 ->
                                         (f (result, result2, result3, result4, result5)).Invoke(&sm)
-                                        
+
                                     | Error error, _, _, _, _ ->
                                         sm.Data.Result <-
                                             Error(error.Merge(result2).Merge(result3).Merge(result4).Merge(result5))
@@ -2231,11 +2226,10 @@ module Medium =
             this.While(
                 (fun () ->
                     Effect(
-                        EffectDelegate(fun _ ->
-                            vtask {
-                                let! b = condition ()
-                                return Ok b
-                            })
+                        EffectDelegate(fun _ -> vtask {
+                            let! b = condition ()
+                            return Ok b
+                        })
                     )),
                 body
             )
@@ -2304,22 +2298,20 @@ module Medium =
 type Effect<'R, 'T, 'E> with
     (* Functor *)
     ///Implements Map on the effect, making it a Functor
-    static member inline Map(h: Effect<'r, 'a, 'e>, f: 'a -> 'b) =
-        eff {
-            let! e = h
-            return f e
-        }
+    static member inline Map(h: Effect<'r, 'a, 'e>, f: 'a -> 'b) = eff {
+        let! e = h
+        return f e
+    }
 
     ///Implements Return on the effect
     static member inline Return(a) = eff { return a }
 
     (* Monad *)
     ///Implements Bind on the effect, which together with the functor Return makes it a Monad
-    static member inline (>>=)(h: Effect<'r, 'a, 'e>, f: 'a -> Effect<'r, 'b, 'e>) =
-        eff {
-            let! e = h
-            return! f e
-        }
+    static member inline (>>=)(h: Effect<'r, 'a, 'e>, f: 'a -> Effect<'r, 'b, 'e>) = eff {
+        let! e = h
+        return! f e
+    }
 
     //helper, seem type inference get wonky with operator
     /// <exclude/>
