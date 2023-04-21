@@ -1,5 +1,7 @@
 ﻿namespace Orsak
 
+open System.Buffers
+
 #nowarn "57"
 #nowarn "3513"
 #nowarn "3511"
@@ -13,7 +15,6 @@ open Microsoft.FSharp.Core
 open Microsoft.FSharp.Core.CompilerServices
 open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 open Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators
-open System.Threading
 
 /// <exclude/>
 [<Extension>]
@@ -1859,56 +1860,70 @@ type EffBuilderBase() =
                 EffBuilderBase.Bind5(&sm, task1, task2, task3, task4, task5, f))
 
     static member inline AwaiterNotComplete(v: ValueTaskAwaiter<_> inref) = 
-        not v.IsCompleted 
+        not v.IsCompleted
+
+    static member inline CreateWaiters (effects : Effect<'Env, 'T, 'Err> seq) env: ValueTuple<_,_> =
+        match effects with
+        | :? (Effect<'Env, 'T, 'Err> array) as effects ->
+            let waits = ArrayPool<_>.Shared.Rent effects.Length
+            for i = 0 to effects.Length - 1 do
+                let e = &effects[i]
+                waits[i] <- e.Run(env).GetAwaiter()
+            waits, true
+        | :? System.Collections.Generic.IReadOnlyList<Effect<'Env, 'T, 'Err>> as effects ->
+            let waits = ArrayPool<_>.Shared.Rent effects.Count
+            for i = 0 to effects.Count - 1 do
+                waits[i] <- effects[i].Run(env).GetAwaiter()
+            waits, true
+        | :? System.Collections.Generic.IReadOnlyCollection<Effect<'Env, 'T, 'Err>> as effects ->
+            let waits = ArrayPool<_>.Shared.Rent effects.Count
+            effects
+            |> Seq.iteri (fun i e -> waits[i] <- e.Run(env).GetAwaiter()) 
+            waits, true
+        | _ ->
+            [| for e in effects -> e.Run(env).GetAwaiter() |], false
 
     (* Extra*)
     member inline _.Extra(effects : Effect<'Env, 'T, 'Err> seq) : EffectCode<'Env, 'T array, 'T array, 'Err> = 
         EffectCode<'Env, 'T array, 'T array, 'Err>(fun sm ->
             if __useResumableCode then
                 let env = sm.Data.Environment
-                let waits = [| for e in effects -> e.Run(env).GetAwaiter() |]
-                //printfn "start!"
+                let struct (waits, rented) = EffBuilderBase.CreateWaiters effects env
                 let mutable i = 0
-                //let mutable breakOut = false
                 let mutable __stack_fin = true
                 while (i < waits.Length) && __stack_fin do
-                    //printfn "start of while %i" i
                     if EffBuilderBase.AwaiterNotComplete(&waits[i]) then
-                        //printfn "had to yield"
                         let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                         __stack_fin <- __stack_yield_fin
                     
                     if __stack_fin then
-                  //      printfn "continue while %i" i
-                        Interlocked.Increment(&i) |> ignore
-                        //breakOut <- false
+                        i <- i + 1
                     else
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&waits[i], &sm)
-                        //breakOut <- true
-                    //    printfn "yielded %i" i
-                        //awaiterIndex <- awaiterIndex + 1
                     
                 if __stack_fin then                    
-                    //printfn "done"
                     let result = Array.zeroCreate waits.Length
-                    let mutable cont = true
-                    let mutable j = 0
                     let mutable final = Ok result
-                    while (j < waits.Length) && cont do
-                        let awaiter = &waits[j]
-                        match awaiter.GetResult() with
-                        | Ok a ->
-                            result[j] <- a
-                        | Error err ->
-                            final <- Error err
-                            cont <- false
+                    try
+                        let mutable cont = true
+                        let mutable j = 0
+                        while (j < waits.Length) && cont do
+                            let awaiter = &waits[j]
+                            match awaiter.GetResult() with
+                            | Ok a ->
+                                result[j] <- a
+                            | Error err ->
+                                final <- Error err
+                                cont <- false
 
-                        Interlocked.Increment &j |> ignore                            
-                           
+                            j <- j + 1                            
+                    finally
+                        if rented then
+                            ArrayPool<_>.Shared.Return waits                       
+
                     sm.Data.Result <- final
                     true
                 else
-                    //printfn "not done resume later %i" i
                     false
 
             else

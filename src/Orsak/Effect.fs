@@ -6,6 +6,10 @@ open System.Threading.Tasks
 open System.Runtime.InteropServices
 open System
 
+module Experiment =
+    let inline par s =
+        eff.Run(eff.Extra(s))
+
 [<RequireQualifiedAccess>]
 module Effect =
 
