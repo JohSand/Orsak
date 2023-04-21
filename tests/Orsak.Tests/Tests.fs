@@ -521,7 +521,7 @@ module CombinatorTests =
     }
 
     let inline par2 s =
-        eff.Run(eff.Extra(s))
+        eff.Run(eff.WhenAll(s))
 
     [<Fact>]
     [<Trait("Category", "Par")>]
@@ -559,7 +559,7 @@ module CombinatorTests =
                     do! Task.Delay 100
                 }
             ]
-        
+
             |> par2 |> Effect.map ignore |> run
     }
 
@@ -590,7 +590,7 @@ module CombinatorTests =
                     do! Task.Delay 100
                 }
             ]
-        
+
             |> Effect.par |> Effect.map ignore |> run
     }
 
