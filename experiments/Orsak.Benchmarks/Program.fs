@@ -5,7 +5,28 @@ open Orsak
 open System.Threading.Tasks
 
 
+module Old =
+    open FSharp.Control
+    let inline par (eff: Effect<'r, 'a, 'e> seq) =
+        mkEffect (fun rEnv -> vtask {
+            let! results =
+                eff
+                |> Seq.map (Effect.run rEnv)
+                |> Seq.map (fun (t: AsyncResult<'a, 'e>) -> t.AsTask())
+                |> Task.WhenAll
 
+            return
+                Ok []
+                |> Array.foldBack
+                    (fun curr agg ->
+                        match agg with
+                        | Ok(list: 'a list) ->
+                            match curr with
+                            | Ok a -> Ok(a :: list)
+                            | Error e -> Error e
+                        | Error e -> Error e)
+                    results
+        })
 [<MemoryDiagnoser>]
 type SyncBenchmarks() =
     static member CompletedEffectsSource() =
@@ -23,13 +44,13 @@ type SyncBenchmarks() =
 
     [<Benchmark(Baseline=true)>]
     member this.CompletedOld() = task {
-        let! a = Effect.par this.CompletedEffects |> Effect.run ()
+        let! a = Old.par this.CompletedEffects |> Effect.run ()
         return ()
     }
 
     [<Benchmark()>]
     member this.CompletedNew() = task {
-        let! a = Experiment.par this.CompletedEffects |> Effect.run ()
+        let! a = Effect.whenAll this.CompletedEffects |> Effect.run ()
         return ()
     }
 
@@ -53,7 +74,7 @@ type AsyncBenchmarks() =
             [|
                 for _ in 1..this.N -> AsyncBenchmarks.MkEffect ()
             |]
-        let! a = Effect.par effects |> Effect.run ()
+        let! a = Old.par effects |> Effect.run ()
         match a with
         | Ok a ->
             return ()
@@ -67,7 +88,7 @@ type AsyncBenchmarks() =
             [|
                 for _ in 1..this.N -> AsyncBenchmarks.MkEffect ()
             |]
-        let! a = Experiment.par effects|> Effect.run ()
+        let! a = Effect.whenAll effects|> Effect.run ()
         match a with
         | Ok a ->
             return ()
@@ -78,7 +99,7 @@ type AsyncBenchmarks() =
 
 [<EntryPoint>]
 let main argv =
-    
+
 
     BenchmarkSwitcher
         .FromAssembly(typeof<AsyncBenchmarks>.Assembly).Run(argv)

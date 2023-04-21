@@ -59,12 +59,12 @@ module BuilderTests =
 
     [<Fact>]
     let ``Overload resolution for nested tupled results works`` () =
-        let a1 () : Result<((_ * _) * _), _> = Ok((1, 2), 3)
+        let a1 () : Result<(_ * _) * _, _> = Ok((1, 2), 3)
 
         let a2 (a, b, c) = eff { return (a, b, c) }
 
         eff {
-            let! ((a, b), c) = a1 ()
+            let! (a, b), c = a1 ()
             return! a2 (a, b, c)
         }
         |> run
@@ -244,9 +244,9 @@ module BuilderTests =
     let ``And! 5 only should combine errors`` () =
         eff {
             let! () = eff { return! Error "1" }
-            and! i = eff { return 1 }
+            and! _i = eff { return 1 }
             and! () = eff { return! Error "3" }
-            and! j = eff { return 1 }
+            and! _j = eff { return 1 }
             and! () = eff { return! Error "5" }
             return ()
         }
@@ -353,11 +353,11 @@ module BuilderTests =
         }
         |> run
 
-    let rand = new System.Random()
+    let rand = Random()
 
     [<Theory>]
     [<Repeat.Repeat(10)>]
-    let ``And! order is not specified`` (_) =
+    let ``And! order is not specified`` _ =
         eff {
             use lock1 = new SemaphoreSlim(1)
             use lock2 = new SemaphoreSlim(2)
@@ -517,82 +517,50 @@ module CombinatorTests =
         use lock1 = new SemaphoreSlim(1)
         use lock2 = new SemaphoreSlim(2)
 
-        do! parTest lock1 lock2 |> Effect.par |> Effect.map ignore |> run
-    }
-
-    let inline par2 s =
-        eff.Run(eff.WhenAll(s))
-
-    [<Fact>]
-    [<Trait("Category", "Par")>]
-    let parCombinatorTest2 () =  task {
-        use lock1 = new SemaphoreSlim(1)
-        use lock2 = new SemaphoreSlim(2)
-
-        do! parTest lock1 lock2 |> par2 |> Effect.map ignore |> run
+        do! parTest lock1 lock2 |> Effect.par_ |> run
     }
 
     [<Fact>]
     [<Trait("Category", "Par")>]
-    let parCombinatorTest3 () =  task {
+    let parCombinatorSumTest () =  task {
         do!
             [
                 eff {
                     do! Task.Delay 100
+                    return 1
                 }
                 eff {
                     do! Task.Delay 100
+                    return 1
                 }
                 eff {
                     do! Task.Delay 100
+                    return 1
                 }
                 eff {
                     do! Task.Delay 100
+                    return 1
                 }
                 eff {
                     do! Task.Delay 100
+                    return 1
                 }
                 eff {
                     do! Task.Delay 100
+                    return 1
                 }
                 eff {
                     do! Task.Delay 100
+                    return 1
                 }
             ]
 
-            |> par2 |> Effect.map ignore |> run
+            |> Effect.whenAll
+            |> Effect.map Array.sum
+            |> Effect.map (fun i -> Assert.Equal(7, i))
+            |> run
     }
 
-    [<Fact>]
-    [<Trait("Category", "Par")>]
-    let parCombinatorTest4 () =  task {
-        do!
-            [
-                eff {
-                    do! Task.Delay 100
-                }
-                eff {
-                    do! Task.Delay 100
-                }
-                eff {
-                    do! Task.Delay 100
-                }
-                eff {
-                    do! Task.Delay 100
-                }
-                eff {
-                    do! Task.Delay 100
-                }
-                eff {
-                    do! Task.Delay 100
-                }
-                eff {
-                    do! Task.Delay 100
-                }
-            ]
-
-            |> Effect.par |> Effect.map ignore |> run
-    }
 
     [<Fact>]
     [<Trait("Category", "Par")>]
@@ -618,16 +586,6 @@ module CombinatorTests =
     let parFailsSequenceTest () = task {
         use lock1 = new SemaphoreSlim(2)
         let effects = sequenceTest lock1 |> Effect.par
-
-        let! _ = Assert.ThrowsAsync<Xunit.Sdk.EqualException>(fun () -> run effects)
-        return ()
-    }
-
-    [<Fact>]
-    [<Trait("Category", "Par")>]
-    let parFailsSequenceTest2 () = task {
-        use lock1 = new SemaphoreSlim(2)
-        let effects = sequenceTest lock1 |> par2
 
         let! _ = Assert.ThrowsAsync<Xunit.Sdk.EqualException>(fun () -> run effects)
         return ()

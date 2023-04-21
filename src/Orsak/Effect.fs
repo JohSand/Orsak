@@ -5,14 +5,6 @@ open FSharp.Control
 open System.Threading.Tasks
 open System
 
-module Experiment =
-    let inline par s =
-        eff.Run(eff.WhenAll(s))
-    let inline par_ (s: Effect<'r, unit, 'e> seq) : Effect<'r, unit, 'e> = eff {
-        let! _ = par s
-        return ()
-    }
-
 [<RequireQualifiedAccess>]
 module Effect =
 
@@ -201,54 +193,25 @@ module Effect =
         return! e
     }
 
-    ///Executes effects in parallel if possible. Currently not efficiently implemented.
-    let inline par (eff: Effect<'r, 'a, 'e> seq) =
-        mkEffect (fun rEnv -> vtask {
-            let! results =
-                eff
-                |> Seq.map (run rEnv)
-                |> Seq.map (fun (t: AsyncResult<'a, 'e>) -> t.AsTask())
-                |> Task.WhenAll
+    /// <summary>
+    /// Executes effects in parallel if possible.
+    /// </summary>
+    /// <param name="s">The effects to run in parallel</param>
+    let inline whenAll (s: Effect<'r, 'a, 'e> seq) : Effect<'r, 'a array, 'e> =
+        eff.Run(eff.WhenAll(s))
 
-            return
-                Ok []
-                |> Array.foldBack
-                    (fun curr agg ->
-                        match agg with
-                        | Ok(list: 'a list) ->
-                            match curr with
-                            | Ok a -> Ok(a :: list)
-                            | Error e -> Error e
-                        | Error e -> Error e)
-                    results
-        })
-
-    ///Executes effects in parallel if possible. Currently not efficiently implemented.
-    let inline par_ (eff: Effect<'r, unit, 'e> seq) : Effect<'r, unit, 'e> =
-        mkEffect (fun rEnv -> vtask {
-            let! results =
-                eff
-                |> Seq.map (run rEnv)
-                |> Seq.map (fun (t: AsyncResult<unit, 'e>) -> t.AsTask())
-                |> Task.WhenAll
-
-            let a =
-                Ok []
-                |> Array.foldBack
-                    (fun curr agg ->
-                        match agg with
-                        | Ok(list: _ list) ->
-                            match curr with
-                            | Ok a -> Ok(a :: list)
-                            | Error e -> Error e
-                        | Error e -> Error e)
-                    results
-
-            match a with
-            | Ok _ -> return Ok()
-            | Error e -> return Error e
-        })
-
+    /// <summary>
+    /// Executes effects in parallel if possible.
+    /// </summary>
+    /// <param name="s">The effects to run in parallel</param>
+    let inline par_ (s: Effect<'r, unit, 'e> seq) : Effect<'r, unit, 'e> = eff {
+        let! _ = whenAll s
+        return ()
+    }
+    let inline par (s: Effect<'r, 'a, 'e> seq) = eff {
+        let! array = whenAll s
+        return List.ofArray array
+    }
 
     ///Traverses an array of effects, turning it in to an effect of an array.
     ///For a more generic implementation, consider FSharpPlus

@@ -75,7 +75,7 @@ type EffectStateMachineData<'Env, 'T, 'Err> =
     val mutable Environment: 'Env
 
     [<DefaultValue(false)>]
-    val mutable MethodBuilder: PoolingAsyncValueTaskMethodBuilder<Result<'T, 'Err>>
+    val mutable MethodBuilder: AsyncValueTaskMethodBuilder<Result<'T, 'Err>>
 
 /// <exclude/>
 and EffectStateMachine<'Env, 'TOverall, 'Err> = ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>
@@ -2031,7 +2031,7 @@ type EffBuilder() =
             EffectDelegate(fun env ->
                 sm.Data.Environment <- env
                 sm.ResumptionDynamicInfo <- resumptionInfo
-                sm.Data.MethodBuilder <- PoolingAsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
+                sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
                 sm.Data.MethodBuilder.Start(&sm)
                 sm.Data.MethodBuilder.Task)
         )
@@ -2064,7 +2064,7 @@ type EffBuilder() =
                     Effect(
                         EffectDelegate(fun env ->
                             sm.Data.Environment <- env
-                            sm.Data.MethodBuilder <- PoolingAsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
+                            sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
                             sm.Data.MethodBuilder.Start(&sm)
                             sm.Data.MethodBuilder.Task)
                     )))
