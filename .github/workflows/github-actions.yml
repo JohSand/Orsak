@@ -4,6 +4,13 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - 'samples/**'
+      - 'experiments/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+
   push:
     tags:
       - '*'

@@ -271,3 +271,4 @@ coverage.*.xml
 .fake
 .ionide
 .fsdocs
+/experiments/Orsak.Benchmarks/BenchmarkDotNet.Artifacts/results
