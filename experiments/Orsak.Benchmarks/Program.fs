@@ -42,7 +42,7 @@ type AsyncBenchmarks() =
 
     static member MkEffect () =
         eff {
-            do! Task.Delay 1
+            do! Task.Yield()
             return 1
         }
 

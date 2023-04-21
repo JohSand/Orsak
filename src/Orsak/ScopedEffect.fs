@@ -2,14 +2,11 @@
 module Orsak.Scoped
 
 open Orsak
-open System.Threading
 open FSharp.Control
 open System.Threading.Tasks
-open System.Runtime.InteropServices
 open System
 open Microsoft.FSharp.Core.CompilerServices
 open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
-open System.Data.Common
 
 
 type ScopedEffectCode<'Scope, 'Env, 'TOverall, 'T, 'Err> = EffectCode<'Env * 'Scope, 'TOverall, 'T, 'Err>
@@ -30,7 +27,7 @@ module Extension =
             (eff: Effect<'Env, 'TOverall, 'Err>)
             : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
             ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
-                let (env, _) = sm.Data.Environment
+                let env, _ = sm.Data.Environment
                 let task = eff.Run env
 
                 if __useResumableCode then
@@ -60,7 +57,7 @@ module Extension =
 
             ) : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err> =
             ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
-                let (env, _) = sm.Data.Environment
+                let env, _ = sm.Data.Environment
                 let task = eff.Run env
 
                 if __useResumableCode then
@@ -119,7 +116,7 @@ type TransactionalEffectBuilder<'Scope when 'Scope :> TransactionScope>() =
         (eff: Effect<'Scope, 'TOverall, 'Err>)
         : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
         ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
-            let (_, scope) = sm.Data.Environment
+            let _, scope = sm.Data.Environment
             let task = eff.Run scope
 
             if __useResumableCode then
@@ -150,7 +147,7 @@ type TransactionalEffectBuilder<'Scope when 'Scope :> TransactionScope>() =
 
         ) : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err> =
         ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
-            let (_, scope) = sm.Data.Environment
+            let _, scope = sm.Data.Environment
             let task = eff.Run scope
 
             if __useResumableCode then

@@ -3,12 +3,15 @@
 open System.Threading
 open FSharp.Control
 open System.Threading.Tasks
-open System.Runtime.InteropServices
 open System
 
 module Experiment =
     let inline par s =
-        eff.Run(eff.Extra(s))
+        eff.Run(eff.WhenAll(s))
+    let inline par_ (s: Effect<'r, unit, 'e> seq) : Effect<'r, unit, 'e> = eff {
+        let! _ = par s
+        return ()
+    }
 
 [<RequireQualifiedAccess>]
 module Effect =
