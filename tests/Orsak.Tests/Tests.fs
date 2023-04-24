@@ -636,6 +636,20 @@ module CombinatorTests =
             |> run
     }
 
+    [<Fact>]
+    let ``sequence should abort on first error`` () = task {
+        let effects = [|
+            eff { return () }
+            eff { return! Error "I am error" }
+            eff { return failwith "Not expected" }
+        |]
+        do!
+            effects
+            |> Effect.sequence
+            |> expectError "I am error"
+            |> run
+    }
+
 module EffSeqTests =
     [<Fact>]
     let yieldValuesWorks () =

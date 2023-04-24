@@ -215,20 +215,16 @@ module Effect =
 
     ///Traverses an array of effects, turning it in to an effect of an array.
     ///For a more generic implementation, consider FSharpPlus
-    let inline traverse f (eff: Effect<'r, 'a, 'e> array) =
-        mkEffect (fun rEnv -> vtask {
-            let mutable final = Ok(Array.zeroCreate eff.Length)
+    let inline traverse f (effects: Effect<'r, 'a, 'e> array): Effect<'r, 'a array, 'e> = eff {
+        let store = Array.zeroCreate effects.Length
+        let mutable i = 0
+        while i < effects.Length - 1 do
+            let! result = effects[i]
+            store[i] <- f result
+            i <- i + 1
 
-            for i = 0 to (eff.Length - 1) do
-                match final with
-                | Ok list ->
-                    match! run rEnv eff[i] with
-                    | Ok a -> list[i] <- f a
-                    | Error e -> final <- Error e
-                | Error _ -> ()
-
-            return final
-        })
+        return store
+    }
 
     ///Sequences an array of effects, turning it in to an effect of an array.
     ///For a more generic implementation, consider FSharpPlus
