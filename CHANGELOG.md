@@ -1,8 +1,15 @@
 # Changelog
-All notable changes to this project will be documented in this file.
-
 
 ## [Unreleased]
+
+### Changed
+More performant implementation of Effect.par
+
+### Added
+Effect.whenAll, high performance alternative to Effect.par that returns an array
+
+### Fixed
+Issue where bound effects could be not rerun properly
 
 ## [0.3.0] - 2023-04-15
 Extend api

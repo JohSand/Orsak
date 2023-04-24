@@ -17,6 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFiles", "SolutionFi
 		GitVersion.yml = GitVersion.yml
 		global.json = global.json
 		LICENSE.txt = LICENSE.txt
+		CHANGELOG.md = CHANGELOG.md
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Orsak", "src\Orsak\Orsak.fsproj", "{63514ED7-7DEB-47A9-A771-23DAF203500B}"
