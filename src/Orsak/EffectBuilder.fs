@@ -2029,6 +2029,7 @@ type EffBuilder() =
 
         Effect(
             EffectDelegate(fun env ->
+                sm.ResumptionPoint <- -1
                 sm.Data.Environment <- env
                 sm.ResumptionDynamicInfo <- resumptionInfo
                 sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
@@ -2063,6 +2064,7 @@ type EffBuilder() =
 
                     Effect(
                         EffectDelegate(fun env ->
+                            sm.ResumptionPoint <- -1
                             sm.Data.Environment <- env
                             sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
                             sm.Data.MethodBuilder.Start(&sm)

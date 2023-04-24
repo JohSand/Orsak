@@ -16,6 +16,7 @@ let createFailingEffect timesToFail =
         if failureCount = 0 then
             return ()
         else
+            do! Task.Yield()
             failureCount <- failureCount - 1
             return! Error $"This is error nr {timesToFail - failureCount} out of {timesToFail}"
     }
@@ -25,6 +26,26 @@ let ``the effect is executed again on retry`` () = task {
     let! result = createFailingEffect 1 |> Effect.retry |> Effect.run ()
 
     Ok() =! result
+}
+
+let my_yield () = eff {
+    do! Task.Yield()
+}
+
+[<Fact>]
+let ``effects can safely be run multiple times`` () = task {
+    let mutable x = 0
+    let theEffect = eff {
+        x <- x + 1
+        do! my_yield ()
+        return x
+    }
+
+    let! result = theEffect |> Effect.run ()
+    Ok 1 =! result
+
+    let! result = theEffect |> Effect.run ()
+    Ok 2 =! result
 }
 
 [<Fact>]
