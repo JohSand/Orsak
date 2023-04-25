@@ -4,6 +4,7 @@ open BenchmarkDotNet.Running
 open Orsak
 open System.Threading.Tasks
 
+#nowarn "3511"
 
 module Old =
     open FSharp.Control

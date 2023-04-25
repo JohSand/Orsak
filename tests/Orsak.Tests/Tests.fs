@@ -592,6 +592,31 @@ module CombinatorTests =
     }
 
     [<Fact>]
+    let ``traverse should work`` () = task {
+        let! a =
+            [|
+                eff {
+                    return 1 
+                }
+                eff {
+                    return 1 
+                }
+                eff {
+                    return 1 
+                }
+            |]
+            |> Effect.traverse float
+            |> Effect.map (Array.sum)
+            |> Effect.run ()
+        match a with
+        | Ok a ->
+            3. =! a
+            return ()
+        | Error (e: string) ->
+            return failwith e
+    }
+
+    [<Fact>]
     let changeErrorTest () =
         eff {
             do! Task.Yield()

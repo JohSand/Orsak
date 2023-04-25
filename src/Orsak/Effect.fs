@@ -215,10 +215,10 @@ module Effect =
 
     ///Traverses an array of effects, turning it in to an effect of an array.
     ///For a more generic implementation, consider FSharpPlus
-    let inline traverse f (effects: Effect<'r, 'a, 'e> array): Effect<'r, 'a array, 'e> = eff {
+    let inline traverse f (effects: Effect<'r, 'a, 'e> array): Effect<'r, 'b array, 'e> = eff {
         let store = Array.zeroCreate effects.Length
         let mutable i = 0
-        while i < effects.Length - 1 do
+        while i < effects.Length do
             let! result = effects[i]
             store[i] <- f result
             i <- i + 1
