@@ -1208,6 +1208,589 @@ type EffBuilderBase() =
             else
                 EffBuilderBase.ZipDynamic(&sm, task1, task2, task3, task4, task5, f))
 
+
+    static member inline ZipDynamic<'Env, 'TOverall, 'TResult1, 'TResult2, 'TResult3, 'TResult4, 'TResult5, 'TResult6, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>>,
+            task1: ValueTask<Result<'TResult1, 'Err>>,
+            task2: ValueTask<Result<'TResult2, 'Err>>,
+            task3: ValueTask<Result<'TResult3, 'Err>>,
+            task4: ValueTask<Result<'TResult4, 'Err>>,
+            task5: ValueTask<Result<'TResult5, 'Err>>,
+            task6: ValueTask<Result<'TResult6, 'Err>>,
+            f
+        ) : bool =
+        let mutable awaiter1 = task1.GetAwaiter()
+
+        let cont =
+            EffectResumptionFunc<_, _, _>(fun sm ->
+                let mutable awaiter2 = task2.GetAwaiter()
+
+                let cont =
+                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                        let mutable awaiter3 = task3.GetAwaiter()
+
+                        let cont =
+                            EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                let mutable awaiter4 = task4.GetAwaiter()
+
+                                let cont =
+                                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                        let mutable awaiter5 = task5.GetAwaiter()
+
+                                        let cont =
+                                            EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                                let mutable awaiter6 = task6.GetAwaiter()
+                                                let cont =
+                                                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                                        let result1 = awaiter1.GetResult()
+                                                        let result2 = awaiter2.GetResult()
+                                                        let result3 = awaiter3.GetResult()
+                                                        let result4 = awaiter4.GetResult()
+                                                        let result5 = awaiter5.GetResult()
+                                                        let result6 = awaiter6.GetResult()
+
+                                                        match result1, result2, result3, result4, result5, result6 with
+                                                        | Ok result, Ok result2, Ok result3, Ok result4, Ok result5, Ok result6 ->
+                                                            sm.Data.Result <-
+                                                                Ok(f (result, result2, result3, result4, result5, result6))
+
+                                                            true
+                                                        | Error error, _, _, _, _, _  ->
+                                                            sm.Data.Result <-
+                                                                Error(
+                                                                    error
+                                                                        .Merge(result2)
+                                                                        .Merge(result3)
+                                                                        .Merge(result4)
+                                                                        .Merge(result5)
+                                                                        .Merge(result6)
+                                                                )
+
+                                                            true
+                                                        | _, Error error, _, _, _, _  ->
+                                                            sm.Data.Result <-
+                                                                Error(
+                                                                    error
+                                                                        .Merge(result1)
+                                                                        .Merge(result3)
+                                                                        .Merge(result4)
+                                                                        .Merge(result5)
+                                                                        .Merge(result6)
+                                                                )
+
+                                                            true
+                                                        | _, _, Error error, _, _, _  ->
+                                                            sm.Data.Result <-
+                                                                Error(
+                                                                    error
+                                                                        .Merge(result1)
+                                                                        .Merge(result2)
+                                                                        .Merge(result4)
+                                                                        .Merge(result5)
+                                                                        .Merge(result6)
+                                                                )
+
+                                                            true
+                                                        | _, _, _, Error error, _, _  ->
+                                                            sm.Data.Result <-
+                                                                Error(
+                                                                    error
+                                                                        .Merge(result1)
+                                                                        .Merge(result2)
+                                                                        .Merge(result3)
+                                                                        .Merge(result5)
+                                                                        .Merge(result6)
+                                                                )
+
+                                                            true
+                                                        | _, _, _, _, Error error, _  ->
+                                                            sm.Data.Result <-
+                                                                Error(
+                                                                    error
+                                                                        .Merge(result1)
+                                                                        .Merge(result2)
+                                                                        .Merge(result3)
+                                                                        .Merge(result4)
+                                                                        .Merge(result6)
+                                                                )
+
+                                                            true
+                                                        | _, _, _, _, _, Error error ->
+                                                                    sm.Data.Result <-
+                                                                        Error(
+                                                                            error
+                                                                                .Merge(result1)
+                                                                                .Merge(result2)
+                                                                                .Merge(result3)
+                                                                                .Merge(result4)
+                                                                                .Merge(result5)
+                                                                        )
+
+                                                                    true
+
+                                                    )
+                                                if awaiter6.IsCompleted then
+                                                    cont.Invoke(&sm)
+                                                else
+                                                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter6 :> ICriticalNotifyCompletion)
+                                                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                                    false
+                                            )
+
+                                        if awaiter5.IsCompleted then
+                                            cont.Invoke(&sm)
+                                        else
+                                            sm.ResumptionDynamicInfo.ResumptionData <-
+                                                (awaiter5 :> ICriticalNotifyCompletion)
+
+                                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                            false
+
+                                    )
+
+                                if awaiter4.IsCompleted then
+                                    cont.Invoke(&sm)
+                                else
+                                    sm.ResumptionDynamicInfo.ResumptionData <-
+                                        (awaiter4 :> ICriticalNotifyCompletion)
+
+                                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                    false
+
+                            )
+
+                        if awaiter3.IsCompleted then
+                            cont.Invoke(&sm)
+                        else
+                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
+                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                            false)
+
+                if awaiter2.IsCompleted then
+                    cont.Invoke(&sm)
+                else
+                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                    false)
+
+        if awaiter1.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+
+            false
+
+    member inline _.Zip<'Env, 'TOverall, 'TResult1, 'TResult2, 'TResult3, 'TResult4, 'TResult5, 'TResult6, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            eff1: Effect<'Env, 'TResult1, 'Err>,
+            eff2: Effect<'Env, 'TResult2, 'Err>,
+            eff3: Effect<'Env, 'TResult3, 'Err>,
+            eff4: Effect<'Env, 'TResult4, 'Err>,
+            eff5: Effect<'Env, 'TResult5, 'Err>,
+            eff6: Effect<'Env, 'TResult6, 'Err>,
+            f
+        ) : EffectCode<'Env, 'TOverall, 'TOverall, 'Err> =
+        EffectCode<'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
+            let task1 = eff1.Run sm.Data.Environment
+            let task2 = eff2.Run sm.Data.Environment
+            let task3 = eff3.Run sm.Data.Environment
+            let task4 = eff4.Run sm.Data.Environment
+            let task5 = eff5.Run sm.Data.Environment
+            let task6 = eff6.Run sm.Data.Environment
+
+            if __useResumableCode then
+                let mutable awaiter = task1.GetAwaiter()
+                let mutable __stack_fin = true
+
+                if not awaiter.IsCompleted then
+                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                    __stack_fin <- __stack_yield_fin
+
+                if __stack_fin then
+                    let mutable awaiter2 = task2.GetAwaiter()
+
+                    if not awaiter2.IsCompleted then
+                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                        __stack_fin <- __stack_yield_fin
+
+                    if __stack_fin then
+                        let mutable awaiter3 = task3.GetAwaiter()
+
+                        if not awaiter3.IsCompleted then
+                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                            __stack_fin <- __stack_yield_fin
+
+                        if __stack_fin then
+                            let mutable awaiter4 = task4.GetAwaiter()
+
+                            if not awaiter4.IsCompleted then
+                                let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                __stack_fin <- __stack_yield_fin
+
+                            if __stack_fin then
+                                let mutable awaiter5 = task5.GetAwaiter()
+
+                                if not awaiter5.IsCompleted then
+                                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                    __stack_fin <- __stack_yield_fin
+
+                                if __stack_fin then
+                                    let mutable awaiter6 = task6.GetAwaiter()
+
+                                    if not awaiter6.IsCompleted then
+                                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                        __stack_fin <- __stack_yield_fin
+
+                                    if __stack_fin then
+                                        let result1 = awaiter.GetResult()
+                                        let result2 = awaiter2.GetResult()
+                                        let result3 = awaiter3.GetResult()
+                                        let result4 = awaiter4.GetResult()
+                                        let result5 = awaiter5.GetResult()
+                                        let result6 = awaiter6.GetResult()
+
+                                        match result1, result2, result3, result4, result5, result6 with
+                                        | Ok result, Ok result2, Ok result3, Ok result4, Ok result5, Ok result6 ->
+                                            sm.Data.Result <- Ok(f (result, result2, result3, result4, result5, result6))
+                                            true
+                                        | Error error, _, _, _, _, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result6))
+
+                                            true
+                                        | _, Error error, _, _, _, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result3).Merge(result4).Merge(result5).Merge(result6))
+
+                                            true
+                                        | _, _, Error error, _, _, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result2).Merge(result4).Merge(result5).Merge(result6))
+
+                                            true
+                                        | _, _, _, Error error, _, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result5).Merge(result6))
+
+                                            true
+                                        | _, _, _, _, Error error, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result6))
+                                            true
+                                        | _, _, _, _, _, Error error ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result5))
+                                            true
+
+                                    else
+                                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter6, &sm)
+                                        false
+                                else
+                                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter5, &sm)
+                                    false
+                            else
+                                sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter4, &sm)
+                                false
+                        else
+                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter3, &sm)
+                            false
+                    else
+                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
+                        false
+                else
+                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                    false
+            else
+                EffBuilderBase.ZipDynamic(&sm, task1, task2, task3, task4, task5, task6, f))
+
+    static member inline HandleResults(sm : byref<ResumableStateMachine<EffectStateMachineData<_,_,_>>>, result1, result2, result3, result4, result5, result6, result7, f: 'TResult1 * 'TResult2 * 'TResult3 * 'TResult4 * 'TResult5 * 'TResult6 * 'TResult7 -> _) =
+        match result1, result2, result3, result4, result5, result6, result7 with
+        | Ok result, Ok result2, Ok result3, Ok result4, Ok result5, Ok result6, Ok result7 ->
+            sm.Data.Result <- Ok(f (result, result2, result3, result4, result5, result6, result7))
+            true
+        | Error error, _, _, _, _, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result6).Merge(result7))
+            true
+        | _, Error error, _, _, _, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result3).Merge(result4).Merge(result5).Merge(result6).Merge(result7))
+            true
+        | _, _, Error error, _, _, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result4).Merge(result5).Merge(result6).Merge(result7))
+            true
+        | _, _, _, Error error, _, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result5).Merge(result6).Merge(result7))
+            true
+        | _, _, _, _, Error error, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result6).Merge(result7))
+            true
+        | _, _, _, _, _, Error error, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result7))
+            true
+        | _, _, _, _, _, _, Error error ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result6))
+            true
+
+    static member inline HandleResultsBind(sm : byref<ResumableStateMachine<EffectStateMachineData<_,_,_>>>, result1, result2, result3, result4, result5, result6, result7, f: 'TResult1 * 'TResult2 * 'TResult3 * 'TResult4 * 'TResult5 * 'TResult6 * 'TResult7 -> EffectCode<_,_,_,_>) =
+        match result1, result2, result3, result4, result5, result6, result7 with
+        | Ok result, Ok result2, Ok result3, Ok result4, Ok result5, Ok result6, Ok result7 ->
+            (f (result, result2, result3, result4, result5, result6, result7)).Invoke(&sm)            
+        | Error error, _, _, _, _, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result6).Merge(result7))
+            true
+        | _, Error error, _, _, _, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result3).Merge(result4).Merge(result5).Merge(result6).Merge(result7))
+            true
+        | _, _, Error error, _, _, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result4).Merge(result5).Merge(result6).Merge(result7))
+            true
+        | _, _, _, Error error, _, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result5).Merge(result6).Merge(result7))
+            true
+        | _, _, _, _, Error error, _, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result6).Merge(result7))
+            true
+        | _, _, _, _, _, Error error, _ ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result7))
+            true
+        | _, _, _, _, _, _, Error error ->
+            sm.Data.Result <-
+                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result6))
+            true
+
+    static member inline ZipDynamic<'Env, 'TOverall, 'TResult1, 'TResult2, 'TResult3, 'TResult4, 'TResult5, 'TResult6, 'TResult7, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>>,
+            task1: ValueTask<Result<'TResult1, 'Err>>,
+            task2: ValueTask<Result<'TResult2, 'Err>>,
+            task3: ValueTask<Result<'TResult3, 'Err>>,
+            task4: ValueTask<Result<'TResult4, 'Err>>,
+            task5: ValueTask<Result<'TResult5, 'Err>>,
+            task6: ValueTask<Result<'TResult6, 'Err>>,
+            task7: ValueTask<Result<'TResult7, 'Err>>,
+            f
+        ) : bool =
+        let mutable awaiter1 = task1.GetAwaiter()
+
+        let cont =
+            EffectResumptionFunc<_, _, _>(fun sm ->
+                let mutable awaiter2 = task2.GetAwaiter()
+
+                let cont =
+                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                        let mutable awaiter3 = task3.GetAwaiter()
+
+                        let cont =
+                            EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                let mutable awaiter4 = task4.GetAwaiter()
+
+                                let cont =
+                                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                        let mutable awaiter5 = task5.GetAwaiter()
+
+                                        let cont =
+                                            EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                                let mutable awaiter6 = task6.GetAwaiter()
+                                                let cont =
+                                                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                                        let mutable awaiter7 = task7.GetAwaiter()
+                                                        let cont = EffectResumptionFunc<_,_,_>(fun sm ->
+                                                            EffBuilderBase.HandleResults(
+                                                                &sm,
+                                                                awaiter1.GetResult(),
+                                                                awaiter2.GetResult(),
+                                                                awaiter3.GetResult(),
+                                                                awaiter4.GetResult(),
+                                                                awaiter5.GetResult(),
+                                                                awaiter6.GetResult(),
+                                                                awaiter7.GetResult(),
+                                                                f
+                                                            )
+                                                        )
+                                                        if awaiter7.IsCompleted then
+                                                            cont.Invoke(&sm)
+                                                        else
+                                                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter7 :> ICriticalNotifyCompletion)
+                                                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                                            false
+
+                                                    )
+                                                if awaiter6.IsCompleted then
+                                                    cont.Invoke(&sm)
+                                                else
+                                                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter6 :> ICriticalNotifyCompletion)
+                                                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                                    false
+                                            )
+
+                                        if awaiter5.IsCompleted then
+                                            cont.Invoke(&sm)
+                                        else
+                                            sm.ResumptionDynamicInfo.ResumptionData <-
+                                                (awaiter5 :> ICriticalNotifyCompletion)
+
+                                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                            false
+
+                                    )
+
+                                if awaiter4.IsCompleted then
+                                    cont.Invoke(&sm)
+                                else
+                                    sm.ResumptionDynamicInfo.ResumptionData <-
+                                        (awaiter4 :> ICriticalNotifyCompletion)
+
+                                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                    false
+
+                            )
+
+                        if awaiter3.IsCompleted then
+                            cont.Invoke(&sm)
+                        else
+                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
+                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                            false)
+
+                if awaiter2.IsCompleted then
+                    cont.Invoke(&sm)
+                else
+                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                    false)
+
+        if awaiter1.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+
+            false
+
+    member inline _.Zip<'Env, 'TOverall, 'TResult1, 'TResult2, 'TResult3, 'TResult4, 'TResult5, 'TResult6, 'TResult7,'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            eff1: Effect<'Env, 'TResult1, 'Err>,
+            eff2: Effect<'Env, 'TResult2, 'Err>,
+            eff3: Effect<'Env, 'TResult3, 'Err>,
+            eff4: Effect<'Env, 'TResult4, 'Err>,
+            eff5: Effect<'Env, 'TResult5, 'Err>,
+            eff6: Effect<'Env, 'TResult6, 'Err>,
+            eff7: Effect<'Env, 'TResult7, 'Err>,
+            f
+        ) : EffectCode<'Env, 'TOverall, 'TOverall, 'Err> =
+        EffectCode<'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
+            let task1 = eff1.Run sm.Data.Environment
+            let task2 = eff2.Run sm.Data.Environment
+            let task3 = eff3.Run sm.Data.Environment
+            let task4 = eff4.Run sm.Data.Environment
+            let task5 = eff5.Run sm.Data.Environment
+            let task6 = eff6.Run sm.Data.Environment
+            let task7 = eff7.Run sm.Data.Environment
+
+            if __useResumableCode then
+                let mutable awaiter = task1.GetAwaiter()
+                let mutable __stack_fin = true
+
+                if not awaiter.IsCompleted then
+                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                    __stack_fin <- __stack_yield_fin
+
+                if __stack_fin then
+                    let mutable awaiter2 = task2.GetAwaiter()
+
+                    if not awaiter2.IsCompleted then
+                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                        __stack_fin <- __stack_yield_fin
+
+                    if __stack_fin then
+                        let mutable awaiter3 = task3.GetAwaiter()
+
+                        if not awaiter3.IsCompleted then
+                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                            __stack_fin <- __stack_yield_fin
+
+                        if __stack_fin then
+                            let mutable awaiter4 = task4.GetAwaiter()
+
+                            if not awaiter4.IsCompleted then
+                                let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                __stack_fin <- __stack_yield_fin
+
+                            if __stack_fin then
+                                let mutable awaiter5 = task5.GetAwaiter()
+
+                                if not awaiter5.IsCompleted then
+                                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                    __stack_fin <- __stack_yield_fin
+
+                                if __stack_fin then
+                                    let mutable awaiter6 = task6.GetAwaiter()
+
+                                    if not awaiter6.IsCompleted then
+                                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                        __stack_fin <- __stack_yield_fin
+
+                                    if __stack_fin then
+                                        let mutable awaiter7 = task7.GetAwaiter()
+
+                                        if not awaiter7.IsCompleted then
+                                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                            __stack_fin <- __stack_yield_fin
+
+                                        if __stack_fin then
+                                            EffBuilderBase.HandleResults(
+                                                &sm,
+                                                awaiter.GetResult(),
+                                                awaiter2.GetResult(),
+                                                awaiter3.GetResult(),
+                                                awaiter4.GetResult(),
+                                                awaiter5.GetResult(),
+                                                awaiter6.GetResult(),
+                                                awaiter7.GetResult(),
+                                                f
+                                            )
+                                        else
+                                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter7, &sm)
+                                            false
+                                    else
+                                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter6, &sm)
+                                        false
+                                else
+                                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter5, &sm)
+                                    false
+                            else
+                                sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter4, &sm)
+                                false
+                        else
+                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter3, &sm)
+                            false
+                    else
+                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
+                        false
+                else
+                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                    false
+            else
+                EffBuilderBase.ZipDynamic(&sm, task1, task2, task3, task4, task5, task6, task7, f))
+
     member inline this.Bind2Return(m1, m2, [<InlineIfLambda>] f) = this.Zip(m1, m2, f)
 
     member inline this.Bind3Return(m1, m2, m3, [<InlineIfLambda>] f) = this.Zip(m1, m2, m3, f)
@@ -1215,6 +1798,10 @@ type EffBuilderBase() =
     member inline this.Bind4Return(m1, m2, m3, m4, [<InlineIfLambda>] f) = this.Zip(m1, m2, m3, m4, f)
 
     member inline this.Bind5Return(m1, m2, m3, m4, m5, [<InlineIfLambda>] f) = this.Zip(m1, m2, m3, m4, m5, f)
+
+    member inline this.Bind6Return(m1, m2, m3, m4, m5, m6, [<InlineIfLambda>] f) = this.Zip(m1, m2, m3, m4, m5, m6, f)
+
+    member inline this.Bind7Return(m1, m2, m3, m4, m5, m6, m7, [<InlineIfLambda>] f) = this.Zip(m1, m2, m3, m4, m5, m6, m7, f)
 
     static member inline Bind2Dynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err
         when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
@@ -1266,7 +1853,7 @@ type EffBuilderBase() =
         (
             eff: Effect<'Env, 'TResult1, 'Err>,
             eff2: Effect<'Env, 'TResult2, 'Err>,
-            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
@@ -1317,7 +1904,7 @@ type EffBuilderBase() =
             task1: ValueTask<Result<'TResult1, 'Err>>,
             task2: ValueTask<Result<'TResult2, 'Err>>,
             task3: ValueTask<Result<'TResult3, 'Err>>,
-            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : bool =
         let mutable awaiter1 = task1.GetAwaiter()
 
@@ -1377,7 +1964,7 @@ type EffBuilderBase() =
             eff: Effect<'Env, 'TResult1, 'Err>,
             eff2: Effect<'Env, 'TResult2, 'Err>,
             eff3: Effect<'Env, 'TResult3, 'Err>,
-            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
@@ -1445,7 +2032,7 @@ type EffBuilderBase() =
             task2: ValueTask<Result<'TResult2, 'Err>>,
             task3: ValueTask<Result<'TResult3, 'Err>>,
             task4: ValueTask<Result<'TResult4, 'Err>>,
-            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : bool =
         let mutable awaiter1 = task1.GetAwaiter()
 
@@ -1532,7 +2119,7 @@ type EffBuilderBase() =
             eff2: Effect<'Env, 'TResult2, 'Err>,
             eff3: Effect<'Env, 'TResult3, 'Err>,
             eff4: Effect<'Env, 'TResult4, 'Err>,
-            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task1 = eff1.Run sm.Data.Environment
@@ -1616,7 +2203,7 @@ type EffBuilderBase() =
             task3: ValueTask<Result<'TResult3, 'Err>>,
             task4: ValueTask<Result<'TResult4, 'Err>>,
             task5: ValueTask<Result<'TResult5, 'Err>>,
-            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : bool =
         let mutable awaiter1 = task1.GetAwaiter()
 
@@ -1759,7 +2346,7 @@ type EffBuilderBase() =
             eff3: Effect<'Env, 'TResult3, 'Err>,
             eff4: Effect<'Env, 'TResult4, 'Err>,
             eff5: Effect<'Env, 'TResult5, 'Err>,
-            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task1 = eff1.Run sm.Data.Environment
@@ -1858,6 +2445,512 @@ type EffBuilderBase() =
                     false
             else
                 EffBuilderBase.Bind5(&sm, task1, task2, task3, task4, task5, f))
+
+    static member inline Bind6Dynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'TResult3, 'TResult4, 'TResult5, 'TResult6, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>>,
+            task1: ValueTask<Result<'TResult1, 'Err>>,
+            task2: ValueTask<Result<'TResult2, 'Err>>,
+            task3: ValueTask<Result<'TResult3, 'Err>>,
+            task4: ValueTask<Result<'TResult4, 'Err>>,
+            task5: ValueTask<Result<'TResult5, 'Err>>,
+            task6: ValueTask<Result<'TResult6, 'Err>>,
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+        ) : bool =
+        let mutable awaiter1 = task1.GetAwaiter()
+
+        let cont =
+            EffectResumptionFunc<_, _, _>(fun sm ->
+                let mutable awaiter2 = task2.GetAwaiter()
+
+                let cont =
+                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                        let mutable awaiter3 = task3.GetAwaiter()
+
+                        let cont =
+                            EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                let mutable awaiter4 = task4.GetAwaiter()
+
+                                let cont =
+                                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                        let mutable awaiter5 = task5.GetAwaiter()
+
+                                        let cont =
+                                            EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                                let mutable awaiter6 = task6.GetAwaiter()
+
+                                                let cont = EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                                    let result1 = awaiter1.GetResult()
+                                                    let result2 = awaiter2.GetResult()
+                                                    let result3 = awaiter3.GetResult()
+                                                    let result4 = awaiter4.GetResult()
+                                                    let result5 = awaiter5.GetResult()
+                                                    let result6 = awaiter6.GetResult()
+
+                                                    match result1, result2, result3, result4, result5, result6 with
+                                                    | Ok result, Ok result2, Ok result3, Ok result4, Ok result5, Ok result6 ->
+                                                        (f (result, result2, result3, result4, result5, result6)).Invoke(&sm)
+
+                                                    | Error error, _, _, _, _, _ ->
+                                                        sm.Data.Result <-
+                                                            Error(
+                                                                error
+                                                                    .Merge(result2)
+                                                                    .Merge(result3)
+                                                                    .Merge(result4)
+                                                                    .Merge(result5)
+                                                                    .Merge(result6)
+                                                            )
+
+                                                        true
+                                                    | _, Error error, _, _, _, _ ->
+                                                        sm.Data.Result <-
+                                                            Error(
+                                                                error
+                                                                    .Merge(result1)
+                                                                    .Merge(result3)
+                                                                    .Merge(result4)
+                                                                    .Merge(result5)
+                                                                    .Merge(result6)
+                                                            )
+
+                                                        true
+                                                    | _, _, Error error, _, _, _ ->
+                                                        sm.Data.Result <-
+                                                            Error(
+                                                                error
+                                                                    .Merge(result1)
+                                                                    .Merge(result2)
+                                                                    .Merge(result4)
+                                                                    .Merge(result5)
+                                                                    .Merge(result6)
+                                                            )
+
+                                                        true
+                                                    | _, _, _, Error error, _, _ ->
+                                                        sm.Data.Result <-
+                                                            Error(
+                                                                error
+                                                                    .Merge(result1)
+                                                                    .Merge(result2)
+                                                                    .Merge(result3)
+                                                                    .Merge(result5)
+                                                                    .Merge(result6)
+                                                            )
+
+                                                        true
+                                                    | _, _, _, _, Error error, _ ->
+                                                        sm.Data.Result <-
+                                                            Error(
+                                                                error
+                                                                    .Merge(result1)
+                                                                    .Merge(result2)
+                                                                    .Merge(result3)
+                                                                    .Merge(result4)
+                                                                    .Merge(result6)
+                                                            )
+
+                                                        true
+                                                    | _, _, _, _, _, Error error ->
+                                                        sm.Data.Result <-
+                                                            Error(
+                                                                error
+                                                                    .Merge(result1)
+                                                                    .Merge(result2)
+                                                                    .Merge(result3)
+                                                                    .Merge(result4)
+                                                                    .Merge(result5)
+                                                            )
+
+                                                        true
+                                                )
+                                                if awaiter6.IsCompleted then
+                                                    cont.Invoke(&sm)
+                                                else
+                                                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter6 :> ICriticalNotifyCompletion)
+                                                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                                    false
+                                            )
+
+                                        if awaiter5.IsCompleted then
+                                            cont.Invoke(&sm)
+                                        else
+                                            sm.ResumptionDynamicInfo.ResumptionData <-
+                                                (awaiter5 :> ICriticalNotifyCompletion)
+
+                                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                            false
+
+                                    )
+
+                                if awaiter4.IsCompleted then
+                                    cont.Invoke(&sm)
+                                else
+                                    sm.ResumptionDynamicInfo.ResumptionData <-
+                                        (awaiter4 :> ICriticalNotifyCompletion)
+
+                                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                    false
+
+                            )
+
+                        if awaiter3.IsCompleted then
+                            cont.Invoke(&sm)
+                        else
+                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
+                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                            false)
+
+                if awaiter2.IsCompleted then
+                    cont.Invoke(&sm)
+                else
+                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                    false)
+
+        if awaiter1.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+
+            false
+
+
+    member inline _.Bind6<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'TResult3, 'TResult4, 'TResult5, 'TResult6,'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            eff1: Effect<'Env, 'TResult1, 'Err>,
+            eff2: Effect<'Env, 'TResult2, 'Err>,
+            eff3: Effect<'Env, 'TResult3, 'Err>,
+            eff4: Effect<'Env, 'TResult4, 'Err>,
+            eff5: Effect<'Env, 'TResult5, 'Err>,
+            eff6: Effect<'Env, 'TResult6, 'Err>,
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+        ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
+        EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
+            let task1 = eff1.Run sm.Data.Environment
+            let task2 = eff2.Run sm.Data.Environment
+            let task3 = eff3.Run sm.Data.Environment
+            let task4 = eff4.Run sm.Data.Environment
+            let task5 = eff5.Run sm.Data.Environment
+            let task6 = eff6.Run sm.Data.Environment
+
+            if __useResumableCode then
+                let mutable awaiter = task1.GetAwaiter()
+                let mutable __stack_fin = true
+
+                if not awaiter.IsCompleted then
+                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                    __stack_fin <- __stack_yield_fin
+
+                if __stack_fin then
+                    let mutable awaiter2 = task2.GetAwaiter()
+
+                    if not awaiter2.IsCompleted then
+                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                        __stack_fin <- __stack_yield_fin
+
+                    if __stack_fin then
+                        let mutable awaiter3 = task3.GetAwaiter()
+
+                        if not awaiter3.IsCompleted then
+                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                            __stack_fin <- __stack_yield_fin
+
+                        if __stack_fin then
+                            let mutable awaiter4 = task4.GetAwaiter()
+
+                            if not awaiter4.IsCompleted then
+                                let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                __stack_fin <- __stack_yield_fin
+
+                            if __stack_fin then
+                                let mutable awaiter5 = task5.GetAwaiter()
+
+                                if not awaiter5.IsCompleted then
+                                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                    __stack_fin <- __stack_yield_fin
+
+                                if __stack_fin then
+                                    let mutable awaiter6 = task6.GetAwaiter()
+                                    if not awaiter6.IsCompleted then
+                                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                        __stack_fin <- __stack_yield_fin
+                                    if __stack_fin then
+                                        let result1 = awaiter.GetResult()
+                                        let result2 = awaiter2.GetResult()
+                                        let result3 = awaiter3.GetResult()
+                                        let result4 = awaiter4.GetResult()
+                                        let result5 = awaiter5.GetResult()
+                                        let result6 = awaiter6.GetResult()
+
+                                        match result1, result2, result3, result4, result5, result6 with
+                                        | Ok result, Ok result2, Ok result3, Ok result4, Ok result5, Ok result6 ->
+                                            (f (result, result2, result3, result4, result5, result6)).Invoke(&sm)
+
+                                        | Error error, _, _, _, _, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result6))
+
+                                            true
+                                        | _, Error error, _, _, _, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result3).Merge(result4).Merge(result5).Merge(result6))
+
+                                            true
+                                        | _, _, Error error, _, _, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result2).Merge(result4).Merge(result5).Merge(result6))
+
+                                            true
+                                        | _, _, _, Error error, _, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result5).Merge(result6))
+
+                                            true
+                                        | _, _, _, _, Error error, _ ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result6))
+                                            true
+                                        | _, _, _, _, _, Error error ->
+                                            sm.Data.Result <-
+                                                Error(error.Merge(result1).Merge(result2).Merge(result3).Merge(result4).Merge(result5))
+                                            true
+                                    else
+                                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter6, &sm)
+                                        false
+                                else
+                                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter5, &sm)
+                                    false
+                            else
+                                sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter4, &sm)
+                                false
+                        else
+                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter3, &sm)
+                            false
+                    else
+                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
+                        false
+                else
+                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                    false
+            else
+                EffBuilderBase.Bind6Dynamic(&sm, task1, task2, task3, task4, task5, task6, f))
+
+    static member inline Bind7Dynamic<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'TResult3, 'TResult4, 'TResult5, 'TResult6, 'TResult7, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TOverall, 'Err>>>,
+            task1: ValueTask<Result<'TResult1, 'Err>>,
+            task2: ValueTask<Result<'TResult2, 'Err>>,
+            task3: ValueTask<Result<'TResult3, 'Err>>,
+            task4: ValueTask<Result<'TResult4, 'Err>>,
+            task5: ValueTask<Result<'TResult5, 'Err>>,
+            task6: ValueTask<Result<'TResult6, 'Err>>,
+            task7: ValueTask<Result<'TResult7, 'Err>>,
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+        ) : bool =
+        let mutable awaiter1 = task1.GetAwaiter()
+
+        let cont =
+            EffectResumptionFunc<_, _, _>(fun sm ->
+                let mutable awaiter2 = task2.GetAwaiter()
+
+                let cont =
+                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                        let mutable awaiter3 = task3.GetAwaiter()
+
+                        let cont =
+                            EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                let mutable awaiter4 = task4.GetAwaiter()
+
+                                let cont =
+                                    EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                        let mutable awaiter5 = task5.GetAwaiter()
+
+                                        let cont =
+                                            EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                                let mutable awaiter6 = task6.GetAwaiter()
+
+                                                let cont = EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                                    let mutable awaiter7 = task7.GetAwaiter()
+                                                    let cont =
+                                                        EffectResumptionFunc<_,_,_>(fun sm ->
+                                                            EffBuilderBase.HandleResultsBind(
+                                                                &sm,
+                                                                awaiter1.GetResult(),
+                                                                awaiter2.GetResult(),
+                                                                awaiter3.GetResult(),
+                                                                awaiter4.GetResult(),
+                                                                awaiter5.GetResult(),
+                                                                awaiter6.GetResult(),
+                                                                awaiter7.GetResult(),
+                                                                f
+                                                            )
+                                                        )
+                                                    if awaiter7.IsCompleted then
+                                                        cont.Invoke(&sm)
+                                                    else
+                                                        sm.ResumptionDynamicInfo.ResumptionData <- (awaiter7 :> ICriticalNotifyCompletion)
+                                                        sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                                        false
+                                                )
+                                                if awaiter6.IsCompleted then
+                                                    cont.Invoke(&sm)
+                                                else
+                                                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter6 :> ICriticalNotifyCompletion)
+                                                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                                    false
+                                            )
+
+                                        if awaiter5.IsCompleted then
+                                            cont.Invoke(&sm)
+                                        else
+                                            sm.ResumptionDynamicInfo.ResumptionData <-
+                                                (awaiter5 :> ICriticalNotifyCompletion)
+
+                                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                            false
+
+                                    )
+
+                                if awaiter4.IsCompleted then
+                                    cont.Invoke(&sm)
+                                else
+                                    sm.ResumptionDynamicInfo.ResumptionData <-
+                                        (awaiter4 :> ICriticalNotifyCompletion)
+
+                                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                                    false
+
+                            )
+
+                        if awaiter3.IsCompleted then
+                            cont.Invoke(&sm)
+                        else
+                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter3 :> ICriticalNotifyCompletion)
+                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                            false)
+
+                if awaiter2.IsCompleted then
+                    cont.Invoke(&sm)
+                else
+                    sm.ResumptionDynamicInfo.ResumptionData <- (awaiter2 :> ICriticalNotifyCompletion)
+                    sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                    false)
+
+        if awaiter1.IsCompleted then
+            cont.Invoke(&sm)
+        else
+            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter1 :> ICriticalNotifyCompletion)
+            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+
+            false
+
+    member inline _.Bind7<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'TResult3, 'TResult4, 'TResult5, 'TResult6, 'TResult7, 'Err
+        when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
+        (
+            eff1: Effect<'Env, 'TResult1, 'Err>,
+            eff2: Effect<'Env, 'TResult2, 'Err>,
+            eff3: Effect<'Env, 'TResult3, 'Err>,
+            eff4: Effect<'Env, 'TResult4, 'Err>,
+            eff5: Effect<'Env, 'TResult5, 'Err>,
+            eff6: Effect<'Env, 'TResult6, 'Err>,
+            eff7: Effect<'Env, 'TResult7, 'Err>,
+            [<InlineIfLambda>] f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+        ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
+        EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
+            let task1 = eff1.Run sm.Data.Environment
+            let task2 = eff2.Run sm.Data.Environment
+            let task3 = eff3.Run sm.Data.Environment
+            let task4 = eff4.Run sm.Data.Environment
+            let task5 = eff5.Run sm.Data.Environment
+            let task6 = eff6.Run sm.Data.Environment
+            let task7 = eff7.Run sm.Data.Environment
+
+            if __useResumableCode then
+                let mutable awaiter = task1.GetAwaiter()
+                let mutable __stack_fin = true
+
+                if not awaiter.IsCompleted then
+                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                    __stack_fin <- __stack_yield_fin
+
+                if __stack_fin then
+                    let mutable awaiter2 = task2.GetAwaiter()
+
+                    if not awaiter2.IsCompleted then
+                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                        __stack_fin <- __stack_yield_fin
+
+                    if __stack_fin then
+                        let mutable awaiter3 = task3.GetAwaiter()
+
+                        if not awaiter3.IsCompleted then
+                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                            __stack_fin <- __stack_yield_fin
+
+                        if __stack_fin then
+                            let mutable awaiter4 = task4.GetAwaiter()
+
+                            if not awaiter4.IsCompleted then
+                                let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                __stack_fin <- __stack_yield_fin
+
+                            if __stack_fin then
+                                let mutable awaiter5 = task5.GetAwaiter()
+
+                                if not awaiter5.IsCompleted then
+                                    let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                    __stack_fin <- __stack_yield_fin
+
+                                if __stack_fin then
+                                    let mutable awaiter6 = task6.GetAwaiter()
+                                    if not awaiter6.IsCompleted then
+                                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                        __stack_fin <- __stack_yield_fin
+                                    if __stack_fin then
+                                        let mutable awaiter7 = task7.GetAwaiter()
+                                        if not awaiter7.IsCompleted then
+                                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                                            __stack_fin <- __stack_yield_fin
+                                        if __stack_fin then
+                                            EffBuilderBase.HandleResultsBind(
+                                                &sm,
+                                                awaiter.GetResult(),
+                                                awaiter2.GetResult(),
+                                                awaiter3.GetResult(),
+                                                awaiter4.GetResult(),
+                                                awaiter5.GetResult(),
+                                                awaiter6.GetResult(),
+                                                awaiter7.GetResult(),
+                                                f
+                                            )                                            
+                                        else
+                                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter7, &sm)
+                                            false
+                                    else
+                                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter6, &sm)
+                                        false
+                                else
+                                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter5, &sm)
+                                    false
+                            else
+                                sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter4, &sm)
+                                false
+                        else
+                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter3, &sm)
+                            false
+                    else
+                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
+                        false
+                else
+                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                    false
+            else
+                EffBuilderBase.Bind7Dynamic(&sm, task1, task2, task3, task4, task5, task6, task7, f))
 
     static member WhenAllDynamic
         (
@@ -2263,14 +3356,13 @@ module Medium =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(ValueTask<_>(task = t), continuation)
 
-        member inline _.Bind(result: Result<'T, 'Err>, [<InlineIfLambda>] f: 'T -> EffectCode<_,'TOverall,'T2,_>) =            
+        member inline _.Bind(result: Result<'T, 'Err>, [<InlineIfLambda>] f: 'T -> EffectCode<_, 'TOverall, 'T2, _>) =
             EffectCode<'Env, 'TOverall, 'T2, 'Err>(fun sm ->
                 match result with
                 | Ok ok -> (f ok).Invoke(&sm)
                 | Error e ->
                     sm.Data.Result <- Error e
-                    true
-                )
+                    true)
 
         member inline this.ReturnFrom(task: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.Bind(task, (fun (t: 'T) -> this.Return t))
@@ -2283,7 +3375,7 @@ module Medium =
         member inline _.Using<'Resource, 'TOverall, 'T, 'Env, 'Err when 'Resource :> IDisposable>
             (
                 resource: 'Resource,
-                [<InlineIfLambda>]body: 'Resource -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+                [<InlineIfLambda>] body: 'Resource -> EffectCode<'Env, 'TOverall, 'T, 'Err>
             ) =
             ResumableCode.Using(resource, body)
 
@@ -2365,7 +3457,7 @@ module Medium =
                 body
             )
 
-        member inline this.For(s: IEnumerable<'a>, [<InlineIfLambda>]f1: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
+        member inline this.For(s: IEnumerable<'a>, [<InlineIfLambda>] f1: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
             this.Delay(fun () ->
                 this.Using(
                     s.GetEnumerator(),
@@ -2458,4 +3550,4 @@ type Effect<'R, 'T, 'E> with
 
     (* applicative *)
     ///Implements Apply on the effect, making it an applicative
-    static member inline (<*>)(f, e) = Effect.ap<_,_,_,_> f e
+    static member inline (<*>)(f, e) = Effect.ap<_, _, _, _> f e
