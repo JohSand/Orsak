@@ -494,6 +494,52 @@ module BuilderTests =
         |> Effect.repeatWhileTrue
         |> run
 
+    [<Fact>]
+    let ``bind many results with error`` () =
+        eff {
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Error("Expected error")
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            return ()
+        }
+        |> expectError "Expected error"
+        |> run
+
+    [<Fact>]
+    let ``bind many results`` () =
+        eff {
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            do! Ok()
+            return ()
+        }
+        |> run
+
 module CombinatorTests =
     ///Setup so that sequential execution hangs, will fail with timeout
     ///Parallel execution will make progress

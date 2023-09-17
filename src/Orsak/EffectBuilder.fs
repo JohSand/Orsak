@@ -2263,13 +2263,14 @@ module Medium =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(ValueTask<_>(task = t), continuation)
 
-        member inline _.Bind(result: Result<_, _>, [<InlineIfLambda>] f) =
-            match result with
-            | Ok ok -> f ok
-            | Error e ->
-                EffectCode<'Env, 'T, _, 'Err>(fun sm ->
+        member inline _.Bind(result: Result<'T, 'Err>, [<InlineIfLambda>] f: 'T -> EffectCode<_,'TOverall,'T2,_>) =            
+            EffectCode<'Env, 'TOverall, 'T2, 'Err>(fun sm ->
+                match result with
+                | Ok ok -> (f ok).Invoke(&sm)
+                | Error e ->
                     sm.Data.Result <- Error e
-                    true)
+                    true
+                )
 
         member inline this.ReturnFrom(task: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.Bind(task, (fun (t: 'T) -> this.Return t))
@@ -2457,4 +2458,4 @@ type Effect<'R, 'T, 'E> with
 
     (* applicative *)
     ///Implements Apply on the effect, making it an applicative
-    static member inline (<*>)(f, e) = Effect.ap f e
+    static member inline (<*>)(f, e) = Effect.ap<_,_,_,_> f e
