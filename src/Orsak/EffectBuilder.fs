@@ -1266,7 +1266,7 @@ type EffBuilderBase() =
         (
             eff: Effect<'Env, 'TResult1, 'Err>,
             eff2: Effect<'Env, 'TResult2, 'Err>,
-            f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
@@ -1317,7 +1317,7 @@ type EffBuilderBase() =
             task1: ValueTask<Result<'TResult1, 'Err>>,
             task2: ValueTask<Result<'TResult2, 'Err>>,
             task3: ValueTask<Result<'TResult3, 'Err>>,
-            f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : bool =
         let mutable awaiter1 = task1.GetAwaiter()
 
@@ -1377,7 +1377,7 @@ type EffBuilderBase() =
             eff: Effect<'Env, 'TResult1, 'Err>,
             eff2: Effect<'Env, 'TResult2, 'Err>,
             eff3: Effect<'Env, 'TResult3, 'Err>,
-            f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
@@ -1445,7 +1445,7 @@ type EffBuilderBase() =
             task2: ValueTask<Result<'TResult2, 'Err>>,
             task3: ValueTask<Result<'TResult3, 'Err>>,
             task4: ValueTask<Result<'TResult4, 'Err>>,
-            f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : bool =
         let mutable awaiter1 = task1.GetAwaiter()
 
@@ -1532,7 +1532,7 @@ type EffBuilderBase() =
             eff2: Effect<'Env, 'TResult2, 'Err>,
             eff3: Effect<'Env, 'TResult3, 'Err>,
             eff4: Effect<'Env, 'TResult4, 'Err>,
-            f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task1 = eff1.Run sm.Data.Environment
@@ -1616,7 +1616,7 @@ type EffBuilderBase() =
             task3: ValueTask<Result<'TResult3, 'Err>>,
             task4: ValueTask<Result<'TResult4, 'Err>>,
             task5: ValueTask<Result<'TResult5, 'Err>>,
-            f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : bool =
         let mutable awaiter1 = task1.GetAwaiter()
 
@@ -1759,7 +1759,7 @@ type EffBuilderBase() =
             eff3: Effect<'Env, 'TResult3, 'Err>,
             eff4: Effect<'Env, 'TResult4, 'Err>,
             eff5: Effect<'Env, 'TResult5, 'Err>,
-            f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            [<InlineIfLambda>]f: _ -> EffectCode<'Env, 'TOverall, 'T, 'Err>
         ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
         EffectCode<'Env, 'TOverall, 'T, 'Err>(fun sm ->
             let task1 = eff1.Run sm.Data.Environment
@@ -2283,7 +2283,7 @@ module Medium =
         member inline _.Using<'Resource, 'TOverall, 'T, 'Env, 'Err when 'Resource :> IDisposable>
             (
                 resource: 'Resource,
-                body: 'Resource -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+                [<InlineIfLambda>]body: 'Resource -> EffectCode<'Env, 'TOverall, 'T, 'Err>
             ) =
             ResumableCode.Using(resource, body)
 
@@ -2365,7 +2365,7 @@ module Medium =
                 body
             )
 
-        member inline this.For(s: IEnumerable<'a>, f1: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
+        member inline this.For(s: IEnumerable<'a>, [<InlineIfLambda>]f1: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
             this.Delay(fun () ->
                 this.Using(
                     s.GetEnumerator(),

@@ -104,6 +104,17 @@ module BuilderTests =
         }
 
     [<Fact>]
+    let ``Builder should support for with IEnumerable binding an effect`` () =        
+        eff {
+            let list = [ 1..5 ]
+            for j in list do
+                do! Effect.ret()
+
+            return ()
+        }
+        |> run
+
+    [<Fact>]
     let ``Builder should support for with tuple`` () =
         run
         <| eff {
