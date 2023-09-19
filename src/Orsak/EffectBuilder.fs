@@ -3356,6 +3356,13 @@ module Medium =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(ValueTask<_>(task = t), continuation)
 
+        member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
+            (
+                a: Async<'TResult1>,
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
+            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
+            this.Bind(Async.StartAsTask a, continuation)
+
         member inline _.Bind(result: Result<'T, 'Err>, [<InlineIfLambda>] f: 'T -> EffectCode<_, 'TOverall, 'T2, _>) =
             EffectCode<'Env, 'TOverall, 'T2, 'Err>(fun sm ->
                 match result with
@@ -3366,6 +3373,10 @@ module Medium =
 
         member inline this.ReturnFrom(task: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.Bind(task, (fun (t: 'T) -> this.Return t))
+
+
+        member inline this.ReturnFrom(a: Async<'T>) : EffectCode<'Env, 'T, 'T, 'Err> =
+            this.Bind(Async.StartAsTask a, (fun (t: 'T) -> this.Return t))
 
         member inline this.ReturnFrom(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             EffectCode<'Env, 'T, _, 'Err>(fun sm ->

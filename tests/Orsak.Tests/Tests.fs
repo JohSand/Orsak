@@ -91,6 +91,15 @@ module BuilderTests =
             return runme =! false
         }
 
+
+    [<Fact>]
+    let ``Can bind async in eff CE`` () =
+        eff {
+            let! myValue = async { return 1 }
+            return myValue
+        }
+        |> run 
+
     [<Fact>]
     let ``Builder should support for with IEnumerable`` () =
         run
