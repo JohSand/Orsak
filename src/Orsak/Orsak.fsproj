@@ -31,6 +31,7 @@
 	<ItemGroup>
 		<Compile Include="ValueTaskBuilder.fs" />
 		<Compile Include="EffectBuilder.fs" />
+		<Compile Include="EffSeqBuilder.fs" />
 		<Compile Include="Effect.fs" />
 		<Compile Include="ScopedEffect.fs" />
 		<Compile Include="EffSeq.fs" />

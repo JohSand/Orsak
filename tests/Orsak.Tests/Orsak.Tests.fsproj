@@ -10,6 +10,7 @@
     <Version>0.1.0-beta0028</Version>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="EffSeqTests.fs" />
     <Compile Include="RecoveryTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="ScopedTests.fs" />
