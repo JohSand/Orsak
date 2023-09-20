@@ -3293,7 +3293,7 @@ module Medium =
                 false
 
         [<NoEagerConstraintApplication>]
-        member inline _.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
+        member inline _.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 eff: Effect<'Env, 'TResult1, 'Err>,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
@@ -3326,7 +3326,7 @@ module Medium =
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation))
 
-        member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
+        member inline this.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 task: ValueTask<'TResult1>,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
@@ -3351,14 +3351,14 @@ module Medium =
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation))
 
-        member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
+        member inline this.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 t: Task<'TResult1>,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(ValueTask<_>(task = t), continuation)
 
-        member inline this.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
+        member inline this.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 a: Async<'TResult1>,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>

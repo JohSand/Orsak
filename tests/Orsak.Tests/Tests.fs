@@ -594,43 +594,48 @@ module BuilderTests =
             else
                 return! Error "Expected error"
         }
-
-        eff {
+        task {
             let mutable counter = 0
+            do!
+                eff {
 
-            while counter < 5 do
-                do! inlineEffect counter
-                counter <- counter + 1
+                    while counter < 5 do
+                        do! inlineEffect counter
+                        counter <- counter + 1
 
-            failwith $"Loop continued past 2, got to %i{counter}"
-            return ()
+                    failwith $"Loop continued past 2, got to %i{counter}"
+                    return ()
+                }
+                |> expectError "Expected error"
+                |> run
+            Assert.Equal(2, counter)
         }
-        |> expectError "Expected error"
-        |> run
 
 
     [<Fact>]
     let ``for-Builder should abort on error`` () =
         let inlineEffect i = eff {
-            if i = 2 then
+            if i = 3 then
                 return! Error "Expected error"
             else
                 return! Ok()
 
         }
+        task {
+            let mutable counter = 0
+            do!
+                eff {
+                    for j in [ 1..5] do
+                        do! inlineEffect j
+                        counter <- counter + 1
 
-        (eff {
-            let mutable counter = 1
-
-            for j in struct (1, 2, 3, 4, 5) do
-                do! inlineEffect j
-                counter <- counter + 1
-
-            failwithf "Loop continued past 2, got to %i" counter
-            return ()
-        })
-        |> expectError "Expected error"
-        |> run
+                    failwithf "Loop continued past 2, got to %i" counter
+                    return ()
+                }
+                |> expectError "Expected error"
+                |> run
+            Assert.Equal(2, counter)
+        }
 
     [<Fact>]
     let ``repeat 100_000 times`` () =
