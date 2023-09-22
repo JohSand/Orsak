@@ -21,6 +21,30 @@ type EffSeq<'r, 'a, 'e> =
 
     member this.Invoke(e: 'r) = let (Effect f) = this in f.Invoke e
 
+    member this.WithCancellation(outerToken) =
+        let that = this
+        //is this javascript?
+        //not the most efficient impl, allocates more than we want
+        EffSeq.Effect(
+            EffectSeqDelegate(fun env ->
+                { new IAsyncEnumerable<Result<'a, 'e>> with
+                    member _.GetAsyncEnumerator(innerToken) =
+                        let source = CancellationTokenSource.CreateLinkedTokenSource(innerToken, outerToken)
+                        let enumerator = that.Invoke(env).GetAsyncEnumerator(source.Token)
+
+                        { new IAsyncEnumerator<Result<'a, 'e>> with
+                            member this.Current = enumerator.Current
+
+                            member this.DisposeAsync() =
+                                source.Dispose()
+                                enumerator.DisposeAsync()
+
+                            member this.MoveNextAsync() = enumerator.MoveNextAsync()
+                        }
+
+                })
+        )
+
 type IEnumeratorStateMachine<'T, 'Err> =
     inherit IAsyncStateMachine
     abstract member Current: ValueOption<Result<'T, 'Err>> with get, set
@@ -136,11 +160,13 @@ and [<NoComparison; NoEquality>] EffectEnumerator<'Env, 'Machine, 'T, 'Err
             | ValueNone -> Error(Unchecked.defaultof<'Err>)
 
         member this.MoveNextAsync() =
-            this.cancellationToken.ThrowIfCancellationRequested()
-
             this.ValueTaskSource.Reset()
 
-            if this.IsComplete || this.ResumableMachine.ResumptionPoint = -1 then
+            if
+                this.cancellationToken.IsCancellationRequested
+                || this.IsComplete
+                || this.ResumableMachine.ResumptionPoint = -1
+            then
                 ValueTask<_> false
             else
                 let mutable ts = &this.ResumableMachine
@@ -256,10 +282,10 @@ type EffSeqBuilder() =
             EffSeqCode<'Env, 'T, 'Err>(fun sm -> body.Invoke(&sm)),
             EffSeqCode<'Env, 'T, 'Err>(fun sm ->
                 let mutable __stack_condition_fin = true
-                let __stack_vtask = compensationAction ()
+                let task = compensationAction ()
 
-                if not __stack_vtask.IsCompleted then
-                    let mutable awaiter = __stack_vtask.GetAwaiter()
+                if not task.IsCompleted then
+                    let mutable awaiter = task.GetAwaiter()
                     let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                     __stack_condition_fin <- __stack_yield_fin
 
@@ -300,7 +326,7 @@ module LowPrioritySeq =
             and ^Awaiter: (member GetResult: unit -> 'T)>
             (
                 task: ^TaskLike,
-                continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)
+                [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)
             ) =
 
             EffSeqCode<'Env, 'U, 'Err>(fun sm ->
@@ -320,6 +346,80 @@ module LowPrioritySeq =
                     sm.Data.NotifyCompletion <- awaiter
                     sm.Data.EnumeratorStateMachine.Current <- ValueNone
                     false)
+
+        [<NoEagerConstraintApplication>]
+        member inline _.TryFinallyAsync2< ^TaskLike, 'Env, 'T, ^Awaiter, 'Err
+            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
+            and ^Awaiter :> ICriticalNotifyCompletion
+            and ^Awaiter: (member get_IsCompleted: unit -> bool)
+            and ^Awaiter: (member GetResult: unit -> unit)>
+            (
+                body: EffSeqCode<'Env, 'T, 'Err>,
+                [<InlineIfLambda>] compensationAction: unit -> ^TaskLike
+            ) =
+            ResumableCode.TryFinallyAsync(
+                EffSeqCode<'Env, 'T, 'Err>(fun sm -> body.Invoke(&sm)),
+                EffSeqCode<'Env, 'T, 'Err>(fun sm ->
+                    let taskLike = compensationAction ()
+
+                    if not (isNull (box taskLike)) then
+                        let mutable __stack_condition_fin = true
+                        let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) taskLike)
+
+                        if not (^Awaiter: (member get_IsCompleted: unit -> bool) awaiter) then
+                            let __stack_fin2 = ResumableCode.Yield().Invoke(&sm)
+                            __stack_condition_fin <- __stack_fin2
+
+                            if not __stack_condition_fin then
+                                sm.Data.NotifyCompletion <- awaiter
+
+                        __stack_condition_fin
+                    else
+                        true)
+
+            )
+
+        //support for disposable-like, not sure if like
+        [<NoEagerConstraintApplication>]
+        member inline this.Using< ^DisposableLike, ^TaskLike, 'Env, 'T, ^Awaiter, 'Err
+            when ^DisposableLike: (member DisposeAsync: unit -> ^TaskLike)
+            and ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
+            and ^Awaiter :> ICriticalNotifyCompletion
+            and ^Awaiter: (member get_IsCompleted: unit -> bool)
+            and ^Awaiter: (member GetResult: unit -> unit)>
+            (
+                disp: ^DisposableLike,
+                [<InlineIfLambda>] body: ^DisposableLike -> EffSeqCode<'Env, 'T, 'Err>
+            ) : EffSeqCode<'Env, 'T, 'Err> =
+            this.TryFinallyAsync2(
+                (fun sm -> (body disp).Invoke(&sm)),
+                (fun () ->
+                    if not (isNull (box disp)) then
+                        (^DisposableLike: (member DisposeAsync: unit -> ^TaskLike) disp)
+                    else
+                        Unchecked.defaultof< ^TaskLike>)
+            )
+
+        //I guess we could support AsyncEnumerable-like, but it would be truly hideous
+        //the signature for MoveNextAsync is also task-like, and so it would require extra support, and so on
+        //with while!, doing it manually might be a viable alt for other like-types.
+        [<NoEagerConstraintApplication>]
+        member inline this.For
+            (
+                source: ConfiguredCancelableAsyncEnumerable<'TElement>,
+                [<InlineIfLambda>] body: 'TElement -> EffSeqCode<'Env, 'T, 'Err>
+            ) =
+            EffSeqCode<'Env, 'T, 'Err>(fun sm ->
+                this
+                    .Using(
+                        source.ConfigureAwait(false).GetAsyncEnumerator(),
+                        fun e ->
+                            let mutable e = e
+                            let moveNext () = vtask { return! e.MoveNextAsync() }
+                            this.WhileAsync((moveNext), (fun sm -> (body e.Current).Invoke(&sm)))
+                    )
+                    .Invoke(&sm))
+
 
 [<AutoOpen>]
 module MediumPriority =
@@ -377,7 +477,7 @@ module MediumPriority =
 module HighPrioritySeq =
     type EffSeqBuilder with
 
-        member inline _.Bind(task: Task<'T>, continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)) =
+        member inline _.Bind(task: Task<'T>, [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)) =
             EffSeqCode<'Env, 'U, 'Err>(fun sm ->
                 let mutable awaiter = task.GetAwaiter()
                 let mutable __stack_fin = true
@@ -426,8 +526,24 @@ module HighPrioritySeq =
                 else
                     failwith "lazy")
 
-        member inline this.Bind(computation: Async<'T>, continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)) =
+        member inline this.Bind
+            (
+                computation: Async<'T>,
+                [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)
+            ) =
             this.Bind(Async.StartAsTask(computation), continuation)
+
+        member inline this.Bind
+            (
+                result: Result<'T, 'Err>,
+                [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)
+            ) =
+            EffSeqCode<'Env, 'U, 'Err>(fun sm ->
+                match result with
+                | Ok ok -> (continuation ok).Invoke(&sm)
+                | Error err ->
+                    sm.Data.EnumeratorStateMachine.Current <- ValueSome(Error err)
+                    false)
 
     type EffBuilderBase with
 
