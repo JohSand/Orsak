@@ -917,7 +917,7 @@ module CombinatorTests =
         do! effects |> Effect.sequence |> expectError "I am error" |> run
     }
 
-module EffSeqTests =
+module EffListTests =
     [<Fact>]
     let yieldValuesWorks () =
         effList {
