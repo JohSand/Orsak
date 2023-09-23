@@ -29,9 +29,7 @@ module Helpers2 =
     }
 
     let evaulateWithCancellation token (es: EffSeq<unit, 'a, string>) = task {
-        let mutable hasRead = false
-        do! Task.Yield()
-
+        let mutable hasRead = false        
         do!
             eff {
                 use enumerator = es.Invoke().GetAsyncEnumerator(token)
@@ -40,6 +38,7 @@ module Helpers2 =
                     match enumerator.Current with
                     | Ok _ -> hasRead <- true
                     | Error err -> failwith err
+                    do! Task.Yield()
 
                 Assert.True hasRead
 
@@ -173,68 +172,6 @@ module ``Empty Effect Sequences`` =
         do! task
         return ()
     }
-
-    [<Fact>]
-    let ``should work with For-form with IAsyncEnumerable and inner cancellation`` () = task {
-        let cts = new CancellationTokenSource()
-
-        let task =
-            effSeq {
-                for i in infiniteAsyncEnumerable () do
-                    i
-            }
-            |> withCancellation CancellationToken.None
-            |> evaulateWithCancellation cts.Token
-
-        do! Task.Delay(10)
-        cts.Cancel()
-        do! task
-        return ()
-    }
-
-    [<Fact>]
-    let ``should work with For-form with IAsyncEnumerable and outer cancellation`` () = task {
-        let cts = new CancellationTokenSource()
-
-        let task =
-            effSeq {
-                for i in infiniteAsyncEnumerable () do
-                    i
-            }
-            |> withCancellation cts.Token
-            |> evaulateWithCancellation CancellationToken.None
-
-        do! Task.Delay(10)
-        cts.Cancel()
-        do! task
-        return ()
-    }
-
-    [<Fact>]
-    let ``should work with For-form with ConfiguredCancelableAsyncEnumerable`` () = task {
-        let cts = new CancellationTokenSource()
-        let chan = Channels.Channel.CreateUnbounded<int>()
-        let enumerable = chan.Reader.ReadAllAsync().WithCancellation(cts.Token).ConfigureAwait(false)
-        do! chan.Writer.WriteAsync(1)
-        let task =
-            effSeq {
-                try
-                    for i in enumerable do i
-                with
-                | :? AggregateException as agg ->
-                    let inner = agg.InnerException
-                    let t = Assert.IsType<TaskCanceledException> inner
-                    Assert.Equal(cts.Token, t.CancellationToken)
-                    ()
-            }
-            |> evaluatesToSequence [ 1 ]
-
-        do! Task.Delay(10)
-        cts.Cancel()
-        do! task
-        return ()
-    }
-
 
     [<Fact>]
     let ``should work with For-form with EffSeq`` () =
@@ -531,6 +468,83 @@ module ``Effect Sequences With Elements`` =
                 i
         }
         |> evaluatesToSequence [ 1..size ]
+
+    [<Fact>]
+    let ``should support cancellation from suspension`` () = task {
+
+        use cts = new CancellationTokenSource()
+
+        let task =
+            effSeq {
+                1
+                for i in infiniteAsyncEnumerable () do
+                    do! Task.Delay(-1)
+                    i
+            }
+            |> evaulateWithCancellation cts.Token
+        cts.Cancel()
+        do! task
+        return ()
+    }
+
+    [<Fact>]
+    let ``should work with For-form with ConfiguredCancelableAsyncEnumerable`` () = task {
+        use cts = new CancellationTokenSource()
+        let chan = Channels.Channel.CreateUnbounded<int>()
+        let enumerable = chan.Reader.ReadAllAsync().WithCancellation(cts.Token).ConfigureAwait(false)
+        do! chan.Writer.WriteAsync(1)
+        let task =
+            effSeq {
+                try
+                    for i in enumerable do i
+                with
+                | :? AggregateException as agg ->
+                    let inner = agg.InnerException
+                    let t = Assert.IsType<TaskCanceledException> inner
+                    Assert.Equal(cts.Token, t.CancellationToken)
+                    ()
+            }
+            |> evaluatesToSequence [ 1 ]
+
+        cts.Cancel()
+        do! task
+        return ()
+    }
+
+    [<Fact>]
+    let ``should work with For-form with IAsyncEnumerable and inner cancellation`` () = task {
+        use cts = new CancellationTokenSource()
+
+        let task =
+            effSeq {
+                for i in infiniteAsyncEnumerable () do
+                    i
+            }
+            |> withCancellation CancellationToken.None
+            |> evaulateWithCancellation cts.Token
+
+        cts.Cancel()
+        do! task
+        return ()
+    }
+
+    [<Fact>]
+    let ``should work with For-form with IAsyncEnumerable and outer cancellation`` () = task {
+        use cts = new CancellationTokenSource()
+
+        let task =
+            effSeq {
+                for i in infiniteAsyncEnumerable () do
+                    i
+            }
+            |> withCancellation cts.Token
+            |> evaulateWithCancellation CancellationToken.None
+
+        cts.Cancel()
+        do! task
+        return ()
+    }
+
 
     [<Theory>]
     [<InlineData(1)>]

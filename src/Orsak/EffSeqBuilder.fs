@@ -88,6 +88,10 @@ and [<Struct; NoComparison; NoEquality>] EffectEnumerable<'Env, 'Machine, 'T, 'E
             //the machine now has it's own data, and can progress independent of the initial machine
             //we always need to pass it by ref
             machine.Data <- EffSeqStateMachineData(EnumeratorStateMachine = enumerator, Env = this.Env)
+            enumerator.Registration <- ct.Register(fun () ->
+                let mutable src = &enumerator.ValueTaskSource
+                src.SetResult(false)
+            )
             enumerator
 
 and [<NoComparison; NoEquality>] EffectEnumerator<'Env, 'Machine, 'T, 'Err
@@ -116,6 +120,8 @@ and [<NoComparison; NoEquality>] EffectEnumerator<'Env, 'Machine, 'T, 'Err
 
     [<DefaultValue(false)>]
     val mutable cancellationToken: CancellationToken
+    [<DefaultValue(false)>]
+    val mutable Registration: CancellationTokenRegistration
 
     //handles our implementation of IValueTaskSource<bool>
     [<DefaultValue(false)>]
@@ -175,6 +181,7 @@ and [<NoComparison; NoEquality>] EffectEnumerator<'Env, 'Machine, 'T, 'Err
                 match this.ValueTaskSource.GetStatus(this.ValueTaskSource.Version) with
                 | ValueTaskSourceStatus.Succeeded ->
                     let result = this.ValueTaskSource.GetResult(this.ValueTaskSource.Version)
+                    this.ValueTaskSource.Reset()
                     ValueTask.FromResult result
 
                 | ValueTaskSourceStatus.Faulted
@@ -182,7 +189,8 @@ and [<NoComparison; NoEquality>] EffectEnumerator<'Env, 'Machine, 'T, 'Err
                 | ValueTaskSourceStatus.Pending
                 | _ -> ValueTask<bool>(this, this.ValueTaskSource.Version)
 
-        member _.DisposeAsync() = ValueTask.CompletedTask
+        member this.DisposeAsync() =
+            this.Registration.DisposeAsync()
 
 and EffSeqCode<'Env, 'T, 'Err> = ResumableCode<EffSeqStateMachineData<'Env, 'T, 'Err>, unit>
 and EffSeqStateMachine<'Env, 'T, 'Err> = ResumableStateMachine<EffSeqStateMachineData<'Env, 'T, 'Err>>
