@@ -7,6 +7,7 @@ open System.Threading.Tasks
 open System
 open System.Threading
 open System.Collections.Generic
+open Swensen.Unquote
 
 [<AutoOpen>]
 module Helpers2 =
@@ -29,15 +30,17 @@ module Helpers2 =
     }
 
     let evaulateWithCancellation token (es: EffSeq<unit, 'a, string>) = task {
-        let mutable hasRead = false        
+        let mutable hasRead = false
+
         do!
             eff {
                 use enumerator = es.Invoke().GetAsyncEnumerator(token)
-                
+
                 while enumerator.MoveNextAsync() do
                     match enumerator.Current with
                     | Ok _ -> hasRead <- true
                     | Error err -> failwith err
+
                     do! Task.Yield()
 
                 Assert.True hasRead
@@ -81,6 +84,7 @@ module Helpers2 =
 
     let infiniteAsyncEnumerable () = taskSeq {
         let mutable i = 1
+
         while true do
             i
             i <- i + 1
@@ -114,6 +118,24 @@ module Helpers2 =
             member this.DisposeAsync() =
                 this.WasDisposed <- true
                 ValueTask.CompletedTask
+
+    type IRand =
+        abstract member Next: unit -> int
+
+    type IRandProvider =
+        abstract member Rand: IRand
+
+    let next () =
+        Effect.Create(fun (p: #IRandProvider) -> p.Rand.Next())
+
+    type RandProvider(seed: int) =
+        let inner = Random(seed)
+
+        interface IRandProvider with
+            member _.Rand =
+                { new IRand with
+                    member _.Next() = inner.Next()
+                }
 
 
 module ``Empty Effect Sequences`` =
@@ -298,15 +320,21 @@ module ``Empty Effect Sequences`` =
     [<Fact>]
     let ``should work with disposable-like`` () =
         let spy = new DisposeSpy()
+
         let spyEnumerator =
             { new IAsyncEnumerator<int> with
-                  member this.Current = raise (System.NotImplementedException())
-                  member this.DisposeAsync() = (spy :> IAsyncDisposable).DisposeAsync()
-                  member this.MoveNextAsync() = vtask { return false } }
+                member this.Current = raise (System.NotImplementedException())
+
+                member this.DisposeAsync() =
+                    (spy :> IAsyncDisposable).DisposeAsync()
+
+                member this.MoveNextAsync() = vtask { return false }
+            }
 
         let spyEnumerable =
             { new IAsyncEnumerable<int> with
-                  member this.GetAsyncEnumerator(_) = spyEnumerator }
+                member this.GetAsyncEnumerator(_) = spyEnumerator
+            }
 
         let dispLike = spyEnumerable.WithCancellation(CancellationToken.None)
 
@@ -477,11 +505,13 @@ module ``Effect Sequences With Elements`` =
         let task =
             effSeq {
                 1
+
                 for i in infiniteAsyncEnumerable () do
                     do! Task.Delay(-1)
                     i
             }
             |> evaulateWithCancellation cts.Token
+
         cts.Cancel()
         do! task
         return ()
@@ -491,14 +521,18 @@ module ``Effect Sequences With Elements`` =
     let ``should work with For-form with ConfiguredCancelableAsyncEnumerable`` () = task {
         use cts = new CancellationTokenSource()
         let chan = Channels.Channel.CreateUnbounded<int>()
-        let enumerable = chan.Reader.ReadAllAsync().WithCancellation(cts.Token).ConfigureAwait(false)
+
+        let enumerable =
+            chan.Reader.ReadAllAsync().WithCancellation(cts.Token).ConfigureAwait(false)
+
         do! chan.Writer.WriteAsync(1)
+
         let task =
             effSeq {
                 try
-                    for i in enumerable do i
-                with
-                | :? AggregateException as agg ->
+                    for i in enumerable do
+                        i
+                with :? AggregateException as agg ->
                     let inner = agg.InnerException
                     let t = Assert.IsType<TaskCanceledException> inner
                     Assert.Equal(cts.Token, t.CancellationToken)
@@ -563,6 +597,27 @@ module ``Effect Sequences With Elements`` =
     [<InlineData(100)>]
     let ``should work with YieldFrom-form`` (size: int) =
         effSeq { yield! [ 1..size ] } |> evaluatesToSequence [ 1..size ]
+
+    [<Fact>]
+    let ``should work with YieldFrom-form for effects`` () = task {
+        let seed = 102135
+        let provider = RandProvider(seed)
+
+        let! x =
+            (effSeq {
+                for _ in 1..3 do
+                    yield! next ()
+
+            }).Invoke(provider)
+            |> TaskSeq.toListAsync
+
+        let rand = Random(seed)
+        let expected = [ Ok(rand.Next()); Ok(rand.Next()); Ok(rand.Next()) ]
+
+        Assert.Equal<Result<_, string> list>(expected, x)
+
+        return ()
+    }
 
     [<Fact>]
     let ``should bind effects`` () =
@@ -715,15 +770,21 @@ module ``Effect Sequences With Elements`` =
     [<Fact>]
     let ``should work with disposable-like`` () =
         let spy = new DisposeSpy()
+
         let spyEnumerator =
             { new IAsyncEnumerator<int> with
-                  member this.Current = raise (System.NotImplementedException())
-                  member this.DisposeAsync() = (spy :> IAsyncDisposable).DisposeAsync()
-                  member this.MoveNextAsync() = vtask { return false } }
+                member this.Current = raise (System.NotImplementedException())
+
+                member this.DisposeAsync() =
+                    (spy :> IAsyncDisposable).DisposeAsync()
+
+                member this.MoveNextAsync() = vtask { return false }
+            }
 
         let spyEnumerable =
             { new IAsyncEnumerable<int> with
-                  member this.GetAsyncEnumerator(_) = spyEnumerator }
+                member this.GetAsyncEnumerator(_) = spyEnumerator
+            }
 
         let dispLike = spyEnumerable.WithCancellation(CancellationToken.None)
 
@@ -734,7 +795,7 @@ module ``Effect Sequences With Elements`` =
             3
             do ()
         }
-        |> evaluatesToSequence [ 1; 2; 3; ]
+        |> evaluatesToSequence [ 1; 2; 3 ]
         |> Task.map (fun () -> Assert.True spy.WasDisposed)
 
     [<Fact>]

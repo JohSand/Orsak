@@ -228,7 +228,9 @@ type EffSeqBuilder() =
                         EffectEnumerable<'Env, EffSeqStateMachine<'Env, 'T, 'Err>, 'T, 'Err>()
 
                     ts.InitialMachine <- sm
-                    EffSeq.Effect(EffectSeqDelegate(fun env -> ts :> IAsyncEnumerable<Result<'T, 'Err>>))))
+                    EffSeq.Effect(EffectSeqDelegate(fun env ->
+                        ts.Env <- env
+                        ts :> IAsyncEnumerable<Result<'T, 'Err>>))))
         else
             NotImplementedException "No dynamic implementation yet." |> raise
 
@@ -480,28 +482,6 @@ module MediumPriority =
         member inline this.YieldFrom(source: IAsyncEnumerable<'T>) =
             this.For(source, (fun v -> this.Yield(v)))
 
-
-[<AutoOpen>]
-module HighPrioritySeq =
-    type EffSeqBuilder with
-
-        member inline _.Bind(task: Task<'T>, [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)) =
-            EffSeqCode<'Env, 'U, 'Err>(fun sm ->
-                let mutable awaiter = task.GetAwaiter()
-                let mutable __stack_fin = true
-
-                if not awaiter.IsCompleted then
-                    let __stack_fin2 = ResumableCode.Yield().Invoke(&sm)
-                    __stack_fin <- __stack_fin2
-
-                if __stack_fin then
-                    let result = awaiter.GetResult()
-                    (continuation result).Invoke(&sm)
-                else
-                    sm.Data.NotifyCompletion <- awaiter
-                    sm.Data.EnumeratorStateMachine.Current <- ValueNone
-                    false)
-
         [<NoEagerConstraintApplication>]
         member inline _.Bind<'Env, 'TResult1, 'TResult2, 'Err>
             (
@@ -534,6 +514,30 @@ module HighPrioritySeq =
                 else
                     failwith "lazy")
 
+        member inline this.YieldFrom(eff: Effect<'Env, 'T, 'Err>) : EffSeqCode<'Env, 'T, 'Err> =
+            this.Bind<'Env, 'T, 'T, 'Err>(eff, this.Yield)
+
+[<AutoOpen>]
+module HighPrioritySeq =
+    type EffSeqBuilder with
+
+        member inline _.Bind(task: Task<'T>, [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)) =
+            EffSeqCode<'Env, 'U, 'Err>(fun sm ->
+                let mutable awaiter = task.GetAwaiter()
+                let mutable __stack_fin = true
+
+                if not awaiter.IsCompleted then
+                    let __stack_fin2 = ResumableCode.Yield().Invoke(&sm)
+                    __stack_fin <- __stack_fin2
+
+                if __stack_fin then
+                    let result = awaiter.GetResult()
+                    (continuation result).Invoke(&sm)
+                else
+                    sm.Data.NotifyCompletion <- awaiter
+                    sm.Data.EnumeratorStateMachine.Current <- ValueNone
+                    false)
+                  
         member inline this.Bind
             (
                 computation: Async<'T>,
@@ -551,9 +555,10 @@ module HighPrioritySeq =
                 | Ok ok -> (continuation ok).Invoke(&sm)
                 | Error err ->
                     sm.Data.EnumeratorStateMachine.Current <- ValueSome(Error err)
-                    false)
+                    ResumableCode.Yield().Invoke(&sm))
 
     type EffBuilderBase with
+
 
         member inline this.For
             (
