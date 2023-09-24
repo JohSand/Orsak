@@ -116,8 +116,10 @@ module Helpers2 =
 
         interface IAsyncDisposable with
             member this.DisposeAsync() =
+                ValueTask(task = task {
                 this.WasDisposed <- true
-                ValueTask.CompletedTask
+                do! Task.Yield()
+            })
 
     type IRand =
         abstract member Next: unit -> int
@@ -637,6 +639,30 @@ module ``Effect Sequences With Elements`` =
         }
         |> evaluatesToSequence [ 1; 2 ]
 
+    
+    [<Fact>]
+    let ``should bind tasks yielding after bind`` () =
+        effSeq {
+            do! Task.Yield()
+            1
+            2
+        }
+        |> evaluatesToSequence [ 1; 2 ]
+
+    
+    [<Fact>]
+    let ``should bind tasks interleaved`` () =
+        effSeq {
+            1
+            do! Task.Yield()
+            2
+            do! Task.Yield()
+            3
+            do! Task.Yield()
+            4
+        }
+        |> evaluatesToSequence [ 1; 2; 3; 4 ]
+
 
     [<Fact>]
     let ``should bind task-likes`` () =
@@ -651,10 +677,11 @@ module ``Effect Sequences With Elements`` =
     let ``should bind async`` () =
         effSeq {
             1
-            do! Async.AwaitTask(task { do! Task.Yield() })
+            do! Async.AwaitTask(task { do! Task.Delay(100) })
+            do! Async.AwaitTask(task { do! Task.Delay(100) })
             2
         }
-        |> evaluatesToSequence [ 1; 2 ]
+        |> evaluatesToSequence [ 1; 2; ]
 
     [<Fact>]
     let ``should bind results`` () =
