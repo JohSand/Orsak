@@ -458,7 +458,6 @@ module ``Effect Sequences With Elements`` =
         }
         for i = 0 to 1000 do
             do! evaluatesToSequence [ 1; 2; 3 ] s
-        //do! evaluatesToSequence [ 1; 2; 3 ] s
     }
 
     [<Theory>]
@@ -470,6 +469,21 @@ module ``Effect Sequences With Elements`` =
             let mutable i = size
 
             while i > 0 do
+                yield i
+                i <- i - 1
+        }
+        |> evaluatesToSequence [ size .. -1 .. 1 ]
+
+    [<Theory>]
+    [<InlineData(1)>]
+    [<InlineData(10)>]
+    [<InlineData(100)>]
+    let ``should work with bind tasks in While-form`` (size: int) =
+        effSeq {
+            let mutable i = size
+
+            while i > 0 do
+                do! Task.Yield()
                 yield i
                 i <- i - 1
         }
@@ -598,6 +612,7 @@ module ``Effect Sequences With Elements`` =
     [<InlineData(1)>]
     [<InlineData(10)>]
     [<InlineData(100)>]
+    [<InlineData(10_000)>]
     let ``should work with YieldFrom-form`` (size: int) =
         effSeq { yield! [ 1..size ] } |> evaluatesToSequence [ 1..size ]
 
@@ -678,8 +693,8 @@ module ``Effect Sequences With Elements`` =
     let ``should bind async`` () =
         effSeq {
             1
-            do! Async.AwaitTask(task { do! Task.Delay(100) })
-            do! Async.AwaitTask(task { do! Task.Delay(100) })
+            do! Async.AwaitTask(task { do! Task.Delay(10) })
+            do! Async.AwaitTask(task { do! Task.Delay(10) })
             2
         }
         |> evaluatesToSequence [ 1; 2; ]
