@@ -129,8 +129,43 @@ type AsyncBenchmarks() =
             return()
     }
 
+[<AutoOpen>]
+module Helpers2 =
+    let runOrFail (e: Effect<_, _, _>) = e.RunOrFail()
+
+    let evaluatesToSequence (es: EffSeq<unit, 'a, string>) = task {
+        let res = ResizeArray<_>()
+
+        do!
+            eff {
+                for a in es do
+                    res.Add(a)
+
+                return ()
+            }
+            |> runOrFail
+
+        return List.ofSeq res
+    }
+[<MemoryDiagnoser>]
+type AsyncSeqYieldBenchmarks() =
+    [<Benchmark(Baseline=true)>]
+    member this.CompletedOld() = task {
+
+        let! _unused = evaluatesToSequence (effSeq {
+            yield 1
+            do! Task.Yield()
+            yield 2
+            do! Task.Yield()
+            yield 3
+        })
+
+        return ()
+    }
+
 [<EntryPoint>]
 let main argv =
+    //asyncMain().GetAwaiter().GetResult()
     BenchmarkSwitcher
         .FromAssembly(typeof<AsyncBenchmarks>.Assembly).Run(argv)
         |> ignore

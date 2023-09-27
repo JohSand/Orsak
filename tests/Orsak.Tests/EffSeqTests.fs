@@ -452,12 +452,13 @@ module ``Effect Sequences With Elements`` =
     let ``should yield elements repeatedly`` () = task {
         let s = effSeq {
             1
+            do! Task.Yield()
             2
             3
         }
-
-        do! evaluatesToSequence [ 1; 2; 3 ] s
-        do! evaluatesToSequence [ 1; 2; 3 ] s
+        for i = 0 to 1000 do
+            do! evaluatesToSequence [ 1; 2; 3 ] s
+        //do! evaluatesToSequence [ 1; 2; 3 ] s
     }
 
     [<Theory>]
