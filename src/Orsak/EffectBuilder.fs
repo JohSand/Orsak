@@ -3468,7 +3468,7 @@ module Medium =
                 body
             )
 
-        member inline this.For(s: IEnumerable<'a>, [<InlineIfLambda>] f1: 'a -> EffectCode<'Env, unit, unit, 'Err>) =
+        member inline this.For(s: IEnumerable<'a>, [<InlineIfLambda>] f1: 'a -> EffectCode<'Env, 'TOverall, unit, 'Err>) =
             this.Delay(fun () ->
                 this.Using(
                     s.GetEnumerator(),
@@ -3478,35 +3478,35 @@ module Medium =
         member inline this.For
             (
                 (a, b): struct ('a * 'a),
-                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, unit, unit, 'Err>
+                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, 'TOverall, unit, 'Err>
             ) =
             this.Delay(fun () -> this.Combine(f a, f b))
 
         member inline this.For
             (
                 (a, b, c): struct ('a * 'a * 'a),
-                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, unit, unit, 'Err>
+                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, 'TOverall, unit, 'Err>
             ) =
             this.Delay(fun () -> this.Combine(this.Combine(f a, f b), f c))
 
         member inline this.For
             (
                 (a, b, c, d): struct ('a * 'a * 'a * 'a),
-                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, unit, unit, 'Err>
+                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, 'TOverall, unit, 'Err>
             ) =
             this.Delay(fun () -> this.Combine(this.Combine(this.Combine(f a, f b), f c), f d))
 
         member inline this.For
             (
                 (a, b, c, d, e): struct ('a * 'a * 'a * 'a * 'a),
-                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, unit, unit, 'Err>
+                [<InlineIfLambda>] f: 'a -> EffectCode<'Env, 'TOverall, unit, 'Err>
             ) =
             this.Delay(fun () -> this.Combine(this.Combine(this.Combine(this.Combine(f a, f b), f c), f d), f e))
 
         member inline this.For
             (
                 (a, b, c, d, e, f): struct ('a * 'a * 'a * 'a * 'a * 'a),
-                [<InlineIfLambda>] fn: 'a -> EffectCode<'Env, unit, unit, 'Err>
+                [<InlineIfLambda>] fn: 'a -> EffectCode<'Env, 'TOverall, unit, 'Err>
             ) =
             this.Delay(fun () ->
                 this.Combine(
@@ -3517,7 +3517,7 @@ module Medium =
         member inline this.For
             (
                 (a, b, c, d, e, f, g): struct ('a * 'a * 'a * 'a * 'a * 'a * 'a),
-                [<InlineIfLambda>] fn: 'a -> EffectCode<'Env, unit, unit, 'Err>
+                [<InlineIfLambda>] fn: 'a -> EffectCode<'Env, 'TOverall, unit, 'Err>
             ) =
             this.Delay(fun () ->
                 this.Combine(

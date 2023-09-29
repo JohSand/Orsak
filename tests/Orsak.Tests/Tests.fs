@@ -98,7 +98,7 @@ module BuilderTests =
             let! myValue = async { return 1 }
             return myValue
         }
-        |> run 
+        |> run
 
     [<Fact>]
     let ``Builder should support for with IEnumerable`` () =
@@ -113,15 +113,33 @@ module BuilderTests =
         }
 
     [<Fact>]
-    let ``Builder should support for with IEnumerable binding an effect`` () =        
+    let ``Builder should support for with IEnumerable binding an effect`` () =
         eff {
             let list = [ 1..5 ]
+
             for j in list do
-                do! Effect.ret()
+                do! Effect.ret ()
 
             return ()
         }
         |> run
+
+    [<Fact>]
+    let ``Builder should support for with IEnumerable returning a value after the for`` () = task {
+        let! i =
+            run
+            <| eff {
+                let mutable i = 0
+
+                for j in 1..5 do
+                    i <- i + j
+
+                return i
+            }
+
+        return i =! 15
+    }
+
 
     [<Fact>]
     let ``Builder should support for with tuple`` () =
@@ -394,7 +412,7 @@ module BuilderTests =
             and! m = eff { return 1.0 }
             and! n = eff { return 1UL }
             and! o = eff { return 1us }
-            let result = int64 j + int64 i + k + int64 l + int64 m  + int64 n + int64 o
+            let result = int64 j + int64 i + k + int64 l + int64 m + int64 n + int64 o
             Assert.Equal(7L, result)
             return ()
         }
@@ -617,16 +635,13 @@ module BuilderTests =
     [<Fact>]
     let ``repeat 100_000 times`` () =
         let mutable itr = 0
+
         let inlineEffect () = eff {
             itr <- itr + 1
-            if itr = 100_000 then
-                return false
-            else
-                return true
+            if itr = 100_000 then return false else return true
         }
-        inlineEffect ()
-        |> Effect.repeatWhileTrue
-        |> run
+
+        inlineEffect () |> Effect.repeatWhileTrue |> run
 
     [<Fact>]
     let ``bind many results with error`` () =
@@ -716,7 +731,7 @@ module CombinatorTests =
 
     [<Fact>]
     [<Trait("Category", "Par")>]
-    let parCombinatorSumTest () =  task {
+    let parCombinatorSumTest () = task {
         do!
             [
                 eff {
@@ -788,26 +803,16 @@ module CombinatorTests =
     [<Fact>]
     let ``traverse should work`` () = task {
         let! a =
-            [|
-                eff {
-                    return 1 
-                }
-                eff {
-                    return 1 
-                }
-                eff {
-                    return 1 
-                }
-            |]
+            [| eff { return 1 }; eff { return 1 }; eff { return 1 } |]
             |> Effect.traverse float
             |> Effect.map (Array.sum)
             |> Effect.run ()
+
         match a with
         | Ok a ->
             3. =! a
             return ()
-        | Error (e: string) ->
-            return failwith e
+        | Error(e: string) -> return failwith e
     }
 
     [<Fact>]
@@ -862,11 +867,8 @@ module CombinatorTests =
             eff { return! Error "I am error" }
             eff { return failwith "Not expected" }
         |]
-        do!
-            effects
-            |> Effect.sequence
-            |> expectError "I am error"
-            |> run
+
+        do! effects |> Effect.sequence |> expectError "I am error" |> run
     }
 
 module EffSeqTests =
