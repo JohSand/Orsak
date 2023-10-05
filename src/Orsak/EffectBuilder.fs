@@ -3004,7 +3004,7 @@ type EffBuilderBase() =
 
     static member inline AwaiterNotComplete(v: ValueTaskAwaiter<_> inref) = not v.IsCompleted
 
-    static member inline CreateWaiters (effects: Effect<'Env, 'T, 'Err> seq) env : ValueTuple<_, _> =
+    static member inline CreateWaiters (effects: Effect<'Env, 'T, 'Err> seq) env : ValueTuple<_, _, _> =
         match effects with
         | :? (Effect<'Env, 'T, 'Err> array) as effects ->
             let waits = ArrayPool<_>.Shared.Rent effects.Length
@@ -3013,30 +3013,32 @@ type EffBuilderBase() =
                 let e = &effects[i]
                 waits[i] <- e.Run(env).GetAwaiter()
 
-            waits, true
+            waits, effects.Length, true
         | :? IReadOnlyList<Effect<'Env, 'T, 'Err>> as effects ->
             let waits = ArrayPool<_>.Shared.Rent effects.Count
 
             for i = 0 to effects.Count - 1 do
                 waits[i] <- effects[i].Run(env).GetAwaiter()
 
-            waits, true
+            waits, effects.Count, true
         | :? IReadOnlyCollection<Effect<'Env, 'T, 'Err>> as effects ->
             let waits = ArrayPool<_>.Shared.Rent effects.Count
             effects |> Seq.iteri (fun i e -> waits[i] <- e.Run(env).GetAwaiter())
-            waits, true
-        | _ -> [| for e in effects -> e.Run(env).GetAwaiter() |], false
+            waits, effects.Count, true
+        | _ ->
+            let arr = [| for e in effects -> e.Run(env).GetAwaiter() |]
+            arr, arr.Length, false
 
     (* Extra*)
     member inline _.WhenAll(effects: Effect<'Env, 'T, 'Err> seq) : EffectCode<'Env, 'T array, 'T array, 'Err> =
         EffectCode<'Env, 'T array, 'T array, 'Err>(fun sm ->
             if __useResumableCode then
                 let env = sm.Data.Environment
-                let struct (waits, rented) = EffBuilderBase.CreateWaiters effects env
+                let struct (waits, count, rented) = EffBuilderBase.CreateWaiters effects env
                 let mutable i = 0
                 let mutable __stack_fin = true
 
-                while (i < waits.Length) && __stack_fin do
+                while (i < count) && __stack_fin do
                     if EffBuilderBase.AwaiterNotComplete(&waits[i]) then
                         let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                         __stack_fin <- __stack_yield_fin
@@ -3047,14 +3049,14 @@ type EffBuilderBase() =
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&waits[i], &sm)
 
                 if __stack_fin then
-                    let result = Array.zeroCreate waits.Length
+                    let result = Array.zeroCreate count
                     let mutable final = Ok result
 
                     try
                         let mutable cont = true
                         let mutable j = 0
 
-                        while (j < waits.Length) && cont do
+                        while (j < count) && cont do
                             let awaiter = &waits[j]
 
                             match awaiter.GetResult() with

@@ -770,6 +770,47 @@ module CombinatorTests =
             |> run
     }
 
+    [<Fact>]
+    [<Trait("Category", "Par")>]
+    let parCombinatorLengthTest () = task {
+        do!
+            [
+                eff {
+                    do! Task.Delay 100
+                    return 1
+                }
+                eff {
+                    do! Task.Delay 100
+                    return 1
+                }
+                eff {
+                    do! Task.Delay 100
+                    return 1
+                }
+                eff {
+                    do! Task.Delay 100
+                    return 1
+                }
+                eff {
+                    do! Task.Delay 100
+                    return 1
+                }
+                eff {
+                    do! Task.Delay 100
+                    return 1
+                }
+                eff {
+                    do! Task.Delay 100
+                    return 1
+                }
+            ]
+
+            |> Effect.whenAll
+            |> Effect.map Array.length
+            |> Effect.map (fun i -> Assert.Equal(7, i))
+            |> run
+    }
+
 
     [<Fact>]
     [<Trait("Category", "Par")>]
