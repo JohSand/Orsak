@@ -690,6 +690,27 @@ module ``Effect Sequences With Elements`` =
         |> evaluatesToSequence [ 1; 2 ]
 
     [<Fact>]
+    let ``should support parallel calls to GetEnumerator`` () = task {
+        let enumerable =
+                effSeq {
+                    1
+                    do! vtask { do! Task.Yield() }
+                    2
+                }
+        do!
+            Parallel.ForEachAsync(
+                [ 1.. 10 ],
+                ParallelOptions(MaxDegreeOfParallelism = 10),
+                (fun _ _ -> ValueTask(task = task {
+                    do! evaluatesToSequence [ 1; 2; ] enumerable
+                    return ()
+                }))
+            )
+
+        return ()
+    }
+
+    [<Fact>]
     let ``should bind async`` () =
         effSeq {
             1
