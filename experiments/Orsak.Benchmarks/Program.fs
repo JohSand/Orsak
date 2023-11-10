@@ -129,6 +129,36 @@ type AsyncBenchmarks() =
             return()
     }
 
+[<MemoryDiagnoser>]
+type RaceBemchmarks() =
+    [<Benchmark(Baseline=true)>]
+    member this.CompletedOld() = task {
+        let! a = 
+            Effect.race
+                (eff { do! Task.Yield() })
+                (eff { do! Task.Yield() })            
+            |> Effect.run ()
+        match a with
+        | Ok a ->
+            return ()
+        | Error _ ->
+            return()
+    }
+
+    [<Benchmark>]
+    member this.CompletedNew() = task {
+        let! a = 
+            eff.Run(eff.Race
+                (eff { do! Task.Yield() },
+                 eff { do! Task.Yield() }))
+            |> Effect.run ()
+        match a with
+        | Ok a ->
+            return ()
+        | Error _ ->
+            return()
+    }
+
 [<EntryPoint>]
 let main argv =
     BenchmarkSwitcher
