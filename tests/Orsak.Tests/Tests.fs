@@ -100,6 +100,40 @@ module BuilderTests =
         }
         |> run 
 
+    let fast () = eff {
+        do! Task.Delay(10)
+        return 1
+    }
+
+    let slow () = eff {
+        do! Task.Delay(30)
+        return 2
+    }
+
+    [<Fact>]
+    let ``Can Race Effects 1`` () =
+        eff {
+            let! result = eff.Run(eff.Race(
+                (slow()),
+                (fast())
+            ))
+            and! () = eff { do! Task.Delay(50) }
+
+            return result =! 1
+        }
+        |> run 
+
+    [<Fact>]
+    let ``Can Race Effects 2`` () =
+        eff {
+            let! result = eff.Run(eff.Race(
+                (fast()),
+                (slow())
+            ))
+            return result =! 1
+        }
+        |> run 
+
     [<Fact>]
     let ``Builder should support for with IEnumerable`` () =
         run

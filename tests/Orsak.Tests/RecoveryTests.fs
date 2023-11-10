@@ -33,6 +33,22 @@ let my_yield () = eff {
 }
 
 [<Fact>]
+let asdadad () = task {
+    for i = 0 to 10_00 do
+        let! a = 
+            eff.Run(eff.Race
+                (eff { do! Task.Yield() },
+                 eff { do! Task.Yield() }))
+            |> Effect.run ()
+        match a with
+        | Ok a ->
+            return ()
+        | Error _ ->
+            return()
+
+}
+
+[<Fact>]
 let ``effects can safely be run multiple times`` () = task {
     let mutable x = 0
     let theEffect = eff {

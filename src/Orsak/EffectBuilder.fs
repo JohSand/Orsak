@@ -605,6 +605,38 @@ type EffBuilderBase() =
             sm.ResumptionDynamicInfo.ResumptionFunc <- cont
             false
 
+    member inline _.Race<'Env, 'TOverall, 'Err>
+        (
+            eff1: Effect<'Env, 'TOverall, 'Err>,
+            eff2: Effect<'Env, 'TOverall, 'Err>
+        ) = 
+            EffectCode<'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
+            let task1 = eff1.Run sm.Data.Environment
+            let task2 = eff2.Run sm.Data.Environment
+
+            let mutable awaiter1 = task1.GetAwaiter()
+            let mutable awaiter2 = task2.GetAwaiter()
+
+            let mutable __stack_fin = true
+            if not (awaiter1.IsCompleted || awaiter2.IsCompleted) then
+                let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                __stack_fin <- __stack_yield_fin
+
+            if __stack_fin then
+                if awaiter1.IsCompleted then
+                    let result1 = awaiter1.GetResult()
+                    sm.Data.Result <- result1
+                    true
+                else //
+                    let result2 = awaiter2.GetResult()
+                    sm.Data.Result <- result2
+                    true
+
+            else
+                sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter1, &sm)
+                sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter2, &sm)
+                false
+            )
 
     member inline _.Zip<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Err: (static member (+): 'Err -> 'Err -> 'Err)>
         (
