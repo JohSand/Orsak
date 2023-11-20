@@ -118,7 +118,7 @@ type ValueTaskBuilder() =
         ResumableCode.TryFinallyAsync(
             body,
             ResumableCode<_, _>(fun sm ->
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     let mutable __stack_condition_fin = true
                     let __stack_vtask = compensation ()
 
@@ -179,7 +179,7 @@ type ValueTaskBuilder() =
                     let mutable savedExn = null
 
                     try
-                        sm.ResumptionDynamicInfo.ResumptionData <- null
+                        sm.ResumptionDynamicInfo.ResumptionData <- Unchecked.defaultof<obj>
                         let step = info.ResumptionFunc.Invoke(&sm)
 
                         if step then
@@ -208,7 +208,7 @@ type ValueTaskBuilder() =
         sm.Data.MethodBuilder.Task
 
     member inline _.Run(code: ValueTaskCode<'T, 'T>) : ValueTask<'T> =
-        if __useResumableCode then
+        if __useResumableCode<obj> then
             __stateMachine<ValueValueTaskStateMachineData<'T>, ValueTask<'T>>
                 (MoveNextMethodImpl<_>(fun sm ->
                     //-- RESUMABLE CODE START
@@ -237,7 +237,7 @@ type ValueTaskBuilder() =
             ValueTaskBuilder.RunDynamic(code)
 
     member inline _.Run(code: ValueTaskCode<unit, unit>) : ValueTask =
-        if __useResumableCode then
+        if __useResumableCode<obj> then
             __stateMachine<ValueValueTaskStateMachineData<unit>, ValueTask>
                 (MoveNextMethodImpl<_>(fun sm ->
                     //-- RESUMABLE CODE START
@@ -325,7 +325,7 @@ module LowPriority =
             ) : ValueTaskCode<'TOverall, 'TResult2> =
 
             ValueTaskCode<'TOverall, _>(fun sm ->
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the awaitable
                     let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) (task))
@@ -436,7 +436,7 @@ module HighPriority =
             ) : ValueTaskCode<'TOverall, 'TResult2> =
 
             ValueTaskCode<'TOverall, _>(fun sm ->
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     //-- RESUMABLE CODE START
                     // Get an awaiter from the task
                     let mutable awaiter = task.GetAwaiter()
