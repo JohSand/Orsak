@@ -130,7 +130,7 @@ type EffBuilderBase() =
             task2: EffectCode<_, 'TOverall, 'T, 'Err>
         ) : EffectCode<_, 'TOverall, 'T, 'Err> =
         ResumableCode(fun sm ->
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let __stack_fin = task1.Invoke(&sm)
 
                 if __stack_fin then
@@ -187,7 +187,7 @@ type EffBuilderBase() =
             body: EffectCode<'Env, 'TOverall, unit, 'Err>
         ) : EffectCode<'Env, 'TOverall, unit, 'Err> =
         EffectCode<'Env, 'TOverall, unit, 'Err>(fun sm ->
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable __stack_go = true
                 let mutable cc = true
 
@@ -234,7 +234,7 @@ type EffBuilderBase() =
         ResumableCode.TryFinallyAsync(
             body,
             ResumableCode<_, _>(fun sm ->
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     let mutable __stack_condition_fin = true
                     let __stack_vtask = compensation ()
 
@@ -287,7 +287,7 @@ type EffBuilderBase() =
     //--------------------------------------------------------------------
     // Errors and recovery
     //--------------------------------------------------------------------
-    static member inline RecoverDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err>
+    static member inline RecoverDynamic<'Env, 'TResult, 'Err>
         (
             sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TResult, 'Err>>>,
             task: ValueTask<_>,
@@ -314,7 +314,7 @@ type EffBuilderBase() =
             sm.ResumptionDynamicInfo.ResumptionFunc <- cont
             false
 
-    member inline _.Recover<'Env, 'T, 'TOverall, 'TResult, 'Err>
+    member inline _.Recover<'Env, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
             [<InlineIfLambda>] continuation: 'Err -> 'TResult
@@ -322,7 +322,7 @@ type EffBuilderBase() =
         EffectCode<'Env, 'TResult, _, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
 
                 let mutable __stack_fin = true
@@ -347,7 +347,7 @@ type EffBuilderBase() =
             else
                 EffBuilderBase.RecoverDynamic(&sm, task, continuation))
 
-    static member inline ChangeErrorDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err1, 'Err2>
+    static member inline ChangeErrorDynamic<'Env, 'TResult, 'Err1, 'Err2>
         (
             sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TResult, 'Err2>>>,
             task: ValueTask<_>,
@@ -374,7 +374,7 @@ type EffBuilderBase() =
             sm.ResumptionDynamicInfo.ResumptionFunc <- cont
             false
 
-    member inline _.ChangeError<'Env, 'T, 'TOverall, 'TResult, 'Err1, 'Err2>
+    member inline _.ChangeError<'Env, 'TResult, 'Err1, 'Err2>
         (
             eff: Effect<'Env, 'TResult, 'Err1>,
             f: 'Err1 -> 'Err2
@@ -382,7 +382,7 @@ type EffBuilderBase() =
         EffectCode<'Env, 'TResult, _, 'Err2>(fun sm ->
             let task = eff.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
 
                 let mutable __stack_fin = true
@@ -407,7 +407,7 @@ type EffBuilderBase() =
             else
                 EffBuilderBase.ChangeErrorDynamic(&sm, task, f))
 
-    static member inline TryRecoverDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err>
+    static member inline TryRecoverDynamic<'Env, 'TResult, 'Err>
         (
             sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TResult, 'Err>>>,
             task: ValueTask<_>,
@@ -434,7 +434,7 @@ type EffBuilderBase() =
             sm.ResumptionDynamicInfo.ResumptionFunc <- cont
             false
 
-    member inline _.TryRecover<'Env, 'T, 'TOverall, 'TResult, 'Err>
+    member inline _.TryRecover<'Env, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
             [<InlineIfLambda>] continuation: 'Err -> Result<'TResult, 'Err>
@@ -442,7 +442,7 @@ type EffBuilderBase() =
         EffectCode<'Env, 'TResult, _, 'Err>(fun sm ->
             let task = eff.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
 
                 let mutable __stack_fin = true
@@ -467,7 +467,7 @@ type EffBuilderBase() =
             else
                 EffBuilderBase.TryRecoverDynamic(&sm, task, continuation))
 
-    static member inline TryRecoverDynamic<'Env, 'T, 'TOverall, 'TResult, 'Err>
+    static member inline TryRecoverDynamic<'Env, 'TResult, 'Err>
         (
             sm: byref<ResumableStateMachine<EffectStateMachineData<'Env, 'TResult, 'Err>>>,
             task: ValueTask<_>,
@@ -507,7 +507,7 @@ type EffBuilderBase() =
             sm.ResumptionDynamicInfo.ResumptionFunc <- cont
             false
 
-    member inline _.TryRecover<'Env, 'T, 'TOverall, 'TResult, 'Err>
+    member inline _.TryRecover<'Env, 'TResult, 'Err>
         (
             eff: Effect<'Env, 'TResult, 'Err>,
             [<InlineIfLambda>] continuation: 'Err -> Effect<'Env, 'TResult, 'Err>
@@ -515,7 +515,7 @@ type EffBuilderBase() =
         EffectCode<'Env, 'TResult, _, 'Err>(fun sm ->
             let task1 = eff.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
 
                 let mutable __stack_fin = true
@@ -616,7 +616,7 @@ type EffBuilderBase() =
             let task = eff.Run sm.Data.Environment
             let task2 = eff2.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
 
                 let mutable __stack_fin = true
@@ -730,7 +730,7 @@ type EffBuilderBase() =
             let task2 = eff2.Run sm.Data.Environment
             let task3 = eff3.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -887,7 +887,7 @@ type EffBuilderBase() =
             let task3 = eff3.Run sm.Data.Environment
             let task4 = eff4.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -1117,7 +1117,7 @@ type EffBuilderBase() =
             let task4 = eff4.Run sm.Data.Environment
             let task5 = eff5.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -1402,7 +1402,7 @@ type EffBuilderBase() =
             let task5 = eff5.Run sm.Data.Environment
             let task6 = eff6.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -1705,7 +1705,7 @@ type EffBuilderBase() =
             let task6 = eff6.Run sm.Data.Environment
             let task7 = eff7.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -1859,7 +1859,7 @@ type EffBuilderBase() =
             let task = eff.Run sm.Data.Environment
             let task2 = eff2.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
 
                 let mutable __stack_fin = true
@@ -1971,7 +1971,7 @@ type EffBuilderBase() =
             let task2 = eff2.Run sm.Data.Environment
             let task3 = eff3.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -2127,7 +2127,7 @@ type EffBuilderBase() =
             let task3 = eff3.Run sm.Data.Environment
             let task4 = eff4.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -2355,7 +2355,7 @@ type EffBuilderBase() =
             let task4 = eff4.Run sm.Data.Environment
             let task5 = eff5.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -2637,7 +2637,7 @@ type EffBuilderBase() =
             let task5 = eff5.Run sm.Data.Environment
             let task6 = eff6.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -2870,7 +2870,7 @@ type EffBuilderBase() =
             let task6 = eff6.Run sm.Data.Environment
             let task7 = eff7.Run sm.Data.Environment
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task1.GetAwaiter()
                 let mutable __stack_fin = true
 
@@ -3032,7 +3032,7 @@ type EffBuilderBase() =
     (* Extra*)
     member inline _.WhenAll(effects: Effect<'Env, 'T, 'Err> seq) : EffectCode<'Env, 'T array, 'T array, 'Err> =
         EffectCode<'Env, 'T array, 'T array, 'Err>(fun sm ->
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let env = sm.Data.Environment
                 let struct (waits, count, rented) = EffBuilderBase.CreateWaiters effects env
                 let mutable i = 0
@@ -3099,7 +3099,7 @@ type EffBuilder() =
                     let mutable savedExn = null
 
                     try
-                        sm.ResumptionDynamicInfo.ResumptionData <- null
+                        sm.ResumptionDynamicInfo.ResumptionData <- Unchecked.defaultof<obj>
                         let step = info.ResumptionFunc.Invoke(&sm)
 
                         if step then
@@ -3134,7 +3134,7 @@ type EffBuilder() =
 
     [<NoEagerConstraintApplication>]
     member inline _.Run<'Env, 'T, 'Err>(code: EffectCode<'Env, 'T, 'T, 'Err>) : Effect<'Env, 'T, 'Err> =
-        if __useResumableCode then
+        if __useResumableCode<obj> then
             __stateMachine<EffectStateMachineData<'Env, 'T, 'Err>, Effect<'Env, 'T, 'Err>>
                 (MoveNextMethodImpl<_>(fun sm ->
                     __resumeAt sm.ResumptionPoint
@@ -3218,7 +3218,7 @@ module LowPriority =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
 
             EffectCode<'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) task)
 
                     let mutable __stack_fin = true
@@ -3303,7 +3303,7 @@ module Medium =
             EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
                 let task = eff.Run sm.Data.Environment
 
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     let mutable awaiter = task.GetAwaiter()
 
                     let mutable __stack_fin = true
@@ -3332,7 +3332,7 @@ module Medium =
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     let mutable awaiter = task.GetAwaiter()
 
                     let mutable __stack_fin = true
@@ -3549,7 +3549,6 @@ type Effect<'R, 'T, 'E> with
         return! f e
     }
 
-    //helper, seem type inference get wonky with operator
     /// <exclude/>
     static member inline ap<'r, 'a, 'b, 'e>
         (applicative: Effect<'r, 'b -> 'a, 'e>)
@@ -3563,4 +3562,9 @@ type Effect<'R, 'T, 'E> with
 
     (* applicative *)
     ///Implements Apply on the effect, making it an applicative
-    static member inline (<*>)(f, e) = Effect.ap<_, _, _, _> f e
+    static member inline (<*>)(f: Effect<'r, 'b -> 'a, 'e>, e: Effect<'r, 'b, 'e>) =
+        eff {
+            let! fn = f
+            let! a = e
+            return fn a
+        }

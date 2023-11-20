@@ -43,7 +43,7 @@ module BackgroundWorker =
         |> Effect.onError (fun e -> eff {
             try
                 logger.LogCritical("Error {Error} during background work", e)
-                do! Task.Delay(delay, ct)
+                do! Task.Delay(delay, cancellationToken = ct)
                 return! work
             with :? TaskCanceledException ->
                 return ()

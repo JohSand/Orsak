@@ -26,6 +26,14 @@ type MainEnv = {
         member this.Logger = this.loggerFactory.CreateLogger("EffectLogger")
 
 
+let sanity1 () = eff {
+    return sprintf "%i"
+}
+
+let sanity2 () = eff {
+    return 2
+}
+
 [<EntryPoint>]
 let main args =
     let builder = WebApplication.CreateBuilder(args)
@@ -41,6 +49,10 @@ let main args =
         context = ctx
         loggerFactory = loggerFactory
     }
+
+    let (x: Effect<unit, string, string>) =
+        sanity1 () <*> sanity2()
+
 
     app.UseGiraffe(Routes.R.webApp mainEnv)
 

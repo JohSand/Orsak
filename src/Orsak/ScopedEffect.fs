@@ -30,7 +30,7 @@ module Extension =
                 let env, _ = sm.Data.Environment
                 let task = eff.Run env
 
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     let mutable awaiter = task.GetAwaiter()
 
                     let mutable __stack_fin = true
@@ -60,7 +60,7 @@ module Extension =
                 let env, _ = sm.Data.Environment
                 let task = eff.Run env
 
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     let mutable awaiter = task.GetAwaiter()
 
                     let mutable __stack_fin = true
@@ -119,7 +119,7 @@ type TransactionalEffectBuilder<'Scope when 'Scope :> TransactionScope>() =
             let _, scope = sm.Data.Environment
             let task = eff.Run scope
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
 
                 let mutable __stack_fin = true
@@ -150,7 +150,7 @@ type TransactionalEffectBuilder<'Scope when 'Scope :> TransactionScope>() =
             let _, scope = sm.Data.Environment
             let task = eff.Run scope
 
-            if __useResumableCode then
+            if __useResumableCode<obj> then
                 let mutable awaiter = task.GetAwaiter()
 
                 let mutable __stack_fin = true

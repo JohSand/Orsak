@@ -171,7 +171,7 @@ type EffSeqBuilder() =
         EffSeqCode<'Env, 'T, 'Err>(fun sm -> f().Invoke(&sm))
 
     member inline _.Run(code: EffSeqCode<'Env, 'T, 'Err>) : EffSeq<'Env, 'T, 'Err> =
-        if __useResumableCode then
+        if __useResumableCode<obj> then
             __stateMachine<EffSeqStateMachineData<'Env, 'T, 'Err>, EffSeq<'Env, 'T, 'Err>>
                 (MoveNextMethodImpl<_>(fun sm ->
                     __resumeAt sm.ResumptionPoint
@@ -465,7 +465,7 @@ module MediumPriority =
             EffSeqCode<'Env, 'TResult2, 'Err>(fun sm ->
                 let task = eff.Run sm.Data.Env
 
-                if __useResumableCode then
+                if __useResumableCode<obj> then
                     let mutable awaiter = task.GetAwaiter()
                     let mutable __stack_fin = true
 
