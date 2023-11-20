@@ -41,4 +41,7 @@
 		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
 		<None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\" />
 	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Update="FSharp.Core" Version="7.0.200" />
+	</ItemGroup>
 </Project>
