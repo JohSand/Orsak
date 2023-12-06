@@ -8,6 +8,10 @@ open System.Threading
 open System.Threading.Tasks
 open System.Threading.Channels
 open System
+open FSharp.Control
+
+#nowarn "1204"
+#nowarn "57"
 
 [<AutoOpen>]
 module Helpers =
@@ -173,6 +177,49 @@ module BuilderTests =
         }
 
     [<Fact>]
+    let ``Builder should support for with CancelableAsyncEnumerable`` () =
+        run
+        <| eff {
+            let chan = Channel.CreateBounded(5)
+
+            for i in 1..5 do
+                chan.Writer.TryWrite i |> ignore
+
+            chan.Writer.Complete()
+
+            let mutable i = 0
+
+            for j in chan.Reader.ReadAllAsync().WithCancellation(CancellationToken.None) do
+                i <- i + j
+
+            return i =! 15
+        }
+
+    [<Fact>]
+    let ``Builder should support while with CancelableAsyncEnumerable`` () =
+        run
+        <| eff {
+            let chan = Channel.CreateBounded(5)
+
+            for i in 1..5 do
+                chan.Writer.TryWrite i |> ignore
+
+            chan.Writer.Complete()
+
+            let mutable i = 0
+            let enumerable = chan.Reader.ReadAllAsync().WithCancellation(CancellationToken.None)
+            use enumerable = enumerable.GetAsyncEnumerator()
+            let move () = vtask { return! enumerable.MoveNextAsync() }
+
+            while (move ()) do
+                let j = enumerable.Current
+                i <- i + j
+
+            return i =! 15
+        }
+
+
+    [<Fact>]
     let ``Builder should support while with ValueTask<bool>`` () =
         eff {
             let chan = Channel.CreateBounded(5)
@@ -193,7 +240,6 @@ module BuilderTests =
             return i =! 15
         }
         |> run
-
 
     [<Fact>]
     let ``Builder should support and! in an asynchronous fashion`` () =

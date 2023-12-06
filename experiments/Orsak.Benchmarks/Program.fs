@@ -3,11 +3,12 @@ open BenchmarkDotNet.Running
 
 open Orsak
 open System.Threading.Tasks
+open FSharp.Control
 
 #nowarn "3511"
 
 module Old =
-    open FSharp.Control
+
     let inline par (eff: Effect<'r, 'a, 'e> seq) =
         mkEffect (fun rEnv -> vtask {
             let! results =
@@ -28,6 +29,7 @@ module Old =
                         | Error e -> Error e)
                     results
         })
+
 [<MemoryDiagnoser>]
 type SyncBenchmarks() =
     static member CompletedEffectsSource() =
@@ -36,37 +38,38 @@ type SyncBenchmarks() =
             [| for _ in 1..100 -> Effect.ret<unit, unit, unit> () |]
             [| for _ in 1..1000 -> Effect.ret<unit, unit, unit> () |]
 
-        ] :> seq<_>
+        ]
+        :> seq<_>
 
 
     [<DefaultValue>]
-    [< ParamsSource("CompletedEffectsSource" ) >]
+    [<ParamsSource("CompletedEffectsSource")>]
     val mutable CompletedEffects: Effect<unit, unit, unit> array
 
-    [<Benchmark(Baseline=true)>]
+    [<Benchmark(Baseline = true)>]
     member this.CompletedOld() = task {
         let! a = Old.par this.CompletedEffects |> Effect.run ()
         return ()
     }
 
-    [<Benchmark()>]
+    [<Benchmark>]
     member this.CompletedNew() = task {
         let! a = Effect.whenAll this.CompletedEffects |> Effect.run ()
         return ()
     }
 
 module AsyncBenchmarks =
-    let yieldEffect : Effect<unit, int, unit> =
-        eff {
+    let yieldEffect: Effect<unit, int, unit> =
+        mkEffect (fun () -> vtask {
             do! Task.Yield()
-            return 1
-        }
+            return Ok 1
+        })
 
-    let asyncEffect : Effect<unit, int, unit> =
-        eff {
+    let asyncEffect: Effect<unit, int, unit> =
+        mkEffect (fun () -> vtask {
             do! Task.Delay 100
-            return 1
-        }
+            return Ok 1
+        })
 
 
 
@@ -78,26 +81,24 @@ type AsyncYieldBenchmarks() =
         [| for _ in 1..1000 -> AsyncBenchmarks.yieldEffect |]
     ]
 
-    [<Benchmark(Baseline=true)>]
-    [<ArgumentsSource(nameof(AsyncYieldBenchmarks.Sauce))>]
+    [<Benchmark(Baseline = true)>]
+    [<ArgumentsSource(nameof (AsyncYieldBenchmarks.Sauce))>]
     member this.CompletedOld(effects: Effect<unit, int, unit> array) = task {
         let! a = Old.par effects |> Effect.run ()
+
         match a with
-        | Ok a ->
-            return ()
-        | Error _ ->
-            return()
+        | Ok a -> return ()
+        | Error _ -> return ()
     }
 
     [<Benchmark>]
-    [<ArgumentsSource(nameof(AsyncYieldBenchmarks.Sauce))>]
+    [<ArgumentsSource(nameof (AsyncYieldBenchmarks.Sauce))>]
     member this.CompletedNew(effects: Effect<unit, int, unit> array) = task {
         let! a = Effect.whenAll effects |> Effect.run ()
+
         match a with
-        | Ok a ->
-            return ()
-        | Error _ ->
-            return()
+        | Ok a -> return ()
+        | Error _ -> return ()
     }
 
 [<MemoryDiagnoser>]
@@ -107,26 +108,24 @@ type AsyncBenchmarks() =
         [| for _ in 1..20 -> AsyncBenchmarks.asyncEffect |]
     ]
 
-    [<Benchmark(Baseline=true)>]
-    [<ArgumentsSource(nameof(AsyncBenchmarks.Sauce))>]
+    [<Benchmark(Baseline = true)>]
+    [<ArgumentsSource(nameof (AsyncBenchmarks.Sauce))>]
     member this.CompletedOld(effects: Effect<unit, int, unit> array) = task {
         let! a = Old.par effects |> Effect.run ()
+
         match a with
-        | Ok a ->
-            return ()
-        | Error _ ->
-            return()
+        | Ok a -> return ()
+        | Error _ -> return ()
     }
 
     [<Benchmark>]
-    [<ArgumentsSource(nameof(AsyncBenchmarks.Sauce))>]
+    [<ArgumentsSource(nameof (AsyncBenchmarks.Sauce))>]
     member this.CompletedNew(effects: Effect<unit, int, unit> array) = task {
         let! a = Effect.whenAll effects |> Effect.run ()
+
         match a with
-        | Ok a ->
-            return ()
-        | Error _ ->
-            return()
+        | Ok a -> return ()
+        | Error _ -> return ()
     }
 
 [<AutoOpen>]
