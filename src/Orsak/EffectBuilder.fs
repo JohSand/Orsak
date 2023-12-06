@@ -3243,6 +3243,53 @@ module Medium =
 
     type EffBuilderBase with
         (* DO WANT *)
+
+        member inline this.Using<'TaskLike, 'Awaiter, 'Resource, 'TOverall, 'T, 'Env, 'Err
+            when 'TaskLike: (member GetAwaiter: unit -> 'Awaiter)
+            and 'Awaiter :> ICriticalNotifyCompletion
+            and 'Awaiter: (member get_IsCompleted: unit -> bool)
+            and 'Awaiter: (member GetResult: unit -> unit)
+            and 'Resource: (member DisposeAsync: unit -> 'TaskLike)
+            and 'Resource: struct>
+            (
+                resource: 'Resource,
+                body: 'Resource -> EffectCode<'Env, 'TOverall, 'T, 'Err>
+            ) : EffectCode<'Env, 'TOverall, 'T, 'Err> =
+            ResumableCode.TryFinallyAsync(
+                (ResumableCode(fun sm -> (body resource).Invoke(&sm))),
+                (ResumableCode(fun sm ->
+                    let taskLike = resource.DisposeAsync()
+
+                    if __useResumableCode<obj> then
+                        let mutable __stack_condition_fin = true
+
+                        let mutable awaiter = taskLike.GetAwaiter()
+
+                        if not (awaiter.get_IsCompleted ()) then
+                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                            __stack_condition_fin <- __stack_yield_fin
+
+                            if not __stack_condition_fin then
+                                sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+
+                        __stack_condition_fin
+                    else
+
+                        let mutable awaiter = taskLike.GetAwaiter()
+                        // shortcut to continue immediately
+                        if awaiter.get_IsCompleted () then
+                            true
+                        else
+                            let cont =
+                                EffectResumptionFunc<'Env, 'TOverall, 'Err>(fun sm ->
+                                    awaiter.GetResult()
+                                    true)
+
+                            sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+                            sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                            false))
+            )
+
         static member inline BindDynamic
             (
                 sm: byref<_>,
@@ -3424,6 +3471,35 @@ module Medium =
                         )
                 ))
 
+        member inline this.For(s: ConfiguredCancelableAsyncEnumerable<'a>, [<InlineIfLambda>] f) =
+            this.Delay(fun () ->
+                this.Using(
+                    s.GetAsyncEnumerator(),
+                    fun (enumerator) ->
+                        let mutable continue' = false
+
+                        this.Bind(
+                            enumerator.MoveNextAsync(),
+                            fun b ->
+                                continue' <- b
+
+                                this.While(
+                                    (fun () -> continue'),
+                                    this.Delay(fun () ->
+                                        this.Combine(
+                                            (f enumerator.Current),
+                                            this.Bind(
+                                                enumerator.MoveNextAsync(),
+                                                fun b ->
+                                                    let y = b
+                                                    continue' <- y
+                                                    this.Zero()
+                                            )
+                                        ))
+                                )
+                        )
+                ))
+
         member inline this.While
             (
                 [<InlineIfLambda>] condition: unit -> Effect<'Env, bool, 'Err>,
@@ -3565,6 +3641,6 @@ type Effect<'R, 'T, 'E> with
     static member inline (<*>)(f: Effect<'r, 'b -> 'a, 'e>, e: Effect<'r, 'b, 'e>) =
         eff {
             let! fn = f
-            let! a = e
-            return fn a
+            and! b = e
+            return fn b
         }

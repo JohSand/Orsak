@@ -9,7 +9,7 @@ index: 1
 (*** condition: prepare ***)
 #r "nuget: Microsoft.Extensions.Logging.Abstractions, 7.0.0"
 #I "../src/Orsak/bin/Release/net6.0"
-#r "Orsak.dll"
+#r "../src/Orsak/bin/Release/net6.0/Orsak.dll"
 
 open System.Threading.Tasks
 open Microsoft.Extensions.Logging

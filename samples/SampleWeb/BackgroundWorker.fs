@@ -11,22 +11,9 @@ open Orsak
 open Microsoft.Extensions.Logging
 open Microsoft.FSharp.Quotations
 
-module dummy =
-    let doWork () = eff {
-
-        return true
-    }
-
-    let dymmy () = eff {
-        use timer = new PeriodicTimer(TimeSpan.FromSeconds(10))
-
-        while timer.WaitForNextTickAsync() do
-            do! doWork () |> Effect.repeatWhileTrue
-    }
-
 [<AutoOpen>]
 module BackgroundWorker =
-    let private interpret work =
+    let private interpret<'r, 'e> work =
         match work with
         | Patterns.WithValue(:? Effect<'r, unit, 'e> as work, _, expr) ->
             let s =
@@ -36,9 +23,37 @@ module BackgroundWorker =
                 | _ -> "guess?"
 
             s, work
+        | Patterns.WithValue(work, _, expr) ->
+            let s =
+                match expr with
+                | Patterns.ValueWithName(a, _, name) -> name
+                | Patterns.Application(Patterns.ValueWithName(a, _, name), _) -> name
+                | _ -> "guess?"
+
+            failwith "what type-safety?"
         | _ -> failwith "what type-safety?"
 
-    let private executeFunc work (delay: TimeSpan) (logger: ILogger) ct provider =
+    let private interpret2<'r, 'e> work =
+        match work with
+        | Patterns.WithValue(:? (CancellationToken -> Effect<'r, unit, 'e>) as work, _, expr) ->
+            let s =
+                match expr with
+                | Patterns.ValueWithName(a, _, name) -> name
+                | Patterns.Application(Patterns.ValueWithName(a, _, name), _) -> name
+                | _ -> "guess?"
+
+            s, work
+        | Patterns.WithValue(work, _, expr) ->
+            let s =
+                match expr with
+                | Patterns.ValueWithName(a, _, name) -> name
+                | Patterns.Application(Patterns.ValueWithName(a, _, name), _) -> name
+                | _ -> "guess?"
+
+            failwith "what type-safety?"
+        | _ -> failwith "what type-safety?"
+
+    let private executeFunc<'r, 'e> (work: Effect<'r, unit, 'e>) (delay: TimeSpan) (logger: ILogger) ct provider =
         work
         |> Effect.onError (fun e -> eff {
             try
@@ -57,13 +72,13 @@ module BackgroundWorker =
             ([<ReflectedDefinition(includeValue = true)>] work: Expr<Effect<'r, unit, 'e>>)
             =
             this.AddHostedService(fun ctx ->
-                let effectName, work = interpret work
+                let effectName, work = interpret<'r, 'e> work
                 let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
                 let provider = ctx.GetRequiredService<'r>()
 
                 { new BackgroundService() with
                     override _.ExecuteAsync ct =
-                        executeFunc work (TimeSpan.FromSeconds 30) logger ct provider
+                        executeFunc<'r, 'e> work (TimeSpan.FromSeconds 30) logger ct provider
                 })
 
         member this.AddEffectWorker<'r, 'e>
@@ -77,7 +92,7 @@ module BackgroundWorker =
 
                 { new BackgroundService() with
                     override _.ExecuteAsync ct =
-                        executeFunc work (TimeSpan.FromSeconds 30) logger ct provider
+                        executeFunc<'r, 'e> work (TimeSpan.FromSeconds 30) logger ct provider
                 })
 
         member this.AddEffectWorker<'r, 'e>
@@ -91,7 +106,7 @@ module BackgroundWorker =
 
                 { new BackgroundService() with
                     override _.ExecuteAsync ct =
-                        executeFunc work (TimeSpan.FromSeconds 30) logger ct (providerFactory ct)
+                        executeFunc<'r, 'e> work (TimeSpan.FromSeconds 30) logger ct (providerFactory ct)
                 })
 
 
@@ -107,7 +122,7 @@ module BackgroundWorker =
 
                 { new BackgroundService() with
                     override _.ExecuteAsync ct =
-                        executeFunc work delay logger ct provider
+                        executeFunc<'r, 'e> work delay logger ct provider
                 })
 
         member this.AddEffectWorker<'r, 'e>
@@ -122,5 +137,18 @@ module BackgroundWorker =
 
                 { new BackgroundService() with
                     override _.ExecuteAsync ct =
-                        executeFunc work delay logger ct (providerFactory ct)
+                        executeFunc<'r, 'e> work delay logger ct (providerFactory ct)
+                })
+
+        member this.AddEffectWorker<'r, 'e>
+            ([<ReflectedDefinition(includeValue = true)>] work: Expr<CancellationToken -> Effect<'r, unit, 'e>>)
+            =
+            this.AddHostedService(fun ctx ->
+                let effectName, work = interpret2 work
+                let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
+                let provider = ctx.GetRequiredService<'r>()
+
+                { new BackgroundService() with
+                    override _.ExecuteAsync ct =
+                        executeFunc<'r, 'e> (work ct) (TimeSpan.FromSeconds 30) logger ct provider
                 })
