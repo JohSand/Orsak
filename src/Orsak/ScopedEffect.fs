@@ -20,8 +20,7 @@ type ScopedEffectBuilder() =
 [<AutoOpen>]
 module Extension =
     type ScopedEffectBuilder with
-
-        member inline this.ReturnFrom<'Scope, 'Env, 'T, 'TOverall, 'Err>
+        member inline this.ReturnFrom<'Scope, 'Env, 'TOverall, 'Err>
             (eff: Effect<'Env, 'TOverall, 'Err>)
             : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
             ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
@@ -47,7 +46,6 @@ module Extension =
                 else
                     EffBuilder.BindDynamic(&sm, task, this.Return))
 
-        //bad in this case
         [<NoEagerConstraintApplication>]
         member inline _.Bind<'Scope, 'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
@@ -79,20 +77,22 @@ module Extension =
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                         false
                 else
-                    EffBuilder.BindDynamic(&sm, task, continuation))
+                    EffBuilder.BindDynamic(&sm, task, continuation))                    
 
-type ScopeProvider<'Scope when 'Scope :> IAsyncDisposable> =
+type Scoped = IAsyncDisposable
+
+type ScopeProvider<'Scope when 'Scope :> Scoped> =
     abstract member BeginScope: unit -> ValueTask<'Scope>
 
 ///A computation expression that knows how to start a scope local to the effect, and bind effects in that scope
 [<ExperimentalAttribute("")>]
-type ScopeCreatingEffectBuilder<'Scope when 'Scope :> IAsyncDisposable>() =
+type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
     inherit ScopedEffectBuilder()
 
     member inline this.Bind(ex: Effect<'Env * 'Scope, 'a, 'err>, cont) = eff.Bind(ex, cont)
 
     [<NoEagerConstraintApplication>]
-    member inline _.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
+    member inline _.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
         (
             eff: Effect<'Scope, 'TResult1, 'Err>,
             continuation: 'TResult1 -> ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>
@@ -141,13 +141,13 @@ type ExceptionHandler<'err> =
 
 type CompletableScope =
     abstract member Complete: unit -> ValueTask
-    inherit IAsyncDisposable
+    inherit Scoped
 
 type CompletableScopeProvider<'Scope when 'Scope :> CompletableScope> = ScopeProvider<'Scope>
 
 ///A computation expression that knows how to start a completable scope local to the effect, and bind effects in that scope
 [<ExperimentalAttribute("")>]
-type TransactionalEffectBuilder<'Scope when 'Scope :> CompletableScope>() =
+type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScope>() =
     inherit ScopedEffectBuilder()
 
     member inline this.Bind(ex: Effect<'Env * 'Scope, 'a, 'err>, cont) = eff.Bind(ex, cont)
@@ -180,7 +180,7 @@ type TransactionalEffectBuilder<'Scope when 'Scope :> CompletableScope>() =
                 EffBuilder.BindDynamic(&sm, task, this.Return))
 
     [<NoEagerConstraintApplication>]
-    member inline _.Bind<'Env, 'T, 'TOverall, 'TResult1, 'TResult2, 'Err>
+    member inline _.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
         (
             scopedEff: Effect<'Scope, 'TResult1, 'Err>,
             continuation: 'TResult1 -> ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>
@@ -237,10 +237,11 @@ open Orsak.Scoped
 open Microsoft.FSharp.Core.CompilerServices
 open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 
+
 /// <summary>
 /// Allows for binding effects in a scope, but does not allow for starting a new scope.
 /// Typically would be run by binding them in a scoped effect. Not expected to be run by themselves, since the
-/// Effect.run must run it with an already started scope
+/// Effect.run must run it with an already started scope, and the scopes would generally be started implicitly.
 /// </summary>
 [<ExperimentalAttribute("")>]
 type ScopeAwareEffectBuilder<'Scope>() =

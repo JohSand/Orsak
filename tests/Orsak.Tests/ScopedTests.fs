@@ -79,8 +79,6 @@ type Scoped() =
         tran.Commit()
         ()
 
-    let scopeAware = ScopeAwareEffectBuilder<DbTransactional>()
-
     //Mostly explores what is possible with this api
     //all the async usage is wasted with SQLite, but can be valuable with other providers.
     let read () : Transaction<_, _> =
@@ -105,7 +103,7 @@ type Scoped() =
         })
 
 
-    let readSingle () : EnlistedTransaction<_, _, _> = scopeAware {
+    let readSingle () : EnlistedTransaction<_, _, _> = trxAware {
         let! _now = Clock.utcNow ()
 
         let! list = read ()
@@ -122,7 +120,7 @@ type Scoped() =
 
     let readAndCommit () = commitEff { return! read () }
 
-    let readThenFail () = scopeAware {
+    let readThenFail () = trxAware {
         let! _now = Clock.utcNow ()
         let! list = read ()
         let value = Assert.Single(list)
@@ -142,7 +140,7 @@ type Scoped() =
             return Ok()
         })
 
-    let scopedInsert () = scopeAware {
+    let scopedInsert () = trxAware {
         do! insert ()
         return ()
     }
