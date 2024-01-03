@@ -234,9 +234,6 @@ namespace Orsak.ScopeAware
 
 open Orsak
 open Orsak.Scoped
-open FSharp.Control
-open System.Threading.Tasks
-open System
 open Microsoft.FSharp.Core.CompilerServices
 open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 

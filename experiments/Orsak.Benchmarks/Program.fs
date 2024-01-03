@@ -146,18 +146,22 @@ module Helpers2 =
 
         return List.ofSeq res
     }
+
 [<MemoryDiagnoser>]
 type AsyncSeqYieldBenchmarks() =
-    [<Benchmark(Baseline=true)>]
+    [<Benchmark(Baseline = true)>]
     member this.CompletedOld() = task {
 
-        let! _unused = evaluatesToSequence (effSeq {
-            yield 1
-            do! Task.Yield()
-            yield 2
-            do! Task.Yield()
-            yield 3
-        })
+        let! _unused =
+            evaluatesToSequence (
+                effSeq {
+                    yield 1
+                    do! Task.Yield()
+                    yield 2
+                    do! Task.Yield()
+                    yield 3
+                }
+            )
 
         return ()
     }
@@ -165,8 +169,7 @@ type AsyncSeqYieldBenchmarks() =
 [<EntryPoint>]
 let main argv =
     //asyncMain().GetAwaiter().GetResult()
-    BenchmarkSwitcher
-        .FromAssembly(typeof<AsyncBenchmarks>.Assembly).Run(argv)
-        |> ignore
+    BenchmarkSwitcher.FromAssembly(typeof<AsyncBenchmarks>.Assembly).Run(argv)
+    |> ignore
 
     0

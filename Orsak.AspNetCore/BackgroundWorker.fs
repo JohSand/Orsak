@@ -1,4 +1,4 @@
-﻿namespace SampleWeb.BackgroundWorker
+﻿namespace Orsak.AspNetCore
 
 open System
 open System.Threading

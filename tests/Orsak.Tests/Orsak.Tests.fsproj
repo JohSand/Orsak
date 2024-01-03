@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFrameworks>net7.0;net8.0</TargetFrameworks>
 		<IsPackable>false</IsPackable>
 		<GenerateProgramFile>false</GenerateProgramFile>
 		<IsTestProject>true</IsTestProject>
@@ -10,6 +10,7 @@
 		<Version>0.1.0-beta0028</Version>
 	</PropertyGroup>
 	<ItemGroup>
+		<Compile Include="NameParserTests.fs" />
 		<Compile Include="EffSeqTests.fs" />
 		<Compile Include="RecoveryTests.fs" />
 		<Compile Include="Tests.fs" />
@@ -34,6 +35,7 @@
 		</PackageReference>
 	</ItemGroup>
 	<ItemGroup>
+		<ProjectReference Include="..\..\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
 		<ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
 	</ItemGroup>
 </Project>
