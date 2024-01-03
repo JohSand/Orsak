@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net6.0</TargetFramework>
-
+		<TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<WarnOn>3390;$(WarnOn)</WarnOn>
 		<RootNamespace>Orsak.AspNetCore</RootNamespace>
 	</PropertyGroup>
 	<ItemGroup>
+	  <Compile Include="BackgroundWorker.fs" />
 	  <Compile Include="EndpointRouting.fs" />
 	</ItemGroup>
 	<ItemGroup>

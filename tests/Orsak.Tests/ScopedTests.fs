@@ -105,7 +105,7 @@ type Scoped() =
         })
 
 
-    let readSingle () : EnlistedTransaction<_,_,_> = scopeAware {
+    let readSingle () : EnlistedTransaction<_, _, _> = scopeAware {
         let! _now = Clock.utcNow ()
 
         let! list = read ()

@@ -8,7 +8,6 @@
 	  <NoWarn>57</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="BackgroundWorker.fs" />
     <Compile Include="Effects.fs" />
     <Compile Include="Application.fs" />
     <Compile Include="RoutesEffectRunner.fs" />

@@ -640,8 +640,10 @@ module BuilderTests =
             else
                 return! Error "Expected error"
         }
+
         task {
             let mutable counter = 0
+
             do!
                 eff {
 
@@ -654,6 +656,7 @@ module BuilderTests =
                 }
                 |> expectError "Expected error"
                 |> run
+
             Assert.Equal(2, counter)
         }
 
@@ -667,11 +670,13 @@ module BuilderTests =
                 return! Ok()
 
         }
+
         task {
             let mutable counter = 0
+
             do!
                 eff {
-                    for j in [ 1..5] do
+                    for j in [ 1..5 ] do
                         do! inlineEffect j
                         counter <- counter + 1
 
@@ -680,6 +685,7 @@ module BuilderTests =
                 }
                 |> expectError "Expected error"
                 |> run
+
             Assert.Equal(2, counter)
         }
 

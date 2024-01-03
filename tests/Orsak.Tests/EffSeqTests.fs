@@ -116,10 +116,12 @@ module Helpers2 =
 
         interface IAsyncDisposable with
             member this.DisposeAsync() =
-                ValueTask(task = task {
-                this.WasDisposed <- true
-                do! Task.Yield()
-            })
+                ValueTask(
+                    task = task {
+                        this.WasDisposed <- true
+                        do! Task.Yield()
+                    }
+                )
 
     type IRand =
         abstract member Next: unit -> int
@@ -456,6 +458,7 @@ module ``Effect Sequences With Elements`` =
             2
             3
         }
+
         for i = 0 to 1000 do
             do! evaluatesToSequence [ 1; 2; 3 ] s
     }
@@ -626,7 +629,8 @@ module ``Effect Sequences With Elements`` =
                 for _ in 1..3 do
                     yield! next ()
 
-            }).Invoke(provider)
+            })
+                .Invoke(provider)
             |> TaskSeq.toListAsync
 
         let rand = Random(seed)
@@ -655,7 +659,7 @@ module ``Effect Sequences With Elements`` =
         }
         |> evaluatesToSequence [ 1; 2 ]
 
-    
+
     [<Fact>]
     let ``should bind tasks yielding after bind`` () =
         effSeq {
@@ -665,7 +669,7 @@ module ``Effect Sequences With Elements`` =
         }
         |> evaluatesToSequence [ 1; 2 ]
 
-    
+
     [<Fact>]
     let ``should bind tasks interleaved`` () =
         effSeq {
@@ -677,7 +681,12 @@ module ``Effect Sequences With Elements`` =
             do! Task.Yield()
             4
         }
-        |> evaluatesToSequence [ 1; 2; 3; 4 ]
+        |> evaluatesToSequence [
+            1
+            2
+            3
+            4
+        ]
 
 
     [<Fact>]
@@ -691,20 +700,23 @@ module ``Effect Sequences With Elements`` =
 
     [<Fact>]
     let ``should support parallel calls to GetEnumerator`` () = task {
-        let enumerable =
-                effSeq {
-                    1
-                    do! vtask { do! Task.Yield() }
-                    2
-                }
+        let enumerable = effSeq {
+            1
+            do! vtask { do! Task.Yield() }
+            2
+        }
+
         do!
             Parallel.ForEachAsync(
-                [ 1.. 10 ],
+                [ 1..10 ],
                 ParallelOptions(MaxDegreeOfParallelism = 10),
-                (fun _ _ -> ValueTask(task = task {
-                    do! evaluatesToSequence [ 1; 2; ] enumerable
-                    return ()
-                }))
+                (fun _ _ ->
+                    ValueTask(
+                        task = task {
+                            do! evaluatesToSequence [ 1; 2 ] enumerable
+                            return ()
+                        }
+                    ))
             )
 
         return ()
@@ -718,7 +730,7 @@ module ``Effect Sequences With Elements`` =
             do! Async.AwaitTask(task { do! Task.Delay(10) })
             2
         }
-        |> evaluatesToSequence [ 1; 2; ]
+        |> evaluatesToSequence [ 1; 2 ]
 
     [<Fact>]
     let ``should bind results`` () =

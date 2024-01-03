@@ -17,6 +17,8 @@ open Orsak.Scoped
 open Azure.Storage.Queues.Models
 open System.Collections.Generic
 open System.Threading
+open System.Runtime.InteropServices
+open System.Runtime.CompilerServices
 
 type GuidGenerator =
     abstract member NewGuid: unit -> Guid
@@ -37,17 +39,15 @@ module RandomNumberGenerator =
         Effect.Create(fun (provider: #RNGProvider) -> provider.Gen.GetBytes(x))
 
 
-
 type ILoggerProvider =
     abstract member Logger: string -> ILogger
 
 type Log =
-    static member getLogger(s: string) =
-        Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger(s))
+    static member getLogger([<CallerMemberName; Optional; DefaultParameterValue("")>]caller: string) =
+        Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger(caller))
 
-    static member logInformation(message, [<ParamArray>] args) =
-        Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger("").LogInformation(message, args))
-
+    static member logInformation(message, [<CallerMemberName; Optional; DefaultParameterValue("")>]caller: string) =
+        Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger(caller).LogInformation(message))
 
 type IContextProvider =
     abstract member Context: HttpContext
@@ -76,6 +76,7 @@ type MessageModel = {
     batchId: string
     orderId: string
 } with
+
     static member ToJson(x: MessageModel) =
         jobj [ "message" .= x.message; "batchId" .= x.batchId; "orderId" .= x.orderId ]
 
@@ -86,7 +87,7 @@ type MessageModel = {
             let! batchId = o .@ "batchId"
             let! orderId = o .@ "orderId"
             return { message = message; batchId = batchId; orderId = orderId }
-            }
+          }
         | x -> Decode.Fail.objExpected x
 
 type MessageSink =
@@ -158,10 +159,10 @@ module Message =
         |> Result.mapError string
 
     let msgWork (ct: CancellationToken) = eff {
-        for msgModel in receive(ct) do
+        for msgModel in receive (ct) do
             let! msg = parseAs (BinaryData.op_Implicit msgModel.Body)
 
-            do! Log.logInformation("Got message {message}", msg.message)
+            do! Log.logInformation ("Got message {message}", msg.message)
             do! handleMessage msg
             do! delete msgModel
 
