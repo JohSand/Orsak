@@ -4,6 +4,7 @@
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<WarnOn>3390;$(WarnOn)</WarnOn>
 		<RootNamespace>Orsak.AspNetCore</RootNamespace>
+		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 	<ItemGroup>
 	  <Compile Include="BackgroundWorker.fs" />
