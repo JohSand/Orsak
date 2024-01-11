@@ -57,7 +57,6 @@ type Endpoint =
     member this.Add(f) =
         this.AddConvention(fun b -> b.Add(f); b)
 
-[<AutoOpen>]
 module Helpers =
     let getConstraint name (ep: RouteEndpoint) =
         let mutable policies = Unchecked.defaultof<_>
@@ -182,14 +181,9 @@ module Helpers =
 
                 eff (activator.Invoke argArray) *>> this |> _.Invoke(ctx))
 
-    type IEndpointRouteBuilder with
-        member builder.MapEffectEndpoints(endpoints: Endpoint list) =
-            endpoints
-            |> List.iter (fun (Endpoint e) ->
-                let convBuilder = builder.MapMethods(e.path, [| e.verb |], e.requestDelegate)
-                e.conventions convBuilder |> ignore
-            )
 
+
+open Helpers
 [<Extension>]
 type EffectRunnerExtensions =
     [<EditorBrowsable(EditorBrowsableState.Never)>]
@@ -258,3 +252,11 @@ type EffectRunnerExtensions =
     [<Extension>]
     static member inline RouteOptions(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Options, routeHandler)
+
+    [<Extension>]
+    static member inline MapEffectEndpoints(builder: IEndpointRouteBuilder, endpoints: Endpoint list) =
+            endpoints
+            |> List.iter (fun (Endpoint e) ->
+                let convBuilder = builder.MapMethods(e.path, [| e.verb |], e.requestDelegate)
+                e.conventions convBuilder |> ignore
+            )
