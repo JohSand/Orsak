@@ -25,7 +25,7 @@
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
+    <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
     <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
   </ItemGroup>
 </Project>

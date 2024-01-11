@@ -26,7 +26,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Orsak.Tests", "tests\Orsak.
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Orsak.Benchmarks", "experiments\Orsak.Benchmarks\Orsak.Benchmarks.fsproj", "{126F9D50-D5E9-4E86-BBC3-670D2A835876}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Orsak.AspNetCore", "Orsak.AspNetCore\Orsak.AspNetCore.fsproj", "{6FE77668-E21E-4D92-AF78-2520677C3241}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Orsak.AspNetCore", "src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj", "{6FE77668-E21E-4D92-AF78-2520677C3241}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

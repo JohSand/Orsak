@@ -195,7 +195,7 @@ type EffectRunnerExtensions =
             handler: (Expr<'T -> 'A>)
         ) =
         match handler with
-        | WithValue(value, ``type``, expr) ->
+        | WithValue(value, _type, expr) ->
             let eff = value :?> 'T -> 'A
 
             if typeof<'T> = typeof<unit> then

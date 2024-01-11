@@ -18,16 +18,16 @@ module BackgroundWorker =
         | Patterns.WithValue(:? Effect<'r, unit, 'e> as work, _, expr) ->
             let s =
                 match expr with
-                | Patterns.ValueWithName(a, _, name) -> name
-                | Patterns.Application(Patterns.ValueWithName(a, _, name), _) -> name
+                | Patterns.ValueWithName(_, _, name) -> name
+                | Patterns.Application(Patterns.ValueWithName(_, _, name), _) -> name
                 | _ -> "guess?"
 
             s, work
-        | Patterns.WithValue(work, _, expr) ->
-            let s =
+        | Patterns.WithValue(_, _, expr) ->
+            let _ =
                 match expr with
-                | Patterns.ValueWithName(a, _, name) -> name
-                | Patterns.Application(Patterns.ValueWithName(a, _, name), _) -> name
+                | Patterns.ValueWithName(_, _, name) -> name
+                | Patterns.Application(Patterns.ValueWithName(_, _, name), _) -> name
                 | _ -> "guess?"
 
             failwith "what type-safety?"
@@ -38,16 +38,16 @@ module BackgroundWorker =
         | Patterns.WithValue(:? (CancellationToken -> Effect<'r, unit, 'e>) as work, _, expr) ->
             let s =
                 match expr with
-                | Patterns.ValueWithName(a, _, name) -> name
-                | Patterns.Application(Patterns.ValueWithName(a, _, name), _) -> name
+                | Patterns.ValueWithName(_, _, name) -> name
+                | Patterns.Application(Patterns.ValueWithName(_, _, name), _) -> name
                 | _ -> "guess?"
 
             s, work
-        | Patterns.WithValue(work, _, expr) ->
-            let s =
+        | Patterns.WithValue(_, _, expr) ->
+            let _ =
                 match expr with
-                | Patterns.ValueWithName(a, _, name) -> name
-                | Patterns.Application(Patterns.ValueWithName(a, _, name), _) -> name
+                | Patterns.ValueWithName(_, _, name) -> name
+                | Patterns.Application(Patterns.ValueWithName(_, _, name), _) -> name
                 | _ -> "guess?"
 
             failwith "what type-safety?"

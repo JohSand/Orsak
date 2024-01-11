@@ -35,7 +35,7 @@
 		</PackageReference>
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\..\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
+		<ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
 		<ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
 	</ItemGroup>
 </Project>
