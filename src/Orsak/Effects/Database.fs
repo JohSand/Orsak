@@ -54,8 +54,6 @@ type IProgressScope =
     abstract member Progress: System.IProgress<float>
     inherit Scoped
 
-//type alias for convini
-type IProgressScopeProvider = ScopeProvider<IProgressScope>
 
 //builder for your scope
 module Builder2 =
@@ -123,13 +121,12 @@ module Progress =
 type ProgressScope() =
     let mutable Calls = 0.
     //unique progress per scope.
-    let p = new System.Progress<float>(fun _x -> ())
-    do
-        p.ProgressChanged.Add(fun total ->
-            Calls <- Calls + 1.
-            let pcnt = Calls / total
-            System.Console.WriteLine(pcnt)
-        )
+    let p = System.Progress<float>(fun total ->
+                Calls <- Calls + 1.
+                let pcnt = Calls / total
+                System.Console.WriteLine(pcnt)
+            )
+
     interface IProgressScope with
         member this.Progress = p
         member this.DisposeAsync() = ValueTask()
@@ -145,7 +142,8 @@ module GuidGenerator =
     let newGuid () =
         Effect.Create(fun (p: #GuidProvider) -> p.Gen.NewGuid())
 
-
+//type alias for convini
+type IProgressScopeProvider = ScopeProvider<IProgressScope>
 
 type Runner() =
     interface IProgressScopeProvider with

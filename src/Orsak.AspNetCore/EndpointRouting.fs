@@ -15,7 +15,7 @@ open System.Text
 
 type HandlingMethod = HandlingMethod of MethodInfo
 
-type Endpoint =   
+type Endpoint =
     | Endpoint of
         {|
             verb: string
@@ -24,23 +24,20 @@ type Endpoint =
             conventions: IEndpointConventionBuilder -> IEndpointConventionBuilder
         |}
 
-    member inline this.AddConvention([<InlineIfLambda>]f: IEndpointConventionBuilder -> IEndpointConventionBuilder) =
+    member inline this.AddConvention([<InlineIfLambda>] f: IEndpointConventionBuilder -> IEndpointConventionBuilder) =
         let (Endpoint this) = this in Endpoint {| this with conventions = fun b -> f (this.conventions b) |}
 
     member this.RequiresAuthorization() =
         this.AddConvention(_.RequireAuthorization())
 
-    member this.AllowAnonymous() =
-        this.AddConvention(_.AllowAnonymous())
+    member this.AllowAnonymous() = this.AddConvention(_.AllowAnonymous())
 
-    member this.RequireCors(name: string) =
-        this.AddConvention(_.RequireCors(name))
+    member this.RequireCors(name: string) = this.AddConvention(_.RequireCors(name))
 
     member this.RequireCors(builder: Action<_>) =
         this.AddConvention(_.RequireCors(builder))
 
-    member this.WithName(name) =
-        this.AddConvention(_.WithName(name))
+    member this.WithName(name) = this.AddConvention(_.WithName(name))
 
     member this.WithMetadata([<ParamArray>] items) =
         this.AddConvention(_.WithMetadata(items))
@@ -48,38 +45,43 @@ type Endpoint =
     member this.WithDisplayName(name: string) =
         this.AddConvention(_.WithDisplayName(name))
 
-    member this.WithDisplayName(f: Func<_,_>) =
+    member this.WithDisplayName(f: Func<_, _>) =
         this.AddConvention(_.WithDisplayName(f))
 
     member this.WithGroupName(name) =
         this.AddConvention(_.WithGroupName(name))
 
     member this.Add(f) =
-        this.AddConvention(fun b -> b.Add(f); b)
+        this.AddConvention(fun b ->
+            b.Add(f)
+            b)
 
 module Helpers =
     let getConstraint name (ep: RouteEndpoint) =
         let mutable policies = Unchecked.defaultof<_>
+
         if ep.RoutePattern.ParameterPolicies.TryGetValue(name, &policies) then
             policies[0].Content
         else
             ""
 
     let parseRouteValue (name: string, ctx: HttpContext) =
-        let unEscape (s: string) = s.Replace("%2F", "/").Replace("%2f", "/")
+        let unEscape (s: string) =
+            s.Replace("%2F", "/").Replace("%2f", "/")
 
         match ctx.GetEndpoint() :?> RouteEndpoint |> getConstraint name with
-        | ""            -> (ctx.GetRouteValue(name) :?> string |> unEscape |> box)
-        | "int"         -> (ctx.GetRouteValue(name) :?> string |> int |> box)
-        | "bool"        -> (ctx.GetRouteValue(name) :?> string |> bool.Parse |> box)
-        | "length(1)"   -> (ctx.GetRouteValue(name) :?> string |> char |> box)
-        | "long"        -> (ctx.GetRouteValue(name) :?> string |> int64 |> box)
-        | "double"      -> (ctx.GetRouteValue(name) :?> string |> float |> box)
-        | "guid"        -> (ctx.GetRouteValue(name) :?> string |> Guid |> box)
+        | "" -> (ctx.GetRouteValue(name) :?> string |> unEscape |> box)
+        | "int" -> (ctx.GetRouteValue(name) :?> string |> int |> box)
+        | "bool" -> (ctx.GetRouteValue(name) :?> string |> bool.Parse |> box)
+        | "length(1)" -> (ctx.GetRouteValue(name) :?> string |> char |> box)
+        | "long" -> (ctx.GetRouteValue(name) :?> string |> int64 |> box)
+        | "double" -> (ctx.GetRouteValue(name) :?> string |> float |> box)
+        | "guid" -> (ctx.GetRouteValue(name) :?> string |> Guid |> box)
         | _ -> ctx.GetRouteValue(name)
 
 
     type StringBuilder with
+
         member sb.AppendParameter(c, name) =
             match c with
             | 'b' -> sb.Append($"{{%s{name}:bool}}")
@@ -94,18 +96,19 @@ module Helpers =
         [<TailCall>]
         member sb.AppendPath(chars: char ReadOnlySpan, names: string ReadOnlySpan) =
             let paramIndex = chars.IndexOf('%')
+
             if paramIndex = -1 then
                 sb.Append(chars).ToString()
             elif chars[paramIndex + 1] = '%' then
                 sb
-                  .Append(chars.Slice(0, paramIndex))
-                  .Append('%')
-                  .AppendPath(chars.Slice(paramIndex + 2), names)
+                    .Append(chars.Slice(0, paramIndex))
+                    .Append('%')
+                    .AppendPath(chars.Slice(paramIndex + 2), names)
             else
                 sb
-                  .Append(chars.Slice(0, paramIndex))
-                  .AppendParameter(chars[paramIndex + 1], names[0])
-                  .AppendPath(chars.Slice(paramIndex + 2), names.Slice(1))
+                    .Append(chars.Slice(0, paramIndex))
+                    .AppendParameter(chars[paramIndex + 1], names[0])
+                    .AppendPath(chars.Slice(paramIndex + 2), names.Slice(1))
 
     [<return: Struct>]
     let (|TupledArg|_|) (var: Var) =
@@ -113,18 +116,25 @@ module Helpers =
 
     let getNames (q: Expr) =
         match q with
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, Let(var5, _, _)))))) 
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, Lambda(var5, _)))))) ->
-            [| var.Name; var2.Name; var3.Name; var4.Name; var5.Name; |]
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, _))))) 
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Lambda(var4, _))))) ->
-            [| var.Name; var2.Name; var3.Name; var4.Name |]
+        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, Let(var5, _, _))))))
+        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, Lambda(var5, _)))))) -> [|
+            var.Name
+            var2.Name
+            var3.Name
+            var4.Name
+            var5.Name
+          |]
+        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, _)))))
+        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Lambda(var4, _))))) -> [|
+            var.Name
+            var2.Name
+            var3.Name
+            var4.Name
+          |]
         | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, _))))
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Lambda(var3, _)))) ->
-            [| var.Name; var2.Name; var3.Name |]
+        | Lambda(TupledArg, Let(var, _, Let(var2, _, Lambda(var3, _)))) -> [| var.Name; var2.Name; var3.Name |]
         | Lambda(TupledArg, Let(var, _, Let(var2, _, _)))
-        | Lambda(var, Lambda(var2, _)) ->
-            [| var.Name; var2.Name |]
+        | Lambda(var, Lambda(var2, _)) -> [| var.Name; var2.Name |]
         | Lambda(var, _) -> [| var.Name |]
         | _ -> [||]
 
@@ -155,7 +165,7 @@ module Helpers =
             .Compile()
         :?> Func<obj array, 'T>
 
-    let inline createEndpointDelegate (eff: 'T -> 'A) (names: string []) this =
+    let inline createEndpointDelegate (eff: 'T -> 'A) (names: string[]) this =
         //type tests for all primitives we support
         if
             typeof<'T> = typeof<int>
@@ -168,7 +178,8 @@ module Helpers =
         then
             RequestDelegate(fun ctx ->
                 let arg = parseRouteValue (names[0], ctx) :?> 'T
-                let (a: RequestDelegate) = eff arg *>> this in a.Invoke(ctx))
+                let (a: RequestDelegate) = eff arg *>> this in
+                a.Invoke(ctx))
         //if not a single value, it is a tuple
         else
             //tupled types
@@ -176,6 +187,7 @@ module Helpers =
             //we avoid paying the cost by creating this outside the request delegate
             RequestDelegate(fun ctx ->
                 let argArray = Array.zeroCreate names.Length
+
                 for i = 0 to names.Length - 1 do
                     argArray[i] <- parseRouteValue (names[i], ctx)
 
@@ -184,42 +196,42 @@ module Helpers =
 
 
 open Helpers
+
 [<Extension>]
 type EffectRunnerExtensions =
     [<EditorBrowsable(EditorBrowsableState.Never)>]
-    static member inline CreateEndpoint
+    static member inline CreateEndpoint< 'H, 'Eff, 'Printer, 'T when ('Eff or 'H): (static member ( *>> ): 'Eff * 'H -> RequestDelegate)>
         (
-            this,
-            path: PrintfFormat<_, _, _, _, 'T>,
+            this: 'H,
+            path: PrintfFormat<'Printer, unit, unit, 'Eff,'T>,
             verb: string,
-            handler: (Expr<'T -> 'A>)
+            handler: (Expr<'T -> 'Eff>)
         ) =
         match handler with
-        | WithValue(value, _type, expr) ->
-            let eff = value :?> 'T -> 'A
-
+        | WithValue(:? ('T -> 'Eff) as eff, _type, expr) ->
             if typeof<'T> = typeof<unit> then
                 Endpoint {|
                     verb = verb
                     path = path.ToString().Replace("%%", "%")
                     requestDelegate = eff (Unchecked.defaultof<'T>) *>> this
                     conventions = id
-                |}   
+                |}
             else
                 let names = getNames expr
+
                 Endpoint {|
                     verb = verb
                     path = StringBuilder().AppendPath(path.Value, names)
-                    requestDelegate = createEndpointDelegate eff names this    
+                    requestDelegate = createEndpointDelegate eff names this
                     conventions = id
                 |}
-            |> _.WithMetadata(HandlingMethod (getMethodInfo expr))
+            |> _.WithMetadata(HandlingMethod(getMethodInfo expr))
 
         | _ -> failwith "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
 
     [<Extension>]
-    static member inline RouteGet(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
-        EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Get, routeHandler)
+    static member inline RouteGet(this: 'H, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
+        EffectRunnerExtensions.CreateEndpoint< 'H, 'Eff, 'Printer, 'T >(this, path, HttpMethods.Get, routeHandler)
 
     [<Extension>]
     static member inline RoutePost(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
@@ -255,8 +267,7 @@ type EffectRunnerExtensions =
 
     [<Extension>]
     static member inline MapEffectEndpoints(builder: IEndpointRouteBuilder, endpoints: Endpoint list) =
-            endpoints
-            |> List.iter (fun (Endpoint e) ->
-                let convBuilder = builder.MapMethods(e.path, [| e.verb |], e.requestDelegate)
-                e.conventions convBuilder |> ignore
-            )
+        endpoints
+        |> List.iter (fun (Endpoint e) ->
+            let convBuilder = builder.MapMethods(e.path, [| e.verb |], e.requestDelegate)
+            e.conventions convBuilder |> ignore)
