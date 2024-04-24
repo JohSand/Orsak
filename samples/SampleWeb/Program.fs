@@ -16,6 +16,7 @@ let main args =
     Transaction.setup ()
     let builder = WebApplication.CreateBuilder(args)
 
+
     builder.Services
         .AddHttpContextAccessor()
         .AddSingleton<BackgroundEnv>(fun ctx -> {

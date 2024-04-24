@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+		<TargetFrameworks>net6.0; net8.0</TargetFrameworks>
 		<RootNamespace>Orsak</RootNamespace>
 	</PropertyGroup>
 
@@ -17,8 +17,5 @@
 		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
 		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
 		<None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\" />
-	</ItemGroup>
-	<ItemGroup>
-	  <PackageReference Update="FSharp.Core" Version="7.0.200" />
 	</ItemGroup>
 </Project>

@@ -5,6 +5,7 @@ open FSharp.Control
 open System.Threading.Tasks
 open System
 open System.Collections.Generic
+open Microsoft.FSharp.Core
 
 [<RequireQualifiedAccess>]
 module Effect =
@@ -87,6 +88,11 @@ module Effect =
     /// <param name="e">The effect</param>
     let inline onError ([<InlineIfLambda>] f: 'e -> Effect<'r, 'a, 'e>) (e: Effect<'r, 'a, 'e>) =
         eff.Run(eff.TryRecover(e, f))
+
+    
+    [<TailCall>]
+    let rec forever (e: Effect<'r, 'a, 'e>)  =
+        onError (fun _err -> forever e) e
 
     let rec repeatWhileTrue (e: Effect<'r, bool, 'e>) = eff {
         while e do
@@ -319,9 +325,14 @@ module WrapTwice =
 
 
     type EffSeq with
-        static member Create<'r, 'a, 'e>(f: 'r -> IAsyncEnumerable<'a>) : EffSeq<'r, 'a, 'e> = effSeq {
-            let! seq = mkEffect(f >> Ok >> ValueTask.FromResult)
-            for e in seq do yield e
+
+        static member Create<'r, 'a>(f: 'r -> IAsyncEnumerable<'a>) : EffSeq<'r, 'a,string> = effSeq {
+            try
+                let! seq = mkEffect (f >> Ok >> ValueTask.FromResult)
+                yield! seq
+            with
+            | _ ->
+                do! Error("is this it?")
         }
 
 [<AutoOpen>]
