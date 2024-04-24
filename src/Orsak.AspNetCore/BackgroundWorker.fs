@@ -10,6 +10,10 @@ open Microsoft.Extensions.DependencyInjection
 open Orsak
 open Microsoft.Extensions.Logging
 open Microsoft.FSharp.Quotations
+open Polly.Retry
+open Microsoft.FSharp.Linq
+open Polly
+open FSharp.Control
 
 [<AutoOpen>]
 module BackgroundWorker =
@@ -53,18 +57,27 @@ module BackgroundWorker =
             failwith "what type-safety?"
         | _ -> failwith "what type-safety?"
 
-    let private executeFunc<'r, 'e> (work: Effect<'r, unit, 'e>) (delay: TimeSpan) (logger: ILogger) ct provider =
-        work
-        |> Effect.onError (fun e -> eff {
-            try
-                logger.LogCritical("Error {Error} during background work", e)
-                do! Task.Delay(delay, cancellationToken = ct)
-                return! work
-            with :? TaskCanceledException ->
-                return ()
-        })
-        |> Effect.runOrFail (provider)
 
+
+
+
+
+
+    let private executeFunc<'r, 'e> (work: Effect<'r, unit, 'e>) (_delay: TimeSpan) (_logger: ILogger) ct provider = task {
+        let! Safe = work |> Resilience.untilCancellation ct |> Effect.run provider
+        return ()
+    }
+
+    type EffectfulBackgroundService<'r, 'e>(runnerFactory: CancellationToken -> 'r, e: Effect<'r, unit, 'e>) =
+        inherit BackgroundService()
+
+        override this.ExecuteAsync(ct) = task {
+            let runner = runnerFactory ct
+
+            let! Safe = e |> Resilience.untilCancellation ct |> Effect.run runner
+
+            return ()
+        }
 
     type IServiceCollection with
 

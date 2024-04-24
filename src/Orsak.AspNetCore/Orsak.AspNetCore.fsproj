@@ -1,9 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+		<TargetFrameworks>net8.0; net6.0</TargetFrameworks>
 		<RootNamespace>Orsak.AspNetCore</RootNamespace>
 	</PropertyGroup>
 	<ItemGroup>
+		<Compile Include="Throwhelpers.fs" />
+		<Compile Include="Resilience.fs" />
 		<Compile Include="BackgroundWorker.fs" />
 		<Compile Include="EndpointRouting.fs" />
 	</ItemGroup>
@@ -17,5 +19,9 @@
 		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
 		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
 		<None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="FastExpressionCompiler.LightExpression" Version="4.1.0" />
+	  <PackageReference Include="Polly" Version="8.3.1" />
 	</ItemGroup>
 </Project>

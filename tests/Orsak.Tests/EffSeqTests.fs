@@ -239,6 +239,13 @@ module ``Empty Effect Sequences`` =
         |> evaluatesToSequenceThenFails [] "Expected Error"
 
     [<Fact>]
+    let ``should propagate errors repeatedly`` () = task {
+        let s = effSeq { do! Error("Expected Error") }
+        do! s |> evaluatesToSequenceThenFails [] "Expected Error"
+        do! s |> evaluatesToSequenceThenFails [] "Expected Error"
+    }
+
+    [<Fact>]
     let ``should propagate errors from effSeq`` () =
         effSeq {
             for i in (makeEffSeqWithError []) do
@@ -749,6 +756,17 @@ module ``Effect Sequences With Elements`` =
             2
         }
         |> evaluatesToSequenceThenFails [ 1 ] "Expected Error"
+
+    [<Fact>]
+    let ``should propagate errors repeatedly`` () = task {
+        let s = effSeq {
+            1
+            do! Error("Expected Error")
+            2
+        }
+        do! s |> evaluatesToSequenceThenFails [ 1 ] "Expected Error"
+        do! s |> evaluatesToSequenceThenFails [ 1 ] "Expected Error"
+    }
 
     [<Fact>]
     let ``should propagate errors from effSeq`` () =

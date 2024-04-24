@@ -7,11 +7,13 @@ open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Routing
 open System
-open System.Linq.Expressions
+//open System.Linq.Expressions
+open FastExpressionCompiler.LightExpression
 open System.Runtime.CompilerServices
 open System.ComponentModel
 open System.Reflection
 open System.Text
+open FSharp.Core.Operators.NonStructuralComparison
 
 type HandlingMethod = HandlingMethod of MethodInfo
 
@@ -162,7 +164,7 @@ module Helpers =
 
         Expression
             .Lambda(typeof<Func<obj array, 'T>>, Expression.New(ctorInfo, ctorArgs), args)
-            .Compile()
+            .CompileFast()
         :?> Func<obj array, 'T>
 
     let inline createEndpointDelegate (eff: 'T -> 'A) (names: string[]) this =
@@ -227,7 +229,9 @@ type EffectRunnerExtensions =
                 |}
             |> _.WithMetadata(HandlingMethod(getMethodInfo expr))
 
-        | _ -> failwith "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
+        | _ ->
+            Throwhelpers.argumentException "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
+            Unchecked.defaultof<_>
 
     [<Extension>]
     static member inline RouteGet(this: 'H, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
