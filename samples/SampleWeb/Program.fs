@@ -23,7 +23,7 @@ let main args =
             loggerFactory = ctx.GetRequiredService<_>()
             queueClient = MessageScope queueCLient
         })
-        .AddEffectWorker<BackgroundEnv, string>(msgWork)
+        .AddEffectWorker<BackgroundEnv>(msgWork () |> Effect.changeError (fun _ -> Unchecked.defaultof<Nothing>))
         .AddSignalR()
     |> ignore
 
