@@ -57,24 +57,18 @@ module BackgroundWorker =
             failwith "what type-safety?"
         | _ -> failwith "what type-safety?"
 
-
-
-
-
-
-
-    let private executeFunc<'r, 'e> (work: Effect<'r, unit, 'e>) (_delay: TimeSpan) (_logger: ILogger) ct provider = task {
-        let! Safe = work |> Resilience.untilCancellation ct |> Effect.run provider
+    let private executeFunc<'r, 'e> (work: Effect<'r, unit, 'e>) (_delay: TimeSpan) (logger: ILogger) ct provider = task {
+        let! Safe = work |> Effect.untilCancellation logger ct |> Effect.run provider
         return ()
     }
 
-    type EffectfulBackgroundService<'r, 'e>(runnerFactory: CancellationToken -> 'r, e: Effect<'r, unit, 'e>) =
+    type EffectfulBackgroundService<'r, 'e>(runnerFactory: CancellationToken -> 'r, e: Effect<'r, unit, 'e>, logger) =
         inherit BackgroundService()
 
         override this.ExecuteAsync(ct) = task {
             let runner = runnerFactory ct
 
-            let! Safe = e |> Resilience.untilCancellation ct |> Effect.run runner
+            let! Safe = e |> Effect.untilCancellation logger ct |> Effect.run runner
 
             return ()
         }
@@ -89,11 +83,8 @@ module BackgroundWorker =
                 let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
                 let provider = ctx.GetRequiredService<'r>()
 
-                { new BackgroundService() with
-                    override _.ExecuteAsync ct =
-                        executeFunc<'r, 'e> work (TimeSpan.FromSeconds 30) logger ct provider
-                })
-
+                new EffectfulBackgroundService<_,_>((fun _ -> provider), work, logger)
+            )
         member this.AddEffectWorker<'r, 'e>
             (
                 [<ReflectedDefinition(includeValue = true)>] work: Expr<Effect<'r, unit, 'e>>,
