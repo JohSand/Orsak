@@ -89,10 +89,16 @@ module Effect =
     let inline onError ([<InlineIfLambda>] f: 'e -> Effect<'r, 'a, 'e>) (e: Effect<'r, 'a, 'e>) =
         eff.Run(eff.TryRecover(e, f))
 
-    
+    /// <summary>
+    /// Allows the effect to be bound as a result, rather than failing the surrounding effect when bound.
+    /// This allows for taking recovery action inside the effect, based on the outcome of a sub-effect.
+    /// </summary>
+    /// <param name="e">The effect</param>
+    let inline asResult (e: Effect<'r, 'a, 'e>) : Effect<'r, Result<'a, 'e>, 'e> = e |> map Ok |> tryRecover (Error)
+
+
     [<TailCall>]
-    let rec forever (e: Effect<'r, 'a, 'e>)  =
-        onError (fun _err -> forever e) e
+    let rec forever (e: Effect<'r, 'a, 'e>) = onError (fun _err -> forever e) e
 
     let rec repeatWhileTrue (e: Effect<'r, bool, 'e>) = eff {
         while e do
@@ -326,12 +332,11 @@ module WrapTwice =
 
     type EffSeq with
 
-        static member Create<'r, 'a>(f: 'r -> IAsyncEnumerable<'a>) : EffSeq<'r, 'a,string> = effSeq {
+        static member Create<'r, 'a>(f: 'r -> IAsyncEnumerable<'a>) : EffSeq<'r, 'a, string> = effSeq {
             try
                 let! seq = mkEffect (f >> Ok >> ValueTask.FromResult)
                 yield! seq
-            with
-            | _ ->
+            with _ ->
                 do! Error("is this it?")
         }
 

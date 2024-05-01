@@ -10,20 +10,24 @@ open SampleWeb
 open Orsak.Extensions.Message
 open FSharpPlus
 
-[<EntryPoint>]
-let main args =
-    let queueCLient = QueueClient("UseDevelopmentStorage=true", "my-ku")
-    Transaction.setup ()
-    let builder = WebApplication.CreateBuilder(args)
-
-
-    builder.Services
-        .AddHttpContextAccessor()
-        .AddSingleton<BackgroundEnv>(fun ctx -> {
+let mkBackgroundEnv queueCLient (ctx: System.IServiceProvider) _ =    
+    {
             loggerFactory = ctx.GetRequiredService<_>()
             queueClient = MessageScope queueCLient
-        })
-        .AddEffectWorker<BackgroundEnv, string>(msgWork)
+    }
+
+let test () = eff {
+    return ()
+}
+
+[<EntryPoint>]
+let main args =
+    Transaction.setup ()
+    let builder = WebApplication.CreateBuilder(args)
+    let queueCLient = QueueClient("UseDevelopmentStorage=true", "my-ku")
+    builder.Services
+        .AddHttpContextAccessor()
+        .AddEffectWorker(mkBackgroundEnv queueCLient, msgWork)
         .AddSignalR()
     |> ignore
 

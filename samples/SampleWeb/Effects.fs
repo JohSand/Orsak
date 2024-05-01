@@ -43,10 +43,10 @@ type ILoggerProvider =
     abstract member Logger: string -> ILogger
 
 type Log =
-    static member getLogger([<CallerMemberName; Optional; DefaultParameterValue("")>]caller: string) =
+    static member getLogger([<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string) =
         Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger(caller))
 
-    static member logInformation(message, [<CallerMemberName; Optional; DefaultParameterValue("")>]caller: string) =
+    static member logInformation(message, [<CallerMemberName; Optional; DefaultParameterValue("")>] caller: string) =
         Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger(caller).LogInformation(message))
 
 type IContextProvider =
@@ -118,17 +118,18 @@ module Message =
             do! provider.Sink.Send(result)
         })
 
-    let read<'a> (sql: string) (p: obj) =
-        mkEffect (fun (tran: DbTransactional) -> vtask {
-            let connection = tran.Connection
-            let b = connection.QueryFirstOrDefault<'a>(sql, p)
+    let private transaction (f: DbTransactional -> Result<_,_>) =
+        mkEffect (fun tran -> ValueTask<_>(f tran))
 
+    let read<'a, 'err> (sql: string) (p: obj) : Transaction<'a option, 'err> =
+        transaction (fun tran -> 
+            let b = tran.Connection.QueryFirstOrDefault<'a>(sql, p)
             match box b with
-            | null -> return Ok None
-            | _ -> return Ok(Some b)
-        })
+            | null -> Ok None
+            | _ -> Ok(Some b)
+        )
 
-    let execute (sql: string) (p: obj) =
+    let execute (sql: string) (p: obj) : Transaction<unit, 'err> =
         mkEffect (fun (tran: DbTransactional) -> vtask {
             let connection = tran.Connection
             let b = connection.Execute(sql, param = p)
@@ -138,7 +139,7 @@ module Message =
 
     let handleMessage (message: MessageModel) = commitEff {
         match!
-            read<{| handled: string; id: Int64; orderId: string |}>
+            read<{| handled: string; id: Int64; orderId: string |}, _>
                 ("SELECT handled, id, orderId FROM inbox where orderId = @orderId")
                 {| orderId = message.orderId |}
         with
@@ -158,10 +159,11 @@ module Message =
         |> Operators.ofJsonValue
         |> Result.mapError string
 
+
     let msgWork (ct: CancellationToken) = eff {
         for msgModel in receive (ct) do
-            let! msg = parseAs (BinaryData.op_Implicit msgModel.Body)
-
+            let! (msg: MessageModel) = parseAs (BinaryData.op_Implicit msgModel.Body)
+            
             do! Log.logInformation ("Got message {message}", msg.message)
             do! handleMessage msg
             do! delete msgModel
