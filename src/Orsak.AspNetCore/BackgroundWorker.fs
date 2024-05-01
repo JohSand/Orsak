@@ -17,9 +17,9 @@ open FSharp.Control
 
 [<AutoOpen>]
 module BackgroundWorker =
-    let private interpret<'r, 'e> work =
+    let private interpret2<'r, 'a, 'e> (work: Expr<'a -> Effect<'r, unit, 'e>>)  =
         match work with
-        | Patterns.WithValue(:? Effect<'r, unit, 'e> as work, _, expr) ->
+        | Patterns.WithValue(:? ('a -> Effect<'r, unit, 'e>) as work, _, expr) ->
             let s =
                 match expr with
                 | Patterns.ValueWithName(_, _, name) -> name
@@ -37,122 +37,71 @@ module BackgroundWorker =
             failwith "what type-safety?"
         | _ -> failwith "what type-safety?"
 
-    let private interpret2<'r, 'e> work =
-        match work with
-        | Patterns.WithValue(:? (CancellationToken -> Effect<'r, unit, 'e>) as work, _, expr) ->
-            let s =
-                match expr with
-                | Patterns.ValueWithName(_, _, name) -> name
-                | Patterns.Application(Patterns.ValueWithName(_, _, name), _) -> name
-                | _ -> "guess?"
-
-            s, work
-        | Patterns.WithValue(_, _, expr) ->
-            let _ =
-                match expr with
-                | Patterns.ValueWithName(_, _, name) -> name
-                | Patterns.Application(Patterns.ValueWithName(_, _, name), _) -> name
-                | _ -> "guess?"
-
-            failwith "what type-safety?"
-        | _ -> failwith "what type-safety?"
-
-    let private executeFunc<'r, 'e> (work: Effect<'r, unit, 'e>) (_delay: TimeSpan) (logger: ILogger) ct provider = task {
-        let! Safe = work |> Effect.untilCancellation logger ct |> Effect.run provider
-        return ()
-    }
-
-    type EffectfulBackgroundService<'r, 'e>(runnerFactory: CancellationToken -> 'r, e: Effect<'r, unit, 'e>, logger) =
+    type EffectfulBackgroundService<'r, 'e>(runnerFactory: _ -> 'r, e: _ -> Effect<'r, unit, 'e>, logger) =
         inherit BackgroundService()
 
         override this.ExecuteAsync(ct) = task {
             let runner = runnerFactory ct
 
-            let! Safe = e |> Effect.untilCancellation logger ct |> Effect.run runner
+            let! Safe = e ct |> Effect.untilCancellation logger ct |> Effect.run runner
 
             return ()
         }
 
     type IServiceCollection with
 
-        member this.AddEffectWorker<'r, 'e>
-            ([<ReflectedDefinition(includeValue = true)>] work: Expr<Effect<'r, unit, 'e>>)
-            =
+        member this.AddEffectWorker<'r, 'e>(f, [<ReflectedDefinition(includeValue = true)>] work) =
             this.AddHostedService(fun ctx ->
-                let effectName, work = interpret<'r, 'e> work
-                let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
-                let provider = ctx.GetRequiredService<'r>()
-
-                new EffectfulBackgroundService<_,_>((fun _ -> provider), work, logger)
-            )
-        member this.AddEffectWorker<'r, 'e>
-            (
-                [<ReflectedDefinition(includeValue = true)>] work: Expr<Effect<'r, unit, 'e>>,
-                provider: 'r
-            ) =
-            this.AddHostedService(fun ctx ->
-                let effectName, work = interpret work
+                let effectName, work = interpret2<'r, CancellationToken, 'e> work
                 let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
 
-                { new BackgroundService() with
-                    override _.ExecuteAsync ct =
-                        executeFunc<'r, 'e> work (TimeSpan.FromSeconds 30) logger ct provider
-                })
+                new EffectfulBackgroundService<_, _>(f ctx, work, logger))
 
-        member this.AddEffectWorker<'r, 'e>
-            (
-                [<ReflectedDefinition(includeValue = true)>] work: Expr<Effect<'r, unit, 'e>>,
-                providerFactory
-            ) =
+        member this.AddEffectWorker<'r, 'e>(f, [<ReflectedDefinition(includeValue = true)>] work) =
             this.AddHostedService(fun ctx ->
-                let effectName, work = interpret work
+                let effectName, work = interpret2<'r, CancellationToken, 'e> work
                 let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
 
-                { new BackgroundService() with
-                    override _.ExecuteAsync ct =
-                        executeFunc<'r, 'e> work (TimeSpan.FromSeconds 30) logger ct (providerFactory ct)
-                })
+                new EffectfulBackgroundService<_, _>(f, work, logger))
 
-
-        member this.AddEffectWorker<'r, 'e>
-            (
-                [<ReflectedDefinition(includeValue = true)>] work: Expr<Effect<'r, unit, 'e>>,
-                provider: 'r,
-                delay: TimeSpan
-            ) =
+        member this.AddEffectWorker<'r, 'e>(f, [<ReflectedDefinition(includeValue = true)>] work) =
             this.AddHostedService(fun ctx ->
-                let effectName, work = interpret work
+                let effectName, work = interpret2<'r, CancellationToken, 'e> work
                 let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
 
-                { new BackgroundService() with
-                    override _.ExecuteAsync ct =
-                        executeFunc<'r, 'e> work delay logger ct provider
-                })
+                new EffectfulBackgroundService<_, _>((fun _ -> f ctx), work, logger))
 
-        member this.AddEffectWorker<'r, 'e>
-            (
-                [<ReflectedDefinition(includeValue = true)>] work: Expr<Effect<'r, unit, 'e>>,
-                providerFactory,
-                delay: TimeSpan
-            ) =
+        member this.AddEffectWorker<'r, 'e>(provider, [<ReflectedDefinition(includeValue = true)>] work) =
             this.AddHostedService(fun ctx ->
-                let effectName, work = interpret work
+                let effectName, work = interpret2<'r, CancellationToken, 'e> work
                 let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
 
-                { new BackgroundService() with
-                    override _.ExecuteAsync ct =
-                        executeFunc<'r, 'e> work delay logger ct (providerFactory ct)
-                })
+                new EffectfulBackgroundService<_, _>((fun _ -> provider), work, logger))
 
-        member this.AddEffectWorker<'r, 'e>
-            ([<ReflectedDefinition(includeValue = true)>] work: Expr<CancellationToken -> Effect<'r, unit, 'e>>)
-            =
+        member this.AddEffectWorker<'r, 'e>(f, [<ReflectedDefinition(includeValue = true)>] work) =
             this.AddHostedService(fun ctx ->
-                let effectName, work = interpret2 work
+                let effectName, work = interpret2<'r, unit, 'e> work
                 let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
-                let provider = ctx.GetRequiredService<'r>()
 
-                { new BackgroundService() with
-                    override _.ExecuteAsync ct =
-                        executeFunc<'r, 'e> (work ct) (TimeSpan.FromSeconds 30) logger ct provider
-                })
+                new EffectfulBackgroundService<_, _>(f ctx, (fun _ -> work()), logger))
+
+        member this.AddEffectWorker<'r, 'e>(f, [<ReflectedDefinition(includeValue = true)>] work) =
+            this.AddHostedService(fun ctx ->
+                let effectName, work = interpret2<'r, unit, 'e> work
+                let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
+
+                new EffectfulBackgroundService<_, _>(f, (fun _ -> work()), logger))
+
+        member this.AddEffectWorker<'r, 'e>(f, [<ReflectedDefinition(includeValue = true)>] work) =
+            this.AddHostedService(fun ctx ->
+                let effectName, work = interpret2<'r, unit, 'e> work
+                let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
+
+                new EffectfulBackgroundService<_, _>((fun _ -> f ctx), (fun _ -> work()), logger))
+
+        member this.AddEffectWorker<'r, 'e>(provider, [<ReflectedDefinition(includeValue = true)>] work) =
+            this.AddHostedService(fun ctx ->
+                let effectName, work = interpret2<'r, unit, 'e> work
+                let logger = ctx.GetService<ILoggerFactory>().CreateLogger(effectName)
+
+                new EffectfulBackgroundService<_, _>((fun _ -> provider), (fun _ -> work()), logger))
