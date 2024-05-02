@@ -42,8 +42,12 @@ module BackgroundWorker =
 
         override this.ExecuteAsync(ct) = task {
             let runner = runnerFactory ct
-
-            let! Safe = e ct |> Effect.untilCancellation logger ct |> Effect.run runner
+            let d = RetryStrategy(logger, ct)
+            let! Safe = 
+                e ct
+                |> Effect.delayWhenRepeated d
+                |> Effect.untilCancellation logger ct 
+                |> Effect.run runner
 
             return ()
         }

@@ -135,23 +135,19 @@ module Resilience =
                 TimeSpan.MaxValue
 
 module Effect =
-    let untilCancellation logger (ct: CancellationToken) (e: Effect<'r, unit, 'e>) =
-        let d = RetryStrategy(logger, ct)
+    let delayWhenRepeated (rs: RetryStrategy) eff =
+        rs.Delay(eff)
 
+    let untilCancellation (logger: ILogger) (ct: CancellationToken) (e: Effect<'r, unit, 'e>) =
         eff {
-
             while not ct.IsCancellationRequested do
                 try
-                    do! Effect.forever (d.Delay(e))
+                    do! Effect.forever (e)
                 with
                 | :? TaskCanceledException -> return ()
                 | _ ->
                     logger.LogWarning("The effect failed with an exception. The effect will retry after a delay.")
-        #if NET8_0_OR_GREATER
-                    do! Task.Delay(TimeSpan.FromSeconds 1000, d.TimeProvider, ct)
-        #else
                     do! Task.Delay(TimeSpan.FromSeconds 1000, ct)
-        #endif
 
         }
         |> Effect.changeError (fun _ -> Unchecked.defaultof<Nothing>)
