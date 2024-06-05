@@ -11,7 +11,7 @@
 		<Compile Include="Effect.fs" />
 		<Compile Include="ScopedEffect.fs" />
 		<Compile Include="Effects\Database.fs" />
-		<Compile Include="EffSeq.fs" />
+		<Compile Include="EffList.fs" />
 	</ItemGroup>
 	<ItemGroup>
 		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
