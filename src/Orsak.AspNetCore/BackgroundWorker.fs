@@ -37,13 +37,13 @@ module BackgroundWorker =
             failwith "what type-safety?"
         | _ -> failwith "what type-safety?"
 
-    type EffectfulBackgroundService<'r, 'e>(runnerFactory: _ -> 'r, e: _ -> Effect<'r, unit, 'e>, logger) =
+    type EffectfulBackgroundService<'r, 'e>(runnerFactory: _ -> 'r, e: _ -> Effect<'r, unit, 'e>, _logger) =
         inherit BackgroundService()
 
         override this.ExecuteAsync(ct) = task {
             let runner = runnerFactory ct
 
-            let! Safe = e ct |> Effect.untilCancellation logger ct |> Effect.run runner
+            let! _ = e ct |> Effect.forever |> Effect.run runner
 
             return ()
         }
