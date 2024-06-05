@@ -10,9 +10,6 @@ open Microsoft.Extensions.DependencyInjection
 open Orsak
 open Microsoft.Extensions.Logging
 open Microsoft.FSharp.Quotations
-open Polly.Retry
-open Microsoft.FSharp.Linq
-open Polly
 open FSharp.Control
 
 [<AutoOpen>]
