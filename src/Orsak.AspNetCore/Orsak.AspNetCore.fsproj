@@ -5,7 +5,6 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Include="Throwhelpers.fs" />
-		<Compile Include="Resilience.fs" />
 		<Compile Include="BackgroundWorker.fs" />
 		<Compile Include="EndpointRouting.fs" />
 	</ItemGroup>
