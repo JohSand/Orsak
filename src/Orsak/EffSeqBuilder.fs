@@ -235,13 +235,13 @@ type EffSeqBuilder() =
                     __stack_condition_fin <- true
                     condition_res <- __stack_vtask.Result
                 else
-                    let task = __stack_vtask.AsTask()
-                    let mutable awaiter = task.GetAwaiter()
+                    //let task = __stack_vtask.AsTask()
+                    let mutable awaiter = __stack_vtask.GetAwaiter()
                     let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                     __stack_condition_fin <- __stack_yield_fin
 
                     if __stack_condition_fin then
-                        condition_res <- task.Result
+                        condition_res <- __stack_vtask.Result
                     else
                         sm.Data.Awaiter <- awaiter
                         sm.Data.Enumerator.Current <- ValueNone
@@ -259,15 +259,20 @@ type EffSeqBuilder() =
     member inline _.TryWith(body: EffSeqCode<'Env, 'T, 'Err>, catch: exn -> EffSeqCode<'Env, 'T, 'Err>) =
         ResumableCode.TryWith(body, catch)
 
-    member inline _.TryFinallyAsync(body: EffSeqCode<'Env, 'T, 'Err>, compensationAction: unit -> Task) =
+    member inline _.TryFinallyAsync<  'Env,  'T, 'Err, ^TaskLike, ^Awaiter
+            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
+            and ^Awaiter :> ICriticalNotifyCompletion
+            and ^Awaiter: (member get_IsCompleted: unit -> bool)
+            and ^Awaiter: (member GetResult: unit -> unit)>
+    
+        (body: EffSeqCode<'Env, 'T, 'Err>, compensationAction: unit -> ^TaskLike) =
         ResumableCode.TryFinallyAsync(
             EffSeqCode<'Env, 'T, 'Err>(fun sm -> body.Invoke(&sm)),
             EffSeqCode<'Env, 'T, 'Err>(fun sm ->
                 let mutable __stack_condition_fin = true
                 let task = compensationAction ()
-
-                if not task.IsCompleted then
-                    let mutable awaiter = task.GetAwaiter()
+                let mutable awaiter = task.GetAwaiter()
+                if not (awaiter.get_IsCompleted()) then
                     let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
                     __stack_condition_fin <- __stack_yield_fin
 
@@ -291,9 +296,9 @@ type EffSeqBuilder() =
             (fun sm -> (body disp).Invoke(&sm)),
             (fun () ->
                 if not (isNull (box disp)) then
-                    disp.DisposeAsync().AsTask()
+                    disp.DisposeAsync()
                 else
-                    Task.CompletedTask)
+                    ValueTask())
         )
 
 

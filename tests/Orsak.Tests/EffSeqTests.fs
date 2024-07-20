@@ -118,8 +118,8 @@ module Helpers2 =
             member this.DisposeAsync() =
                 ValueTask(
                     task = task {
-                        this.WasDisposed <- true
                         do! Task.Yield()
+                        this.WasDisposed <- true
                     }
                 )
 

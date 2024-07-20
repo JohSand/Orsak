@@ -166,3 +166,21 @@ let ``onError is run once on error`` () = task {
     Ok() =! result
     counter =! 1
 }
+
+
+let xoxo() = eff {
+    while true do 
+        ()
+}
+
+
+[<Fact>]
+let ``race test`` () = task {
+    let! result =
+        xoxo()
+        |> Effect.race (eff { return ()})
+    
+        |> Effect.run ()
+
+    Ok() =! result
+}

@@ -279,9 +279,22 @@ module Effect =
     /// <param name="eff2"></param>
     let inline race (eff1: Effect<_, _, _>) (eff2: Effect<_, _, _>) =
         mkEffect (fun rEnv -> vtask {
-            let t1 = eff1.Run(rEnv).AsTask()
-            let t2 = eff2.Run(rEnv).AsTask()
-            let! winner = Task.WhenAny(t1, t2)
+            use cts = new CancellationTokenSource()
+            let t1 = task {
+                do! Task.Yield()
+                return! eff1.Run(rEnv)
+            }
+            let t2 = task {
+                do! Task.Yield()
+                return! eff2.Run(rEnv)
+            }
+            
+            let! winner = 
+                Task.WhenAny(
+                    t1.WaitAsync(cts.Token), 
+                    t2.WaitAsync(cts.Token)
+                )
+            cts.Cancel()
             return! winner
         })
 
