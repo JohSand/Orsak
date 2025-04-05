@@ -931,19 +931,20 @@ module CombinatorTests =
         |> Effect.changeError (fun (i: int) -> string i)
         |> run
 
+#if NET8_0_OR_GREATER
     [<Fact>]
     let timeOutTests () =
         eff {
-            do! Task.Delay(TimeSpan.FromSeconds 10)
+            do! Task.Delay(TimeSpan.FromSeconds 10.)
             return ()
         }
-        |> Effect.timeout (TimeSpan.FromMicroseconds 5) "timeout"
+        |> Effect.timeout (TimeSpan.FromMicroseconds 5.) "timeout"
         |> expectError "timeout"
 
 
     [<Fact>]
     let withCancellationTests () = task {
-        use cts = new CancellationTokenSource(TimeSpan.FromMicroseconds 5)
+        use cts = new CancellationTokenSource(TimeSpan.FromMicroseconds 5.)
 
         do!
             eff {
@@ -957,6 +958,7 @@ module CombinatorTests =
             |> Effect.withCancellation cts.Token
             |> run
     }
+#endif
 
     [<Fact>]
     let ``sequence should abort on first error`` () = task {
