@@ -69,4 +69,4 @@ jobs:
 
       - name: Push generated package to GitHub registry
         if: ${{ success() && github.event_name != 'pull_request' }}
-        run: dotnet nuget push "**/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json -SkipDuplicate
+        run: dotnet nuget push "**/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate 
