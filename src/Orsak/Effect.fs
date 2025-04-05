@@ -94,7 +94,7 @@ module Effect =
     /// This allows for taking recovery action inside the effect, based on the outcome of a sub-effect.
     /// </summary>
     /// <param name="e">The effect</param>
-    let inline asResult (e: Effect<'r, 'a, 'e>) : Effect<'r, Result<'a, 'e>, 'e> = e |> map Ok |> tryRecover (Error)
+    let inline asResult (e: Effect<'r, 'a, 'e>) : Effect<'r, Result<'a, 'e>, 'e> = e |> map Ok |> recover (Error)
 
 
     [<TailCall>]
@@ -284,6 +284,58 @@ module Effect =
             let! winner = Task.WhenAny(t1, t2)
             return! winner
         })
+
+    let inline repeatTimes time (e: Effect<_, _, _>) = eff {
+        for _ = 1 to time do
+            do! e
+    }
+
+    let inline repeatUntil ([<InlineIfLambda>] fn: unit -> bool) (e: Effect<_, _, _>) = eff {
+        while not (fn ()) do
+            do! e
+    }
+
+    let inline repeatUntilCancellation (token: CancellationToken) (e: Effect<_, _, _>) =
+        //avoid allocating lambda, maybe?
+        repeatUntil (fun () -> token.IsCancellationRequested) e
+
+    let repeatForever (e: Effect<_, _, _>) = eff {
+        while true do
+            do! e
+    }
+
+    let inline fanOut size (f: IAsyncEnumerable<'a> -> Effect<'r, unit, 'err>) (s: IAsyncEnumerable<'a>) =
+        let write (workers: Channels.Channel<_> array) = eff {
+            let mutable i = 0
+
+            try
+                for e in s do
+                    do! workers[i].Writer.WriteAsync(e)
+                    i <- (i + 1) % size
+            with e ->
+                for w in workers do
+                    w.Writer.Complete(e)
+        }
+
+        eff {
+            let workers = [|
+                for _ = 1 to size do
+                    Channels.Channel.CreateBounded(10)
+            |]
+
+            let readers =
+                workers
+                |> Array.map (fun e -> eff {
+                    do! Task.Yield()
+                    do! e.Reader.ReadAllAsync() |> f
+                })
+
+            let! () = par_ readers
+            and! () = write workers
+
+            return ()
+        }
+
 
 type Effect =
 
