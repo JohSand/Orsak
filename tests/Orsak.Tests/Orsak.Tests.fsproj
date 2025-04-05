@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net6.0;net8.0;net9.0</TargetFrameworks>
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
         <IsTestProject>true</IsTestProject>
@@ -12,7 +12,7 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="ResilienceTests.fs"/>
-        <Compile Include="RetryTests.fs" Condition="'$(TargetFramework)' != 'NET6.0'"/>
+        <Compile Include="RetryTests.fs" />
         <Compile Include="NameParserTests.fs"/>
         <Compile Include="EffSeqTests.fs"/>
         <Compile Include="RecoveryTests.fs"/>
@@ -20,16 +20,13 @@
         <Compile Include="ScopedTests.fs"/>
         <Compile Include="Program.fs"/>
     </ItemGroup>
-    <ItemGroup Condition="'$(TargetFramework)' != 'NET6.0'">
+    <ItemGroup >
         <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3"/>
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3"/>
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.3.0"/>
     </ItemGroup>
-    <ItemGroup Condition="'$(TargetFramework)' == 'NET6.0'">
-        <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0"/>
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1"/>
-    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Ben.Demystifier" Version="0.4.1"/>
         <PackageReference Include="FSharp.Control.TaskSeq" Version="0.3.0"/>
