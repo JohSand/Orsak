@@ -24,7 +24,7 @@ on:
       - 'CHANGELOG.md'
 jobs:
   build-and-test:
-    runs-on: ubuntu-24.04
+    runs-on: Ubuntu 22.04
     steps:
       - uses: actions/checkout@v3
         with:
