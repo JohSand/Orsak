@@ -11,6 +11,7 @@ open FSharp.Control
 open Microsoft.Extensions.Time.Testing
 
 open Xunit
+open Swensen.Unquote
 
 type DelayInspectingFakeTimeProvider() =
     inherit FakeTimeProvider()
@@ -23,6 +24,7 @@ type DelayInspectingFakeTimeProvider() =
 type Runner(fakeTimeProvider: FakeTimeProvider) =
     let mutable key = Unchecked.defaultof<Guid>
     member _.Key = key
+
     interface Dummy with
         member _.ok() = task { return Ok() }
 
@@ -73,18 +75,16 @@ type DelayTests() =
             |> Effect.repeatTimes 11
             |> Effect.run runner
 
-        Assert.Equal(Ok(), e)
+        Ok() =! e
 
         match cache.TryGetValue(runner.Key) with
-        | true, d -> Assert.Equal(11L, d.Attempt)
+        | true, d -> 11L =! d.Attempt
         | _, _ -> Assert.Fail("Failed to get state.")
 
-        Assert.Equal(1_835_902., provider.TotalObservedRequestedDelays)
+        1_835_902. =! provider.TotalObservedRequestedDelays
 
-        Assert.Equal(
-            TimeSpan(days = 0, hours = 0, minutes = 30, seconds = 35, milliseconds = 902),
-            TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
-        )
+        TimeSpan(days = 0, hours = 0, minutes = 30, seconds = 35, milliseconds = 902)
+        =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
 
         return ()
     }
@@ -104,18 +104,17 @@ type DelayTests() =
             |> Effect.repeatTimes 11
             |> Effect.run runner
 
-        Assert.Equal(Ok(), e)
+        Ok() =! e
 
         match cache.TryGetValue(runner.Key) with
-        | true, d -> Assert.Equal(11L, d.Attempt)
+        | true, d -> 11L =! d.Attempt
         | _, _ -> Assert.Fail("Failed to get state.")
 
-        Assert.Equal(21615., provider.TotalObservedRequestedDelays)
+        21615. =! provider.TotalObservedRequestedDelays
 
-        Assert.Equal(
-            TimeSpan(days = 0, hours = 0, minutes = 0, seconds = 21, milliseconds = 615),
-            TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
-        )
+        TimeSpan(days = 0, hours = 0, minutes = 0, seconds = 21, milliseconds = 615)
+        =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
+
 
         return ()
     }
@@ -135,15 +134,14 @@ type DelayTests() =
             |> Effect.repeatTimes 10
             |> Effect.run runner
 
-        Assert.Equal(Ok(), e)
+        Ok() =! e
 
         match cache.TryGetValue(runner.Key) with
-        | true, d -> Assert.Equal(0L, d.Attempt)
+        | true, d -> 0L =! d.Attempt
         | _, _ -> Assert.Fail("Failed to get state.")
 
-        Assert.Equal(0., provider.TotalObservedRequestedDelays)
-
-        Assert.Equal(TimeSpan.Zero, TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays)
+        0. =! provider.TotalObservedRequestedDelays
+        TimeSpan.Zero =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
 
         return ()
     }
@@ -163,18 +161,17 @@ type DelayTests() =
             |> Effect.retryTimes 10L
             |> Effect.run runner
 
-        Assert.Equal(Result<unit, _>.Error "Expected Error", e)
+        Result<unit, _>.Error("Expected Error") =! e
 
         match cache.TryGetValue(runner.Key) with
-        | true, d -> Assert.Equal(11L, d.Attempt)
+        | true, d -> 11L =! d.Attempt
         | _, _ -> Assert.Fail("Failed to get state.")
 
-        Assert.Equal(1_835_902., provider.TotalObservedRequestedDelays)
+        1_835_902. =! provider.TotalObservedRequestedDelays
 
-        Assert.Equal(
-            TimeSpan(days = 0, hours = 0, minutes = 30, seconds = 35, milliseconds = 902),
-            TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
-        )
+        TimeSpan(days = 0, hours = 0, minutes = 30, seconds = 35, milliseconds = 902)
+        =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
+
     }
 
     [<Fact>]
@@ -198,19 +195,17 @@ type DelayTests() =
             |> Effect.retryForever
             |> Effect.run runner
 
-        Assert.Equal(Ok(), e)
-        Assert.Equal(10L, counter)
+        Ok() =! e
+        10L =! counter
 
         match cache.TryGetValue(runner.Key) with
-        | true, d -> Assert.Equal(0L, d.Attempt)
+        | true, d -> 0L =! d.Attempt
         | _, _ -> Assert.Fail("Failed to get state.")
 
-        Assert.Equal(1_060_354., provider.TotalObservedRequestedDelays)
+        1_060_354. =! provider.TotalObservedRequestedDelays
 
-        Assert.Equal(
-            TimeSpan(days = 0, hours = 0, minutes = 17, seconds = 40, milliseconds = 354),
-            TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
-        )
+        TimeSpan(days = 0, hours = 0, minutes = 17, seconds = 40, milliseconds = 354)
+        =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
 
         return ()
     }
@@ -236,14 +231,14 @@ type DelayTests() =
             |> Effect.retryForever
             |> Effect.run runner
 
-        Assert.Equal(Ok(), e)
-        Assert.Equal(10L, counter)
+        Ok() =! e
+        10L =! counter
 
         match cache.TryGetValue(runner.Key) with
-        | true, d -> Assert.Equal(0L, d.Attempt)
+        | true, d -> 0L =! d.Attempt
         | _, _ -> Assert.Fail("Failed to get state.")
 
-        Assert.Equal(19_615., provider.TotalObservedRequestedDelays)
+        19_615. =! provider.TotalObservedRequestedDelays
 
         return ()
     }
@@ -267,5 +262,5 @@ type DelayTests() =
             |> Effect.retryForever
             |> Effect.run runner
 
-        Assert.Equal(Ok(), e)
+        Ok() =! e
     }
