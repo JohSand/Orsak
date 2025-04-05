@@ -24,7 +24,7 @@ on:
       - 'CHANGELOG.md'
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
         with:
@@ -67,12 +67,6 @@ jobs:
         if: ${{ success() && github.event_name != 'pull_request' }}
         run: dotnet pack --configuration Release --output ./nupkg
 
-      - name: Setup NuGet
-        if: ${{ success() && github.event_name != 'pull_request' }}
-        uses: nuget/setup-nuget@v1
-        with:
-          nuget-api-key: ${{ secrets.NUGET_API_KEY }}
-
       - name: Push generated package to GitHub registry
         if: ${{ success() && github.event_name != 'pull_request' }}
-        run: nuget push "**/*.nupkg" -Source https://api.nuget.org/v3/index.json -SkipDuplicate
+        run: nuget push "**/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json -SkipDuplicate
