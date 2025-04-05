@@ -16,6 +16,9 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageIcon>orsak.png</PackageIcon>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+		<FSharpPreferNetFrameworkTools>False</FSharpPreferNetFrameworkTools>
+		<FSharpPrefer64BitTools>True</FSharpPrefer64BitTools>
 
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 		<OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen --strict-indentation+ --realsig+</OtherFlags>

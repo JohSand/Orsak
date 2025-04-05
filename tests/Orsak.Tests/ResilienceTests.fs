@@ -41,6 +41,7 @@ module ResilienceTests =
     let ``repeating effects work sequentially`` () = task {
         let e = Dummy.indirection () |> Effect.repeatTimes 1000
         do! Dummy.run e
+        
         return ()
     }
 
@@ -51,7 +52,7 @@ module ResilienceTests =
                 Dummy.indirection () |> Effect.repeatTimes 1000 |> Dummy.run,
                 Dummy.indirection () |> Effect.repeatTimes 1000 |> Dummy.run
             )
-
+        
         return ()
     }
 
