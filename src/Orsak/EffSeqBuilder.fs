@@ -1,7 +1,5 @@
 ﻿namespace Orsak
 
-#nowarn "57" // note: this is *not* an experimental feature, but they forgot to switch off the flag
-
 open System
 open System.Collections.Generic
 open System.Threading
@@ -77,11 +75,11 @@ type ResumableAsyncEnumerator<'T>() =
                 | _ -> ValueTask<bool>(this, version)
 
         member this.DisposeAsync() = vtask {
-                do! this.Registration.DisposeAsync()
-                this.InProgress <- -1
-                return ()
-            }
-                
+            do! this.Registration.DisposeAsync()
+            this.InProgress <- -1
+            return ()
+        }
+
 
 [<Struct; NoComparison; NoEquality>]
 type EffSeq<'r, 'a, 'e> =
@@ -158,7 +156,7 @@ and [<NoComparison; NoEquality>] EffectEnumerable<'Env, 'Machine, 'T, 'Err
             //this gives the clone a COPY of our IResumableStateMachine, which at this point should be the initial machine.
             enumerator.StateMachine <- this.InitialMachine
             let mutable copy = &enumerator.StateMachine
-            //the machine now has it's own data, and can progress independent of the initial machine
+            //the machine now has its own data, and can progress independent of the initial machine
             copy.Data <- EffSeqStateMachineData(Enumerator = enumerator, Env = copy.Data.Env)
 
             enumerator
@@ -180,7 +178,7 @@ type EffSeqBuilder() =
                     try
                         let __stack_code_fin = code.Invoke(&sm)
                         sm.Data.Enumerator.InProgress <- Convert.ToInt32(not __stack_code_fin)
-                        //always finish current itteration step if we complete the iteration, else finish it if we have gotten some data
+                        //always finish current iteration step if we complete the iteration, else finish it if we have gotten some data
                         if __stack_code_fin || sm.Data.Enumerator.Current.IsSome then
                             sm.Data.Enumerator.ValueTaskSource.SetResult(not __stack_code_fin)
                         else
@@ -309,11 +307,11 @@ module LowPrioritySeq =
             and ^Awaiter: (member GetResult: unit -> 'T)>
             (
                 task: ^TaskLike,
-                [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)
+                [<InlineIfLambda>] continuation: 'T -> EffSeqCode<'Env, 'U, 'Err>
             ) =
 
             EffSeqCode<'Env, 'U, 'Err>(fun sm ->
-                let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) (task))
+                let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) task)
                 let mutable __stack_fin = true
 
                 if not (^Awaiter: (member get_IsCompleted: unit -> bool) awaiter) then
@@ -400,7 +398,7 @@ module LowPrioritySeq =
                         fun e ->
                             let mutable e = e
                             let moveNext () = vtask { return! e.MoveNextAsync() }
-                            this.WhileAsync((moveNext), (fun sm -> (body e.Current).Invoke(&sm)))
+                            this.WhileAsync(moveNext, (fun sm -> (body e.Current).Invoke(&sm)))
                     )
                     .Invoke(&sm))
 
@@ -460,7 +458,7 @@ module MediumPriority =
         member inline _.Bind<'Env, 'TResult1, 'TResult2, 'Err>
             (
                 eff: Effect<'Env, 'TResult1, 'Err>,
-                continuation: ('TResult1 -> EffSeqCode<'Env, 'TResult2, 'Err>)
+                continuation: 'TResult1 -> EffSeqCode<'Env, 'TResult2, 'Err>
             ) =
             EffSeqCode<'Env, 'TResult2, 'Err>(fun sm ->
                 let task = eff.Run sm.Data.Env
@@ -495,7 +493,7 @@ module MediumPriority =
 module HighPrioritySeq =
     type EffSeqBuilder with
 
-        member inline _.Bind(task: Task<'T>, [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)) =
+        member inline _.Bind(task: Task<'T>, [<InlineIfLambda>] continuation: 'T -> EffSeqCode<'Env, 'U, 'Err>) =
             EffSeqCode<'Env, 'U, 'Err>(fun sm ->
                 let mutable awaiter = task.GetAwaiter()
                 let mutable __stack_fin = true
@@ -515,14 +513,14 @@ module HighPrioritySeq =
         member inline this.Bind
             (
                 computation: Async<'T>,
-                [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)
+                [<InlineIfLambda>] continuation: 'T -> EffSeqCode<'Env, 'U, 'Err>
             ) =
             this.Bind(Async.StartAsTask(computation), continuation)
 
         member inline this.Bind
             (
                 result: Result<'T, 'Err>,
-                [<InlineIfLambda>] continuation: ('T -> EffSeqCode<'Env, 'U, 'Err>)
+                [<InlineIfLambda>] continuation: 'T -> EffSeqCode<'Env, 'U, 'Err>
             ) =
             EffSeqCode<'Env, 'U, 'Err>(fun sm ->
                 match result with
@@ -538,24 +536,22 @@ module HighPrioritySeq =
                 s: EffSeq<'Env, 'a, 'Err>,
                 [<InlineIfLambda>] f1: 'a -> EffectCode<'Env, 'T, unit, 'Err>
             ) =
-            EffectCode<'Env, 'T, unit, 'Err>(
-                (fun sm ->
-                    this
-                        .Using(
-                            s.Invoke(sm.Data.Environment).GetAsyncEnumerator(),
-                            fun enumerator ->
-                                this.While(
-                                    (enumerator.MoveNextAsync),
-                                    (match enumerator.Current with
-                                     | Ok ok -> f1 ok
-                                     | Error err ->
-                                         EffectCode<'Env, 'T, _, 'Err>(fun x ->
-                                             x.Data.Result <- Error err
-                                             true))
-                                )
-                        )
-                        .Invoke(&sm))
-            )
+            EffectCode<'Env, 'T, unit, 'Err>(fun sm ->
+                this
+                    .Using(
+                        s.Invoke(sm.Data.Environment).GetAsyncEnumerator(),
+                        fun enumerator ->
+                            this.While(
+                                enumerator.MoveNextAsync,
+                                (match enumerator.Current with
+                                 | Ok ok -> f1 ok
+                                 | Error err ->
+                                     EffectCode<'Env, 'T, _, 'Err>(fun x ->
+                                         x.Data.Result <- Error err
+                                         true))
+                            )
+                    )
+                    .Invoke(&sm))
 
 [<AutoOpen>]
 module EffSeqBuilder =
