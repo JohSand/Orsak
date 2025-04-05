@@ -554,7 +554,7 @@ module BuilderTests =
     let rand = Random()
 
     [<Theory>]
-    [<Repeat.Repeat(10)>]
+    [<Repeat(10)>]
     let ``And! order is not specified`` _ =
         eff {
             use lock1 = new SemaphoreSlim(1)
