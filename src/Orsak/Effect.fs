@@ -97,7 +97,6 @@ module Effect =
     let inline asResult (e: Effect<'r, 'a, 'e>) : Effect<'r, Result<'a, 'e>, 'e> = e |> map Ok |> recover (Error)
 
 
-    [<TailCall>]
     let rec forever (e: Effect<'r, 'a, 'e>) = onError (fun _err -> forever e) e
 
     let rec repeatWhileTrue (e: Effect<'r, bool, 'e>) = eff {
