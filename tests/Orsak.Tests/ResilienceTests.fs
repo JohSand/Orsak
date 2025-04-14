@@ -16,23 +16,23 @@ type DummyImp() =
 
 module Dummy =
     let mkDummyEff () : Effect<_, unit, string> =
-        mkEffect (fun (d: #Dummy) ->
+        mkEffect (fun (d: #IProvide<Dummy>) ->
             ValueTask<_>(
                 task = task {
                     //some level of effect resumption is needed...
                     //Task.Yield is not enough.
                     //Task.Delay can do it, but it sometimes just hangs.
                     let! x = Dns.GetHostEntryAsync("google.com")
-                    return! d.ok ()
+                    return! d.Effect.ok ()
                 }
             ))
     //indirection is required to repro
     let indirection () = eff { return! mkDummyEff () }
 
-    let run (e: Effect<_, _, _>) : Task = backgroundTask {
+    let run (e: Effect<_, _, string>) : Task = backgroundTask {
         do! Task.Yield()
-        let dummy = DummyImp()
-        do! e.RunOrFail(dummy)
+
+        do! e.RunOrFail(Runner.createFrom<Dummy> (DummyImp()))
     }
 
 module ResilienceTests =
@@ -41,7 +41,7 @@ module ResilienceTests =
     let ``repeating effects work sequentially`` () = task {
         let e = Dummy.indirection () |> Effect.repeatTimes 1000
         do! Dummy.run e
-        
+
         return ()
     }
 
@@ -52,7 +52,6 @@ module ResilienceTests =
                 Dummy.indirection () |> Effect.repeatTimes 1000 |> Dummy.run,
                 Dummy.indirection () |> Effect.repeatTimes 1000 |> Dummy.run
             )
-        
+
         return ()
     }
-

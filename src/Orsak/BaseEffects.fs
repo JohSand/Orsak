@@ -4,26 +4,35 @@ open System
 open System.Threading
 open Microsoft.Extensions.Caching.Memory
 
+type IProvide<'t> =
+    abstract member Effect: 't
+
+module Runner =
+    let createFrom<'a> (a: 'a) =
+        { new IProvide<'a> with
+            member _.Effect = a
+        }
 
 type IGuidGenerator =
     abstract GenGuid: unit -> Guid
 
-type IGuidGenProvider =
-    abstract GuidGenerator: IGuidGenerator
+type IGuidGenProvider = IProvide<IGuidGenerator>
 
 module GuidGenerator =
     let genGuid () =
-        Effect.Create(fun (provider: #IGuidGenProvider) -> provider.GuidGenerator.GenGuid())
+        Effect.Create(fun (provider: #IGuidGenProvider) -> provider.Effect.GenGuid())
 
-    let defaultGen () = { new IGuidGenerator with member _.GenGuid() = Guid.NewGuid() }
+    let defaultGen () =
+        { new IGuidGenerator with
+            member _.GenGuid() = Guid.NewGuid()
+        }
 
 #if NET8_0_OR_GREATER
-type ITimeProvider =
-    abstract Clock: TimeProvider
+type ITimeProvider = IProvide<TimeProvider>
 
 module Time =
     let utcNow () =
-        Effect.Create(fun (provider: #ITimeProvider) -> provider.Clock.GetUtcNow())
+        Effect.Create(fun (provider: #ITimeProvider) -> provider.Effect.GetUtcNow())
 #endif
 
 type IRandomGenerator =
@@ -35,23 +44,21 @@ type DefaultRandom(rand: Random) =
         member _.Next((minValue, maxValue)) = rand.Next(minValue, maxValue)
         member _.NextDouble() = rand.NextDouble()
 
-type IRandomProvider =
-    abstract Random: IRandomGenerator
+type IRandomProvider = IProvide<IRandomGenerator>
 
 module Random =
     let next min max =
-        Effect.Create(fun (provider: #IRandomProvider) -> provider.Random.Next(min, max))
+        Effect.Create(fun (provider: #IRandomProvider) -> provider.Effect.Next(min, max))
 
     let nextDouble () =
-        Effect.Create(fun (provider: #IRandomProvider) -> provider.Random.NextDouble())
+        Effect.Create(fun (provider: #IRandomProvider) -> provider.Effect.NextDouble())
 
 
-type ICacheProvider =
-    abstract member Cache: IMemoryCache
+type ICacheProvider = IProvide<IMemoryCache>
 
 module MemoryCache =
     let private get () =
-        Effect.Create(fun (p: #ICacheProvider) -> p.Cache)
+        Effect.Create(fun (p: #ICacheProvider) -> p.Effect)
 
     //gives bad error if you don't bind the effect, not sure how big of an issue it is
     let getOrCreate (key: 'a) (f: ICacheEntry -> Effect<#ICacheProvider, 'entry, 'Err>) = eff {
@@ -82,13 +89,12 @@ module MemoryCache =
     }
 
 #if NET8_0_OR_GREATER
-type ICancellationProvider =
-    abstract member Source: CancellationTokenSource
+type ICancellationProvider = IProvide<CancellationTokenSource>
 
 module CancellationSource =
     let getToken () =
-        Effect.Create(fun (provider: #ICancellationProvider) -> provider.Source.Token)
+        Effect.Create(fun (provider: #ICancellationProvider) -> provider.Effect.Token)
 
     let cancel () =
-        Effect.Create(fun (provider: #ICancellationProvider) -> task { do! provider.Source.CancelAsync() })
+        Effect.Create(fun (provider: #ICancellationProvider) -> task { do! provider.Effect.CancelAsync() })
 #endif

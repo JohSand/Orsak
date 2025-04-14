@@ -144,17 +144,17 @@ module Effect =
         mkEffect (fun provider ->
             let randomizer =
                 match box provider with
-                | :? IRandomProvider as p -> p.Random
+                | :? IRandomProvider as p -> p.Effect
                 | _ -> DefaultRandom(Random.Shared) :> IRandomGenerator
 
             let p =
                 match box provider with
-                | :? ITimeProvider as p -> p.Clock
+                | :? ITimeProvider as p -> p.Effect
                 | _ -> TimeProvider.System
 
             let token =
                 match box provider with
-                | :? ICancellationProvider as p -> p.Source.Token
+                | :? ICancellationProvider as p -> p.Effect.Token
                 | _ -> CancellationToken.None
             match box provider with
             | :? IStateKeys as s -> s.Key <- key

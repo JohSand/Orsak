@@ -77,7 +77,7 @@ module Extension =
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                         false
                 else
-                    EffBuilder.BindDynamic(&sm, task, continuation))                    
+                    EffBuilder.BindDynamic(&sm, task, continuation))
 
 type Scoped = IAsyncDisposable
 
@@ -217,17 +217,13 @@ type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScop
         (effect: ScopedEffectCode<'Scope, 'r, 'a, 'a, 'err>)
         : Effect<'r, 'a, 'err> =
         mkEffect (fun env -> vtask {
-            try
-                use! scope = (env :> CompletableScopeProvider<'Scope>).BeginScope()
-
+                use! scope = env.BeginScope()
                 match! eff.Run(effect).Run((env, scope)) with
                 | Ok a ->
                     do! scope.Complete()
                     return Ok a
                 | Error e -> return Error e
-            with e ->
-                let (err: 'err) = (env :> ExceptionHandler<'err>).Handle e
-                return Error err
+
         })
 
 namespace Orsak.ScopeAware
