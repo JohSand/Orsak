@@ -16,6 +16,10 @@ open Microsoft.FSharp.Core.CompilerServices
 open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 open Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators
 
+
+type IProvide<'t> =
+    abstract member Effect: 't
+
 /// <exclude/>
 [<Extension>]
 type TaskHelper =
