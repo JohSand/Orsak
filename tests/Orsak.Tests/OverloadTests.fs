@@ -1,14 +1,8 @@
 ﻿namespace Orsak.Tests
 
 open Orsak
-open System.Diagnostics
 open Xunit
-open Swensen.Unquote
-open System.Threading
 open System.Threading.Tasks
-open System.Threading.Channels
-open System
-open FSharp.Control
 
 type IFace =
     abstract member A: ValueTask<Result<int, string>>
@@ -80,6 +74,26 @@ module OverloadTests =
         }
         |> Effect.runOrFail (FaceRunner())
 
-//[<Fact>]
-//let ``lambda return of ValueTask<Result<_,_>> works`` () =
-//    eff { return! fun (f: IFace) -> f.A } |> Effect.runOrFail (Runner())
+    [<Fact>]
+    let ``lambda return of ValueTask<Result<_,_>> works`` () =
+        eff { return! fun (f: IFace) -> f.A } |> Effect.runOrFail (FaceRunner())
+
+    [<Fact>]
+    let ``lambda return of Task<Result<_,_>> works`` () =
+        eff { return! fun (f: IFace) -> f.B } |> Effect.runOrFail (FaceRunner())
+
+    [<Fact>]
+    let ``lambda return of Result<_,_> works`` () =
+        eff { return! fun (f: IFace) -> f.E } |> Effect.runOrFail (FaceRunner())
+
+    [<Fact>]
+    let ``lambda return of ValueTask<_> works`` () =
+        eff { return! fun (f: IFace) -> f.C } |> Effect.runOrFail (FaceRunner())
+
+    [<Fact>]
+    let ``lambda return of Task<_> works`` () =
+        eff { return! fun (f: IFace) -> f.D } |> Effect.runOrFail (FaceRunner())
+
+    [<Fact>]
+    let ``lambda return of value works`` () =
+        eff { return! fun (f: IFace) -> f.F } |> Effect.runOrFail (FaceRunner())
