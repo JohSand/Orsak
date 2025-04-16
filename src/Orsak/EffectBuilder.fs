@@ -3181,8 +3181,71 @@ module Builder =
 
 /// <exclude/>
 [<AutoOpen>]
-module LowPriority =
+module LowestPriority =
+    open FSharp.Control
     type EffBuilderBase with
+        member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
+            (
+                f: 'Eff -> 'TResult1,
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
+            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
+                EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
+                    (continuation (f sm.Data.Environment.Effect)).Invoke(&sm))
+
+/// <exclude/>
+[<AutoOpen>]
+module LowPriority =
+    open FSharp.Control
+    type EffBuilderBase with
+        member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
+            (
+                f: 'Eff -> Task<'TResult1>,
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
+            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
+                EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
+                    let task = f sm.Data.Environment.Effect
+  
+                    let mutable awaiter = task.GetAwaiter()
+
+                    let mutable __stack_fin = true
+
+                    if not awaiter.IsCompleted then
+                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                        __stack_fin <- __stack_yield_fin
+
+                    if __stack_fin then
+                        let result = awaiter.GetResult()
+                        (continuation result).Invoke(&sm)
+
+                    else
+                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                        false
+                    )
+
+        member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
+            (
+                f: 'Eff -> ValueTask<'TResult1>,
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
+            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
+                EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
+                    let task = f sm.Data.Environment.Effect
+  
+                    let mutable awaiter = task.GetAwaiter()
+
+                    let mutable __stack_fin = true
+
+                    if not awaiter.IsCompleted then
+                        let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                        __stack_fin <- __stack_yield_fin
+
+                    if __stack_fin then
+                        let result = awaiter.GetResult()
+                        (continuation result).Invoke(&sm)
+
+                    else
+                        sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                        false
+                    )
 
         [<NoEagerConstraintApplication>]
         static member inline BindDynamic< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
@@ -3377,6 +3440,25 @@ module Medium =
                         false
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation))
+
+        member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
+            (
+                f: 'Eff -> Result<'TResult1, 'Err>,
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
+            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
+                this.Bind(Effect(EffectDelegate(fun (e: 'Env) -> ValueTask<_>(result = f e.Effect))), continuation)
+
+        member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
+            (
+                f: 'Eff -> Task<Result< 'TResult1, 'Err>>,
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
+            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> = this.Bind(Effect(EffectDelegate(fun (e: 'Env) -> ValueTask<_>(task = f e.Effect))), continuation)
+
+        member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
+            (
+                f: 'Eff -> ValueTask<Result< 'TResult1, 'Err>>,
+                continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
+            ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> = this.Bind(Effect(EffectDelegate(fun (e: 'Env) -> f e.Effect)), continuation)
 
         member inline this.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
