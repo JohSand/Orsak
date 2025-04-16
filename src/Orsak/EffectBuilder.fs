@@ -3192,6 +3192,9 @@ module LowestPriority =
                 EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
                     (continuation (f sm.Data.Environment.Effect)).Invoke(&sm))
 
+        member inline this.ReturnFrom(f: 'Eff -> 'TResult1) =
+            this.Bind(f, this.Return)
+
 /// <exclude/>
 [<AutoOpen>]
 module LowPriority =
@@ -3221,6 +3224,8 @@ module LowPriority =
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                         false
                     )
+        member inline this.ReturnFrom(f: 'Eff -> Task<'TResult1>) =
+            this.Bind(f, this.Return)
 
         member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
             (
@@ -3246,6 +3251,8 @@ module LowPriority =
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                         false
                     )
+        member inline this.ReturnFrom(f: 'Eff -> ValueTask<'TResult1>) =
+            this.Bind(f, this.Return)
 
         [<NoEagerConstraintApplication>]
         static member inline BindDynamic< ^TaskLike, 'Env, 'TResult1, 'TResult2, ^Awaiter, 'TOverall, 'Err
@@ -3448,17 +3455,26 @@ module Medium =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
                 this.Bind(Effect(EffectDelegate(fun (e: 'Env) -> ValueTask<_>(result = f e.Effect))), continuation)
 
+        member inline this.ReturnFrom(f: 'Eff -> Result<'TResult1, 'Err>) =
+            this.Bind(f, this.Return)
+
         member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
             (
                 f: 'Eff -> Task<Result< 'TResult1, 'Err>>,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> = this.Bind(Effect(EffectDelegate(fun (e: 'Env) -> ValueTask<_>(task = f e.Effect))), continuation)
 
+        member inline this.ReturnFrom(f: 'Eff -> Task<Result< 'TResult1, 'Err>>) =
+            this.Bind(f, this.Return)
+
         member inline this.Bind<'Env, 'Eff, 'TOverall, 'TResult1, 'TResult2, 'Err when 'Env :> IProvide<'Eff>>
             (
                 f: 'Eff -> ValueTask<Result< 'TResult1, 'Err>>,
                 continuation: 'TResult1 -> EffectCode<'Env, 'TOverall, 'TResult2, 'Err>
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> = this.Bind(Effect(EffectDelegate(fun (e: 'Env) -> f e.Effect)), continuation)
+
+        member inline this.ReturnFrom(f: 'Eff -> ValueTask<Result< 'TResult1, 'Err>>) =
+            this.Bind(f, this.Return)
 
         member inline this.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
