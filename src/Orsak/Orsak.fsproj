@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net8.0; net6.0</TargetFrameworks>
+		<TargetFrameworks>net9.0; net8.0; net6.0</TargetFrameworks>
 		<RootNamespace>Orsak</RootNamespace>
 	</PropertyGroup>
 
@@ -11,6 +11,7 @@
 		<Compile Include="Effect.fs" />
 		<Compile Include="BaseEffects.fs" />
 		<Compile Include="Resilience.fs" Condition="'$(TargetFramework)' == 'NET8.0'" />
+		<Compile Include="Resilience.fs" Condition="'$(TargetFramework)' == 'NET9.0'" />
 		<Compile Include="ScopedEffect.fs" />
 		<Compile Include="Effects\Database.fs" />
 		<Compile Include="EffList.fs" />
@@ -22,6 +23,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="FSharp.Core " Version="8.0.300" />
+		<PackageReference Update="FSharp.Core " Version="8.0.300" />
 		<PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="6.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
 	</ItemGroup>

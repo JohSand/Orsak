@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <TargetFrameworks>net9.0</TargetFrameworks>
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
         <IsTestProject>true</IsTestProject>
@@ -17,6 +17,18 @@
         <Compile Include="RecoveryTests.fs"/>
         <Compile Include="Tests.fs"/>
         <Compile Include="ScopedTests.fs"/>
+        <Compile Include="OverloadTests.fs" />
+        <Compile Include="RepeatAttribute.fs" />
+        <Compile Include="ResilienceTests.fs" />
+        <Compile Include="RetryTests.fs" />
+        <Compile Include="NameParserTests.fs" />
+        <Compile Include="EffSeqTests.fs" />
+        <Compile Include="RecoveryTests.fs" />
+        <Compile Include="Tests.fs" />
+        <Compile Include="ScopedTests.fs" />
+        <Compile Include="GenWriterTests.fs" />
+    </ItemGroup>
+    <ItemGroup>
     </ItemGroup>
     <PropertyGroup>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
@@ -53,6 +65,10 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj"/>
+        <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
+        <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
+        <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj"/>
+        <ProjectReference Include="..\..\src\Orsak.Myriad\Orsak.Myriad.fsproj" />
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj"/>
     </ItemGroup>
 </Project>

@@ -19,10 +19,15 @@
 		<DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
 		<FSharpPreferNetFrameworkTools>False</FSharpPreferNetFrameworkTools>
 		<FSharpPrefer64BitTools>True</FSharpPrefer64BitTools>
-
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 		<LangVersion>preview</LangVersion>
+		<OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen</OtherFlags>
 	</PropertyGroup>
+	<ItemGroup>
+		<None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath=""/>
+		<None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\"/>
+	</ItemGroup>
 	<!-- Enabling reproducible builds -->
 	<ItemGroup>
 		<PackageReference Include="DotNet.ReproducibleBuilds" Version="1.2.25">
