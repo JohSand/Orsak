@@ -185,7 +185,6 @@ module Writer =
         for effectName, arity in usages do
             writeExtractor effectName arity sb
 
-    [<TailCall>]
     let rec createLayers (seed: int) acc =
         function
         | [] -> List.rev acc |> List.toArray

@@ -1,0 +1,5 @@
+<Project>
+    <ItemGroup>
+        <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)/../bin/$(Configuration)/$(TargetFramework)/Orsak.Myriad.dll" />
+    </ItemGroup>
+</Project>
