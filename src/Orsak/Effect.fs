@@ -385,11 +385,8 @@ module WrapTwice =
     type EffSeq with
 
         static member Create<'r, 'a>(f: 'r -> IAsyncEnumerable<'a>) : EffSeq<'r, 'a, string> = effSeq {
-            try
-                let! seq = mkEffect (f >> Ok >> ValueTask.FromResult)
-                yield! seq
-            with _ ->
-                do! Error("is this it?")
+            let! s = mkEffect (f >> Ok >> ValueTask.FromResult)
+            yield! s
         }
 
 [<AutoOpen>]
