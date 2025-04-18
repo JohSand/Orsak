@@ -32,4 +32,4 @@ type EffectRunnerGen() =
             // let inherits = recordsModules |> Array.collect Helpers.getInherits
             // Console.WriteLine $"inherits {red}%A{inherits}{normal}"
 
-            Output.Source("module HelloWorldModule = ()")
+            Output.Source("module Hello")

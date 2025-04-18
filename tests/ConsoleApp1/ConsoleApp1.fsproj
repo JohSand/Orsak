@@ -8,8 +8,11 @@
 
     <ItemGroup>
 
-        <Compile Include="Library.fs">
-            <MyriadInlineGeneration>true</MyriadInlineGeneration>
+        <Compile Include="Library.fs" />
+
+        <Compile Include="Generators.fs">
+            <!--<MyriadInlineGeneration>true</MyriadInlineGeneration>-->
+			<MyriadFile>Library.fs</MyriadFile>
             <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
         </Compile>
         <Compile Include="Program.fs" />
