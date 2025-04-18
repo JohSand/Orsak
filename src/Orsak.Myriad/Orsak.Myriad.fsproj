@@ -1,25 +1,39 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
-        <RootNamespace>Orsak.Myriad</RootNamespace>
-    </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.1</TargetFramework>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<WarnOn>3390;$(WarnOn)</WarnOn>
+	</PropertyGroup>
 
-    <ItemGroup>
-        <Compile Include="Writer.fs"/>
-        <Compile Include="Gen.fs"/>
-<!--        <Compile Include="Poc.fs"/>-->
-    </ItemGroup>
-    <ItemGroup>
-        <Content Include="build\Orsak.Myriad.props">
-            <Pack>true</Pack>
-            <PackagePath>%(Identity)</PackagePath>
-            <Visible>true</Visible>
-        </Content>
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Update="FSharp.Core " Version="8.0.300"/>
-        <PackageReference Include="Myriad.Core" Version="0.8.3"/>
-    </ItemGroup>
+	<ItemGroup>
+	  <Compile Include="Gen.fs" />
+	  <Compile Include="Writer.fs" />
+	  <Compile Include="Plugin.fs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="build\Orsak.Myriad.InTest.props">
+			<Pack>false</Pack>
+			<PackagePath>%(Identity)</PackagePath>
+			<Visible>true</Visible>
+		</Content>
+
+		<Content Include="build\Orsak.Myriad.props">
+			<Pack>true</Pack>
+			<PackagePath>%(Identity)</PackagePath>
+			<Visible>true</Visible>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Myriad.Core" Version="0.8.3" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Update="FSharp.Core" Version="6.0.7" />
+	</ItemGroup>
+
+	<Import Project="build/Orsak.Myriad.props" />
 
 </Project>

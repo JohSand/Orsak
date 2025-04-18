@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net9.0</TargetFramework>
+        <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
+    </PropertyGroup>
+
+    <ItemGroup>
+
+        <Compile Include="Library.fs">
+            <MyriadInlineGeneration>true</MyriadInlineGeneration>
+            <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
+        </Compile>
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Myriad.Sdk" Version="0.8.3" />
+    </ItemGroup>
+    <Import Project="..\..\src\Orsak.Myriad\build\Orsak.Myriad.InTest.props" />
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\Orsak.Myriad\Orsak.Myriad.fsproj" />
+      <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
+    </ItemGroup>
+
+</Project>
