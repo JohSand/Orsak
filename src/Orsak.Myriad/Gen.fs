@@ -1,7 +1,5 @@
 ﻿namespace Orsak.Myriad.Gen
 
-open Orsak
-
 type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k, 'l>
     (a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f: 'f, g: 'g, h: 'h, i: 'i, j: 'j, k: 'k, l: 'l) =
     member _.A = a
@@ -143,9 +141,3 @@ type EffectContext =
     member this.Create<'b>(b) = EffectContext<'b>(b)
 
 type GenContext<'a, 'b, 'c when 'a: (member Create: 'b -> 'c)> = 'a
-
-module Runner =
-    let createFrom (a: 't) =
-        { new IProvide<'t> with
-            member _.Effect = a
-        }

@@ -1,18 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>;net9.0; net8.0; net6.0</TargetFrameworks>
+        <TargetFramework>netstandard2.1</TargetFramework>
         <RootNamespace>Orsak.Myriad</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Writer.fs" />
-        <Compile Include="Gen.fs" />
-        <Compile Include="Poc.fs" />
+        <Compile Include="Writer.fs"/>
+        <Compile Include="Gen.fs"/>
+<!--        <Compile Include="Poc.fs"/>-->
     </ItemGroup>
-
     <ItemGroup>
-      <ProjectReference Include="..\Orsak\Orsak.fsproj" />
+        <Content Include="build\Orsak.Myriad.props">
+            <Pack>true</Pack>
+            <PackagePath>%(Identity)</PackagePath>
+            <Visible>true</Visible>
+        </Content>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core " Version="8.0.300"/>
+        <PackageReference Include="Myriad.Core" Version="0.8.3"/>
     </ItemGroup>
 
 </Project>
