@@ -15,7 +15,10 @@ module GuidGenerator =
     let genGuid () =
         Effect.Create(fun (provider: #IGuidGenProvider) -> provider.GuidGenerator.GenGuid())
 
-    let defaultGen () = { new IGuidGenerator with member _.GenGuid() = Guid.NewGuid() }
+    let defaultGen () =
+        { new IGuidGenerator with
+            member _.GenGuid() = Guid.NewGuid()
+        }
 
 #if NET8_0_OR_GREATER
 type ITimeProvider =
@@ -92,3 +95,10 @@ module CancellationSource =
     let cancel () =
         Effect.Create(fun (provider: #ICancellationProvider) -> task { do! provider.Source.CancelAsync() })
 #endif
+
+
+module Runner =
+    let createFrom<'a> a =
+        { new IProvide<'a> with
+            member _.Effect = a
+        }

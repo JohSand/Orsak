@@ -10,6 +10,9 @@ type IndentingStringBuilder(sb: StringBuilder) =
     member this.AppendStart(s: string) =
         sb.Append(String.replicate this.IndentationLevel " ").Append(s) |> ignore
 
+    member this.AppendLineStart(s: string) =
+        sb.Append(String.replicate this.IndentationLevel " ").AppendLine(s) |> ignore
+
     member this.AppendLine(s: string) = sb.AppendLine(s) |> ignore
 
     override this.ToString() : string = sb.ToString()
@@ -21,9 +24,15 @@ module StringBuilderExtensions =
         member this.ToIndentingBuilder() = IndentingStringBuilder(this)
 
 type EffectCfg = { name: string; fullName: string }
+
 type EffectAttributeMatches = { effects: EffectCfg array; typeName: string }
 
 type RunnerCfg = { effects: string array; name: string }
+
+type ContextWriterScope =
+    { ns: string
+      openStatements: string list
+      effects: EffectAttributeMatches list }
 
 /// <summary>
 /// All runners in the runners-array must have effects-arrays of equal length, that is the arity
@@ -83,8 +92,8 @@ module Writer =
     let writeExtractPattern (effectName: string) (sb: IndentingStringBuilder) =
         let typeName = $"{trimI effectName}Extractor"
         let patternName = $"Extract{trimI effectName}"
-        sb.AppendLine($"let inline (|{patternName}|) a : {effectName} =")
-        sb.AppendLine($"    extract Unchecked.defaultof<{typeName}> a")
+        sb.AppendLineStart($"let inline (|{patternName}|) a : {effectName} =")
+        sb.AppendLineStart($"    Writer.extract Unchecked.defaultof<{typeName}> a")
 
     let writeExtractPatterns (cfgs: RunnerArityCfg array) (sb: IndentingStringBuilder) =
         let allEffects =
@@ -128,11 +137,11 @@ module Writer =
         (effects: string array)
         (sb: IndentingStringBuilder)
         =
-        sb.Append($"member inline _.Run(a")
+        sb.Append($"    member inline _.Run(a")
         writeRunTieBreakerParams tieBreakerSeed tieBreakerCount sb
         sb.AppendLine(") =")
-        sb.AppendLine($"    match a with")
-        sb.Append("    | ")
+        sb.AppendLine($"        match a with")
+        sb.Append("        | ")
 
         effects
         |> Array.iteri (fun i effectName ->
@@ -148,9 +157,9 @@ module Writer =
         effects
         |> Array.iteri (fun i effectName ->
             let varName = char (97 + i) |> string
-            sb.AppendLine($"        {trimI effectName} = {varName}"))
+            sb.AppendLine($"            {trimI effectName} = {varName}"))
 
-        sb.AppendLine("    }")
+        sb.AppendLine("        }")
 
     let writeRunMethods (info: RunnerArityCfg) (sb: IndentingStringBuilder) =
         let mutable seed = 0
@@ -210,14 +219,14 @@ module Writer =
         sb.AppendLine("type EffectRunnerBuilder() =")
         sb.IndentationLevel <- sb.IndentationLevel + 4
         //yield
-        sb.AppendLine("member _.Yield(_: unit) = EffectContext()")
+        sb.AppendLineStart("member _.Yield(_: unit) = EffectContext()")
         //bonus run
-        sb.AppendLine("member inline _.Run(a: EffectContext<'a>) = Runner.createFrom a.A")
+        sb.AppendLineStart("member inline _.Run(a: EffectContext<'a>) = Runner.createFrom a.A")
 
         //custom operations
         for eff in allEffects do
-            sb.AppendLine(@"[<CustomOperation(""fromEffect"")>]")
-            sb.AppendLine($"member inline _.FromEffect(x: GenContext<_, _, _>, p: %s{eff}) = x.Create(p)")
+            sb.AppendLineStart(@"[<CustomOperation(""fromEffect"")>]")
+            sb.AppendLineStart($"member inline _.FromEffect(x: GenContext<_, _, _>, p: %s{eff}) = x.Create(p)")
 
         //run
         for cfg in cfgs do
@@ -225,16 +234,28 @@ module Writer =
 
         sb.IndentationLevel <- sb.IndentationLevel - 4
 
-    let writeAll (input: EffectAttributeMatches list) =
-        let x = input |> List.map (fun a -> a.effects |> Array.map _.name)
-        let sb = StringBuilder().ToIndentingBuilder()
-        let runnerLayers = orderLayers x
+    let writeAll (scope: ContextWriterScope) (sb: IndentingStringBuilder) =
+
+        sb.AppendLine($"namespace {scope.ns}")
         //write opens
+        for op in scope.openStatements |> List.rev do
+            sb.AppendLine($"open {op}")
+
         //write runner types
+        let x = scope.effects |> List.map (fun a -> a.effects |> Array.map _.name)
+        let runnerLayers = orderLayers x
         for layer in runnerLayers do
             for runner in layer.runners do
                 writeRunner runner sb
 
+        sb.AppendLine($"namespace {scope.ns}.Orsak.Myriad.Gen")
+        //write opens
+        for op in scope.openStatements |> List.rev do
+            sb.AppendLine($"open {op}")
+
+        sb.AppendLine("open Orsak.Myriad.Gen")
+        sb.AppendLine("open System.Runtime.InteropServices")
+        sb.AppendLine($"open {scope.ns}")
         //write extractors
         writeExtractors runnerLayers sb
 
@@ -243,8 +264,10 @@ module Writer =
 
         writeExpressionBuilder runnerLayers sb
 
+        sb.AppendLine($"namespace {scope.ns}")
+        sb.AppendLine($"open {scope.ns}.Orsak.Myriad.Gen")
         //instantiate runner builder
-        sb.AppendLine("module Silly =")
+        sb.AppendLine("module Runner =")
         sb.AppendLine("    let mkRunner = EffectRunnerBuilder()")
         ()
 
