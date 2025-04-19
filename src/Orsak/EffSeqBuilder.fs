@@ -29,12 +29,17 @@ type ResumableAsyncEnumerator<'T>() =
 
     //allows MoveNextAsync()
     interface IValueTaskSource<bool> with
-        member this.GetStatus token = this.ValueTaskSource.GetStatus token
+        member this.GetStatus token =
+            let mutable s = &this.ValueTaskSource
+            s.GetStatus token
 
-        member this.GetResult token = this.ValueTaskSource.GetResult token
+        member this.GetResult token =
+            let mutable s = &this.ValueTaskSource
+            s.GetResult token
 
         member this.OnCompleted(continuation, state, token, flags) =
-            this.ValueTaskSource.OnCompleted(continuation, state, token, flags)
+            let mutable s = &this.ValueTaskSource
+            s.OnCompleted(continuation, state, token, flags)
 
     //allows external callers do drive the state-machine
 
