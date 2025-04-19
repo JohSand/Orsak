@@ -22,7 +22,7 @@
     <ItemGroup>
 		
         <PackageReference Include="FSharp.Core " Version="8.0.300" />
-        <PackageReference Include="FastExpressionCompiler.LightExpression" Version="5.1.1" PrivateAssets="all" />
+        <PackageReference Include="FastExpressionCompiler.LightExpression" Version="5.1.1" />
     </ItemGroup>
     <ItemGroup>
       <PackageReference Update="DotNet.ReproducibleBuilds" Version="1.2.25" />
