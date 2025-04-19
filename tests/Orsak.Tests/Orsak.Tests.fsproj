@@ -4,11 +4,8 @@
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
         <IsTestProject>true</IsTestProject>
-        <AssemblyVersion>0.1.0.0</AssemblyVersion>
-        <FileVersion>0.1.0.0</FileVersion>
-        <InformationalVersion>0.1.0-beta.28+Branch.main.Sha.de0812bbd4257b3581e40b032397d238a9bfe3a9</InformationalVersion>
-        <Version>0.1.0-beta0028</Version>
         <NoWarn>0057</NoWarn>
+		<LangVersion>preview</LangVersion>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="OverloadTests.fs" />
@@ -28,6 +25,8 @@
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     </PropertyGroup>
     <ItemGroup>
+		<PackageReference Update="FSharp.Core " Version="8.0.300"/>
+		
         <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3" />

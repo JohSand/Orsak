@@ -21,15 +21,16 @@
 		<FSharpPrefer64BitTools>True</FSharpPrefer64BitTools>
 
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-		<OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen --strict-indentation+ --realsig+</OtherFlags>
+		<OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen</OtherFlags>
+		<LangVersion>preview</LangVersion>
 	</PropertyGroup>
 	<!-- Enabling reproducible builds -->
-	<ItemGroup>
+	<!--<ItemGroup>
 		<PackageReference Include="DotNet.ReproducibleBuilds" Version="0.1.66">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 		</PackageReference>
-	</ItemGroup>
+	</ItemGroup>-->
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
 		<Optimize>true</Optimize>
 		<Tailcalls>true</Tailcalls>

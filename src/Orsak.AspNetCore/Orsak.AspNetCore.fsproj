@@ -20,7 +20,8 @@
         <None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\"/>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Update="FSharp.Core " Version="8.0.300"/>
+		
+        <PackageReference Include="FSharp.Core " Version="8.0.300"/>
         <PackageReference Include="FastExpressionCompiler.LightExpression" Version="4.1.0"/>
     </ItemGroup>
 </Project>

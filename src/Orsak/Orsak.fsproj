@@ -21,7 +21,7 @@
 		<None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Update="FSharp.Core " Version="8.0.300" />
+		<PackageReference Include="FSharp.Core " Version="8.0.300" />
 		<PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="6.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
 	</ItemGroup>
