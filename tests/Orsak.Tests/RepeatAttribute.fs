@@ -22,8 +22,6 @@ type RepeatAttribute(time: int) =
     inherit DataAttribute()
 
     override this.GetData(_) = seq {
-        [| for i = 1 to time do box i |]
+        for i = 1 to time do [|  box i |]
     }
-
-
 #endif

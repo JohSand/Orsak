@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net6.0</TargetFrameworks>
+		<TargetFrameworks>net8.0; net6.0</TargetFrameworks>
 		<RootNamespace>Orsak</RootNamespace>
 	</PropertyGroup>
 
@@ -29,5 +29,8 @@
 		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
 			<_Parameter1>Orsak.Tests</_Parameter1>
 		</AssemblyAttribute>
+	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Update="DotNet.ReproducibleBuilds" Version="1.2.25" />
 	</ItemGroup>
 </Project>

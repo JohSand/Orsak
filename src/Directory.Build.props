@@ -24,12 +24,12 @@
 		<LangVersion>preview</LangVersion>
 	</PropertyGroup>
 	<!-- Enabling reproducible builds -->
-	<!--<ItemGroup>
-		<PackageReference Include="DotNet.ReproducibleBuilds" Version="0.1.66">
+	<ItemGroup>
+		<PackageReference Include="DotNet.ReproducibleBuilds" Version="1.2.25">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 		</PackageReference>
-	</ItemGroup>-->
+	</ItemGroup>
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
 		<Optimize>true</Optimize>
 		<Tailcalls>true</Tailcalls>
