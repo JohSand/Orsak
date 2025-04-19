@@ -3742,4 +3742,8 @@ type Effect<'R, 'T, 'E> with
     (* applicative *)
     ///Implements Apply on the effect, making it an applicative
     static member inline (<*>)(f: Effect<'r, 'b -> 'a, 'e>, e: Effect<'r, 'b, 'e>) =
-        Effect.ap f e
+        eff {
+            let! fn = f
+            and! a = e
+            return fn a
+        }

@@ -1,27 +1,30 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net6.0</TargetFrameworks>
+        <TargetFrameworks>net8.0; net6.0</TargetFrameworks>
         <RootNamespace>Orsak.AspNetCore</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="Throwhelpers.fs"/>
-        <Compile Include="BackgroundWorker.fs"/>
-        <Compile Include="EndpointRouting.fs"/>
+        <Compile Include="Throwhelpers.fs" />
+        <Compile Include="BackgroundWorker.fs" />
+        <Compile Include="EndpointRouting.fs" />
     </ItemGroup>
     <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\Orsak\Orsak.fsproj"/>
+        <ProjectReference Include="..\Orsak\Orsak.fsproj" />
     </ItemGroup>
     <ItemGroup>
-        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
-        <None Include="..\..\LICENSE.txt" Pack="true" PackagePath=""/>
-        <None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\"/>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+        <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
+        <None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\" />
     </ItemGroup>
     <ItemGroup>
 		
-        <PackageReference Include="FSharp.Core " Version="8.0.300"/>
-        <PackageReference Include="FastExpressionCompiler.LightExpression" Version="4.1.0"/>
+        <PackageReference Include="FSharp.Core " Version="8.0.300" />
+        <PackageReference Include="FastExpressionCompiler.LightExpression" Version="5.1.1" PrivateAssets="all" />
+    </ItemGroup>
+    <ItemGroup>
+      <PackageReference Update="DotNet.ReproducibleBuilds" Version="1.2.25" />
     </ItemGroup>
 </Project>

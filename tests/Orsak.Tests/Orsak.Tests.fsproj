@@ -1,45 +1,58 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net6.0</TargetFrameworks>
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
         <IsTestProject>true</IsTestProject>
         <NoWarn>0057; 0988</NoWarn>
-		<LangVersion>preview</LangVersion>
+        <LangVersion>preview</LangVersion>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="OverloadTests.fs" />
-        <Compile Include="RepeatAttribute.fs" />
-        <Compile Include="ResilienceTests.fs" />
-        <Compile Include="RetryTests.fs" Condition="'$(TargetFramework)' == 'NET8.0'" />
-        <Compile Include="NameParserTests.fs" />
-        <Compile Include="EffSeqTests.fs" />
-        <Compile Include="RecoveryTests.fs" />
-        <Compile Include="Tests.fs" />
-        <Compile Include="ScopedTests.fs" />
+        <Compile Include="OverloadTests.fs"/>
+        <Compile Include="RepeatAttribute.fs"/>
+        <Compile Include="ResilienceTests.fs"/>
+        <Compile Include="RetryTests.fs" Condition="'$(TargetFramework)' != 'NET6.0'"/>
+        <Compile Include="NameParserTests.fs"/>
+        <Compile Include="EffSeqTests.fs"/>
+        <Compile Include="RecoveryTests.fs"/>
+        <Compile Include="Tests.fs"/>
+        <Compile Include="ScopedTests.fs"/>
     </ItemGroup>
     <PropertyGroup>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     </PropertyGroup>
-	<ItemGroup Condition="'$(TargetFramework)' != 'NET8.0'">
-		<PackageReference Update="FSharp.Core " Version="8.0.300" />
+    <ItemGroup Condition="'$(TargetFramework)' == 'NET6.0'">
+        <PackageReference Include="xunit" Version="2.9.3"/>
 
-		<PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
-		<PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
-		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="6.0.3" />
-		<PackageReference Include="Ben.Demystifier" Version="0.4.1" />
-		<PackageReference Include="FSharp.Control.TaskSeq" Version="0.3.0" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-		<PackageReference Include="Unquote" Version="6.1.0" />
-		
-	</ItemGroup>
-	<ItemGroup>
-	  <PackageReference Include="xunit" Version="2.9.3" />
-	</ItemGroup>
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="6.0.3"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(TargetFramework)' != 'NET6.0'">
+        <PackageReference Include="xunit.v3" Version="2.0.1"/>
+
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3"/>
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3"/>
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.4.0"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core " Version="8.0.300"/>
+        <PackageReference Include="Ben.Demystifier" Version="0.4.1"/>
+        <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
+        <PackageReference Include="Unquote" Version="7.0.1"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
-        <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
+        <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj"/>
+        <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj"/>
     </ItemGroup>
 </Project>
