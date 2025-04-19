@@ -21,7 +21,6 @@
 		<FSharpPrefer64BitTools>True</FSharpPrefer64BitTools>
 
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-		<OtherFlags>$(OtherFlags) --test:GraphBasedChecking --test:ParallelOptimization --test:ParallelIlxGen</OtherFlags>
 		<LangVersion>preview</LangVersion>
 	</PropertyGroup>
 	<!-- Enabling reproducible builds -->

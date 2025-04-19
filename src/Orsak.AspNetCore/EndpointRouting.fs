@@ -30,28 +30,28 @@ type Endpoint =
         let (Endpoint this) = this in Endpoint {| this with conventions = fun b -> f (this.conventions b) |}
 
     member this.RequiresAuthorization() =
-        this.AddConvention(_.RequireAuthorization())
+        this.AddConvention(fun a -> a.RequireAuthorization())
 
-    member this.AllowAnonymous() = this.AddConvention(_.AllowAnonymous())
+    member this.AllowAnonymous() = this.AddConvention(fun a -> a.AllowAnonymous())
 
-    member this.RequireCors(name: string) = this.AddConvention(_.RequireCors(name))
+    member this.RequireCors(name: string) = this.AddConvention(fun a -> a.RequireCors(name))
 
     member this.RequireCors(builder: Action<_>) =
-        this.AddConvention(_.RequireCors(builder))
+        this.AddConvention(fun a -> a.RequireCors(builder))
 
-    member this.WithName(name) = this.AddConvention(_.WithName(name))
+    member this.WithName(name) = this.AddConvention(fun a -> a.WithName(name))
 
     member this.WithMetadata([<ParamArray>] items) =
-        this.AddConvention(_.WithMetadata(items))
+        this.AddConvention(fun a -> a.WithMetadata(items))
 
     member this.WithDisplayName(name: string) =
-        this.AddConvention(_.WithDisplayName(name))
+        this.AddConvention(fun a -> a.WithDisplayName(name))
 
     member this.WithDisplayName(f: Func<_, _>) =
-        this.AddConvention(_.WithDisplayName(f))
+        this.AddConvention(fun a -> a.WithDisplayName(f))
 
     member this.WithGroupName(name) =
-        this.AddConvention(_.WithGroupName(name))
+        this.AddConvention(fun a -> a.WithGroupName(name))
 
     member this.Add(f) =
         this.AddConvention(fun b ->
@@ -193,7 +193,7 @@ module Helpers =
                 for i = 0 to names.Length - 1 do
                     argArray[i] <- parseRouteValue (names[i], ctx)
 
-                eff (activator.Invoke argArray) *>> this |> _.Invoke(ctx))
+                eff (activator.Invoke argArray) *>> this |> fun x -> x.Invoke(ctx))
 
 
 
@@ -227,7 +227,7 @@ type EffectRunnerExtensions =
                     requestDelegate = createEndpointDelegate eff names this
                     conventions = id
                 |}
-            |> _.WithMetadata(HandlingMethod(getMethodInfo expr))
+            |> fun x -> x.WithMetadata(HandlingMethod(getMethodInfo expr))
 
         | _ ->
             Throwhelpers.argumentException "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
