@@ -61,7 +61,7 @@ jobs:
         run: dotnet build --configuration Release
 
       - name: Run unit tests
-        run: dotnet test -- --report-xunit-trx --results-directory ./test-results
+        run: dotnet test --no-build -- --report-xunit-trx --results-directory ./test-results
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
