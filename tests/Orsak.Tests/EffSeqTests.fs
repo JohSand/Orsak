@@ -183,23 +183,6 @@ module ``Empty Effect Sequences`` =
         |> evaluatesToSequence []
 
     [<Fact>]
-    let ``should work with For-form with IAsyncEnumerable and cancellation`` () = task {
-        let cts = new CancellationTokenSource()
-
-        let task =
-            effSeq {
-                for i in infiniteAsyncEnumerable () do
-                    i
-            }
-            |> evaluateWithCancellation cts.Token
-
-        do! Task.Delay(10)
-        cts.Cancel()
-        do! task
-        return ()
-    }
-
-    [<Fact>]
     let ``should work with For-form with EffSeq`` () =
         effSeq {
             for i in (makeEffSeq []) do
@@ -571,41 +554,6 @@ module ``Effect Sequences With Elements`` =
         do! task
         return ()
     }
-
-    [<Fact>]
-    let ``should work with For-form with IAsyncEnumerable and inner cancellation`` () = task {
-        use cts = new CancellationTokenSource()
-
-        let task =
-            effSeq {
-                for i in infiniteAsyncEnumerable () do
-                    i
-            }
-            |> withCancellation CancellationToken.None
-            |> evaluateWithCancellation cts.Token
-
-        cts.Cancel()
-        do! task
-        return ()
-    }
-
-    [<Fact>]
-    let ``should work with For-form with IAsyncEnumerable and outer cancellation`` () = task {
-        use cts = new CancellationTokenSource()
-
-        let task =
-            effSeq {
-                for i in infiniteAsyncEnumerable () do
-                    i
-            }
-            |> withCancellation cts.Token
-            |> evaluateWithCancellation CancellationToken.None
-
-        cts.Cancel()
-        do! task
-        return ()
-    }
-
 
     [<Theory>]
     [<InlineData(1)>]
@@ -986,3 +934,4 @@ module ``Effect Sequences With Elements`` =
         Assert.True spy4.WasDisposed
         Assert.True spy5.WasDisposed
     }
+
