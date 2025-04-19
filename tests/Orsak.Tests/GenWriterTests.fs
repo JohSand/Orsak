@@ -75,14 +75,14 @@ let testWriteRun () =
     let x = sb.ToString()
 
     let expected =
-        "\
-member inline _.Run(a) =
-    match a with
-    | ExtractCancellationTokenSource(a) & ExtractMemoryCache(b) & ExtractRandomGenerator(c) -> {
-        CancellationTokenSource = a
-        MemoryCache = b
-        RandomGenerator = c
-    }
+        "    member inline _.Run(a) =\
+
+        match a with
+        | ExtractCancellationTokenSource(a) & ExtractMemoryCache(b) & ExtractRandomGenerator(c) -> {
+            CancellationTokenSource = a
+            MemoryCache = b
+            RandomGenerator = c
+        }
 "
 
     Assert.Equal(expected, x, ignoreLineEndingDifferences = true)
@@ -94,14 +94,14 @@ let testWriteRun2 () =
     let x = sb.ToString()
 
     let expected =
-        "\
-member inline _.Run(a, [<Optional>]_a: byte, [<Optional>]_b: sbyte) =
-    match a with
-    | ExtractCancellationTokenSource(a) & ExtractMemoryCache(b) & ExtractRandomGenerator(c) -> {
-        CancellationTokenSource = a
-        MemoryCache = b
-        RandomGenerator = c
-    }
+        "    member inline _.Run(a, [<Optional>]_a: byte, [<Optional>]_b: sbyte) =\
+
+        match a with
+        | ExtractCancellationTokenSource(a) & ExtractMemoryCache(b) & ExtractRandomGenerator(c) -> {
+            CancellationTokenSource = a
+            MemoryCache = b
+            RandomGenerator = c
+        }
 "
 
     Assert.Equal(expected, x, ignoreLineEndingDifferences = true)
@@ -113,14 +113,14 @@ let testWriteRun4 () =
     let x = sb.ToString()
 
     let expected =
-        "\
-member inline _.Run(a, [<Optional>]_a: double, [<Optional>]_b: char, [<Optional>]_c: bool, [<Optional>]_d: byte, [<Optional>]_e: sbyte) =
-    match a with
-    | ExtractCancellationTokenSource(a) & ExtractMemoryCache(b) & ExtractRandomGenerator(c) -> {
-        CancellationTokenSource = a
-        MemoryCache = b
-        RandomGenerator = c
-    }
+        "    member inline _.Run(a, [<Optional>]_a: double, [<Optional>]_b: char, [<Optional>]_c: bool, [<Optional>]_d: byte, [<Optional>]_e: sbyte) =\
+
+        match a with
+        | ExtractCancellationTokenSource(a) & ExtractMemoryCache(b) & ExtractRandomGenerator(c) -> {
+            CancellationTokenSource = a
+            MemoryCache = b
+            RandomGenerator = c
+        }
 "
 
     Assert.Equal(expected, x, ignoreLineEndingDifferences = true)
@@ -142,19 +142,19 @@ let testWriteRun3 () =
     let x = sb.ToString()
 
     let expected =
-        "\
-member inline _.Run(a, [<Optional>]_a: byte, [<Optional>]_b: sbyte) =
-    match a with
-    | ExtractCancellationTokenSource(a) & ExtractMemoryCache(b) -> {
-        CancellationTokenSource = a
-        MemoryCache = b
-    }
-member inline _.Run(a, [<Optional>]_a: sbyte, [<Optional>]_b: int16) =
-    match a with
-    | ExtractMemoryCache(a) & ExtractRandomGenerator(b) -> {
-        MemoryCache = a
-        RandomGenerator = b
-    }
+        "    member inline _.Run(a, [<Optional>]_a: byte, [<Optional>]_b: sbyte) =\
+
+        match a with
+        | ExtractCancellationTokenSource(a) & ExtractMemoryCache(b) -> {
+            CancellationTokenSource = a
+            MemoryCache = b
+        }
+    member inline _.Run(a, [<Optional>]_a: sbyte, [<Optional>]_b: int16) =
+        match a with
+        | ExtractMemoryCache(a) & ExtractRandomGenerator(b) -> {
+            MemoryCache = a
+            RandomGenerator = b
+        }
 "
 
     Assert.Equal(expected, x, ignoreLineEndingDifferences = true)
@@ -222,8 +222,8 @@ let writeExtractPatternTests () =
     let result = sb.ToString()
     let expected =
         "\
-let inline (|ExtractMemoryCache|) a : IMemoryCache =
-    extract Unchecked.defaultof<MemoryCacheExtractor> a
+    let inline (|ExtractMemoryCache|) a : IMemoryCache =
+    Writer.extract Unchecked.defaultof<MemoryCacheExtractor> a
 "
     Assert.Equal(expected, result, ignoreLineEndingDifferences = true)
     ()
