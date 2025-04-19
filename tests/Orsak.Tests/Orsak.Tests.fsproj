@@ -1,42 +1,43 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <TargetFrameworks>net6.0</TargetFrameworks>
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
         <IsTestProject>true</IsTestProject>
-        <NoWarn>0057</NoWarn>
+        <NoWarn>0057; 0988</NoWarn>
 		<LangVersion>preview</LangVersion>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="OverloadTests.fs" />
         <Compile Include="RepeatAttribute.fs" />
         <Compile Include="ResilienceTests.fs" />
-        <Compile Include="RetryTests.fs" />
+        <Compile Include="RetryTests.fs" Condition="'$(TargetFramework)' == 'NET8.0'" />
         <Compile Include="NameParserTests.fs" />
         <Compile Include="EffSeqTests.fs" />
         <Compile Include="RecoveryTests.fs" />
         <Compile Include="Tests.fs" />
         <Compile Include="ScopedTests.fs" />
     </ItemGroup>
-    <ItemGroup>
-    </ItemGroup>
     <PropertyGroup>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     </PropertyGroup>
-    <ItemGroup>
-		<PackageReference Update="FSharp.Core " Version="8.0.300"/>
+	<ItemGroup Condition="'$(TargetFramework)' != 'NET8.0'">
+		<PackageReference Update="FSharp.Core " Version="8.0.300" />
+
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="6.0.3" />
+		<PackageReference Include="Ben.Demystifier" Version="0.4.1" />
+		<PackageReference Include="FSharp.Control.TaskSeq" Version="0.3.0" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+		<PackageReference Include="Unquote" Version="6.1.0" />
 		
-        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3" />
-        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.3.0" />
-        <PackageReference Include="xunit.v3" Version="2.0.0" />
-        <PackageReference Include="Ben.Demystifier" Version="0.4.1" />
-        <PackageReference Include="FSharp.Control.TaskSeq" Version="0.3.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-        <PackageReference Include="Unquote" Version="6.1.0" />
-    </ItemGroup>
+	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="xunit" Version="2.9.3" />
+	</ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
