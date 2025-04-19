@@ -29,14 +29,14 @@ module Helpers2 =
         Assert.Equal<'a>(s, list)
     }
 
-    let evaulateWithCancellation token (es: EffSeq<unit, 'a, string>) = task {
+    let evaluateWithCancellation token (es: EffSeq<unit, 'a, string>) = task {
         let mutable hasRead = false
 
         do!
             eff {
                 use enumerator = es.Invoke().GetAsyncEnumerator(token)
 
-                while enumerator.MoveNextAsync() do
+                while! enumerator.MoveNextAsync() do
                     match enumerator.Current with
                     | Ok _ -> hasRead <- true
                     | Error err -> failwith err
@@ -191,7 +191,7 @@ module ``Empty Effect Sequences`` =
                 for i in infiniteAsyncEnumerable () do
                     i
             }
-            |> evaulateWithCancellation cts.Token
+            |> evaluateWithCancellation cts.Token
 
         do! Task.Delay(10)
         cts.Cancel()
@@ -537,7 +537,7 @@ module ``Effect Sequences With Elements`` =
                     do! Task.Delay(-1)
                     i
             }
-            |> evaulateWithCancellation cts.Token
+            |> evaluateWithCancellation cts.Token
 
         cts.Cancel()
         do! task
@@ -582,7 +582,7 @@ module ``Effect Sequences With Elements`` =
                     i
             }
             |> withCancellation CancellationToken.None
-            |> evaulateWithCancellation cts.Token
+            |> evaluateWithCancellation cts.Token
 
         cts.Cancel()
         do! task
@@ -599,7 +599,7 @@ module ``Effect Sequences With Elements`` =
                     i
             }
             |> withCancellation cts.Token
-            |> evaulateWithCancellation CancellationToken.None
+            |> evaluateWithCancellation CancellationToken.None
 
         cts.Cancel()
         do! task
