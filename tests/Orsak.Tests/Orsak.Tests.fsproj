@@ -55,6 +55,16 @@
         <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
         <PackageReference Include="Unquote" Version="7.0.1"/>
+		<PackageReference Include="Myriad.Core" Version="0.8.3" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.3.0" />
+        <PackageReference Include="xunit.v3" Version="2.0.0" />
+        <PackageReference Include="Ben.Demystifier" Version="0.4.1" />
+        <PackageReference Include="FSharp.Control.TaskSeq" Version="0.3.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+        <PackageReference Include="Unquote" Version="6.1.0" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
