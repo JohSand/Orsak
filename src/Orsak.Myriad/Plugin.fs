@@ -89,9 +89,5 @@ type EffectRunnerGen() =
             match Helpers.extractTypeDefn ast with
             | [ a ] ->
                 Writer.writeAll a sb
-                let red = "\x1b[91m"
-                let normal = "\x1b[39m"
-                Console.WriteLine $"Namespace {red}%A{a}{normal}"
-                ()
             | _ -> ()
             Output.Source(sb.ToString())
