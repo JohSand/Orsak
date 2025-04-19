@@ -61,13 +61,13 @@ jobs:
         run: dotnet build --configuration Release
 
       - name: Run unit tests
-        run: dotnet test -- --report-xunit-trx
+        run: dotnet test -- --report-xunit-trx --results-directory ./test-results
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-            files: test-results/**/*.trx
+            files: tests/**/test-results/**/*.trx 
 
       - name: Pack NuGet package
         if: ${{ success() && github.event_name != 'pull_request' }}
