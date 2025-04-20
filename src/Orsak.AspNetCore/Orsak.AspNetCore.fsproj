@@ -15,15 +15,7 @@
         <ProjectReference Include="..\Orsak\Orsak.fsproj" />
     </ItemGroup>
     <ItemGroup>
-        <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-        <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
-        <None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\" />
-    </ItemGroup>
-    <ItemGroup>
         <PackageReference Include="FSharp.Core" Version="8.0.300" />
         <PackageReference Include="FastExpressionCompiler.LightExpression" Version="5.1.1" />
-    </ItemGroup>
-    <ItemGroup>
-      <PackageReference Update="DotNet.ReproducibleBuilds" Version="1.2.25" />
     </ItemGroup>
 </Project>
