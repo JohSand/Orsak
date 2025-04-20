@@ -4,15 +4,15 @@ open Orsak
 open Orsak.Myriad
 open System.Threading
 open Microsoft.Extensions.Caching.Memory
-open ConsoleApp1
+open Orsak.Myriad.Showcase
 
-let myRunner (src: CancellationTokenSource) (cache: IMemoryCache) (rnd: IRandomGenerator) =
+let myRunner  (cache: IFace) (rnd: IRandomGenerator) =
     Runner.mkRunner {
-        fromEffect src
         fromEffect rnd
         fromEffect cache
     }
-
+    |> fun runner ->
+        Face.countBeans 1 "" |> Effect.run runner
 
 printfn "Hello from F#"
 

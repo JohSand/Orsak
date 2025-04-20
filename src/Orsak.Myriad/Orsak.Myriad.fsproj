@@ -9,7 +9,8 @@
 	<ItemGroup>
 	  <Compile Include="Gen.fs" />
 	  <Compile Include="Writer.fs" />
-	  <Compile Include="Plugin.fs" />
+	  <Compile Include="EffectGen.fs" />
+	  <Compile Include="RunnerGen.fs" />
 	</ItemGroup>
 
 	<ItemGroup>
