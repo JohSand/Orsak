@@ -525,26 +525,6 @@ module ``Effect Sequences With Elements`` =
         |> evaluatesToSequence [ 1..size ]
 
     [<Fact>]
-    let ``should support cancellation from suspension`` () = task {
-
-        use cts = new CancellationTokenSource()
-
-        let task =
-            effSeq {
-                1
-
-                for i in infiniteAsyncEnumerable () do
-                    do! Task.Delay(-1)
-                    i
-            }
-            |> evaluateWithCancellation cts.Token
-
-        cts.Cancel()
-        do! task
-        return ()
-    }
-
-    [<Fact>]
     let ``should work with For-form with ConfiguredCancelableAsyncEnumerable`` () = task {
         use cts = new CancellationTokenSource()
         let chan = Channels.Channel.CreateUnbounded<int>()

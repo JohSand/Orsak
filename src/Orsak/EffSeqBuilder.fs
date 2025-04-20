@@ -20,9 +20,6 @@ type ResumableAsyncEnumerator<'T>() =
     [<DefaultValue(false)>]
     val mutable Token: CancellationToken
 
-    [<DefaultValue(false)>]
-    val mutable Registration: CancellationTokenRegistration
-
     //handles our implementation of IValueTaskSource<bool>
     [<DefaultValue(false)>]
     val mutable ValueTaskSource: ManualResetValueTaskSourceCore<bool>
@@ -80,7 +77,6 @@ type ResumableAsyncEnumerator<'T>() =
                 | _ -> ValueTask<bool>(this, version)
 
         member this.DisposeAsync() = vtask {
-            do! this.Registration.DisposeAsync()
             this.InProgress <- -1
             return ()
         }
@@ -152,11 +148,6 @@ and [<NoComparison; NoEquality>] EffectEnumerable<'Env, 'Machine, 'T, 'Err
                     EffectEnumerable<'Env, 'Machine, 'T, 'Err>(InProgress = 1)
 
             enumerator.Token <- ct
-
-            enumerator.Registration <-
-                ct.Register(fun () ->
-                    let mutable src = &enumerator.ValueTaskSource
-                    src.SetResult(false))
 
             //this gives the clone a COPY of our IResumableStateMachine, which at this point should be the initial machine.
             enumerator.StateMachine <- this.InitialMachine
