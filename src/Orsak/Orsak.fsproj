@@ -10,16 +10,10 @@
 		<Compile Include="EffSeqBuilder.fs" />
 		<Compile Include="Effect.fs" />
 		<Compile Include="BaseEffects.fs" />
-		<Compile Include="Resilience.fs" Condition="'$(TargetFramework)' == 'NET8.0'" />
-		<Compile Include="Resilience.fs" Condition="'$(TargetFramework)' == 'NET9.0'" />
+		<Compile Include="Resilience.fs" Condition="'$(TargetFramework)' != 'NET6.0'" />
 		<Compile Include="ScopedEffect.fs" />
 		<Compile Include="Effects\Database.fs" />
 		<Compile Include="EffList.fs" />
-	</ItemGroup>
-	<ItemGroup>
-		<None Include="..\..\README.md" Pack="true" PackagePath="\" />
-		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
-		<None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="FSharp.Core" Version="8.0.300" />
@@ -30,8 +24,5 @@
 		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
 			<_Parameter1>Orsak.Tests</_Parameter1>
 		</AssemblyAttribute>
-	</ItemGroup>
-	<ItemGroup>
-	  <PackageReference Update="DotNet.ReproducibleBuilds" Version="1.2.25" />
 	</ItemGroup>
 </Project>
