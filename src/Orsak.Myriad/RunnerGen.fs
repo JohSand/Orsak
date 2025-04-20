@@ -3,7 +3,6 @@
 open Myriad.Core
 open System
 open Myriad.Core
-open Myriad.Core.Ast
 open Fantomas.FCS.Syntax
 open System.Text
 
@@ -51,7 +50,7 @@ module Helpers =
             | SynModuleDecl.Types(types, _) ->
                 let attributedTypes =
                     types
-                    |> List.filter hasAttribute<GenRunnerAttribute>
+                    |> List.filter Ast.hasAttribute<GenRunnerAttribute>
                     |> List.map mkEffectAttributeMatches
 
                 createContextScope xs { acc with effects = attributedTypes @ acc.effects }
@@ -88,6 +87,8 @@ type EffectRunnerGen() =
             let sb = StringBuilder().ToIndentingBuilder()
             match Helpers.extractTypeDefn ast with
             | [ a ] ->
-                Writer.writeAll a sb
+                if a.effects.Length > 0 then
+                    Writer.writeAll a sb
+
             | _ -> ()
             Output.Source(sb.ToString())
