@@ -141,3 +141,16 @@ type EffectContext =
     member this.Create<'b>(b) = EffectContext<'b>(b)
 
 type GenContext<'a, 'b, 'c when 'a: (member Create: 'b -> 'c)> = 'a
+
+
+namespace Orsak.Myriad
+
+open System
+
+[<AttributeUsage(AttributeTargets.Interface)>]
+type GenRunnerAttribute() =
+    inherit Attribute()
+
+[<AttributeUsage(AttributeTargets.Interface)>]
+type GenEffectsAttribute() =
+    inherit Attribute()

@@ -1,5 +1,6 @@
 ﻿namespace Orsak.Myriad
 
+open System
 open System.Text
 
 type IndentingStringBuilder(sb: StringBuilder) =
@@ -29,11 +30,11 @@ type EffectAttributeMatches = { effects: EffectCfg array; typeName: string }
 
 type RunnerCfg = { effects: string array; name: string }
 
-type ContextWriterScope =
-    { ns: string
-      openStatements: string list
-      effects: EffectAttributeMatches list }
+type ContextWriterScope = { ns: string; openStatements: string list; effects: EffectAttributeMatches list }
 
+type EffectMemberCfg = { memberName: string; argumentCount: int; isTuple: bool }
+type EffectProviderCfg = { effectName: string; members: EffectMemberCfg list }
+type ContextEffectScope = { ns: string; openStatements: string list; effects: EffectProviderCfg list }
 /// <summary>
 /// All runners in the runners-array must have effects-arrays of equal length, that is the arity
 /// </summary>
@@ -41,6 +42,12 @@ type RunnerArityCfg = { runners: RunnerCfg array; requiredTieBreakers: int; arit
 
 module Writer =
     let trimI (s: string) = if s.StartsWith("I") then s[1..] else s
+
+    let toCamelCase (name: string) =
+        if name.Length > 0 then
+            name[0].ToString().ToLowerInvariant() + name.Substring(1)
+        else
+            name
 
     let writeRunner (builderInfo: RunnerCfg) (sb: IndentingStringBuilder) =
         sb.AppendLine($"type {builderInfo.name} = {{")
@@ -234,7 +241,7 @@ module Writer =
 
         sb.IndentationLevel <- sb.IndentationLevel - 4
 
-    let writeAll (scope: ContextWriterScope) (sb: IndentingStringBuilder) =
+    let writeForScope (scope: ContextWriterScope) (sb: IndentingStringBuilder) =
 
         sb.AppendLine($"namespace {scope.ns}")
         //write opens
@@ -244,6 +251,7 @@ module Writer =
         //write runner types
         let x = scope.effects |> List.map (fun a -> a.effects |> Array.map _.name)
         let runnerLayers = orderLayers x
+
         for layer in runnerLayers do
             for runner in layer.runners do
                 writeRunner runner sb
@@ -270,6 +278,34 @@ module Writer =
         sb.AppendLine("module Runner =")
         sb.AppendLine("    let mkRunner = EffectRunnerBuilder()")
         ()
+
+    let writeEffectGen (ctx: ContextEffectScope) (sb: IndentingStringBuilder) =
+        sb.AppendLine($"namespace {ctx.ns}")
+        sb.AppendLine("open Orsak")
+
+        for e in ctx.effects do
+            sb.AppendLine($"module {e.effectName.TrimStart('I')} =")
+
+            for m in e.members do
+                sb.Append($"    let {m.memberName |> toCamelCase} ")
+                let parameterCount = m.argumentCount
+
+                for i = 1 to parameterCount do
+                    let varName = char (96 + i) |> string
+                    sb.Append($"{varName} ")
+
+                sb.AppendLine("=")
+
+                let apply =
+                    if m.isTuple then
+                        let p = String.Join(", ", [ for i in 1..parameterCount -> char (96 + i) |> string ])
+                        $"({p})"
+                    else
+                        let p = String.Join(" ", [ for i in 1..parameterCount -> char (96 + i) |> string ])
+                        $" {p}"
+
+                sb.AppendLine
+                    $"        Effect.Create(fun (er: #IProvide<{e.effectName}>) -> er.Effect.{m.memberName}{apply})"
 
     //just the one
     let inline extract a b =
