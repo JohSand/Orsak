@@ -9,6 +9,7 @@
 	<ItemGroup>
 	  <Compile Include="Gen.fs" />
 	  <Compile Include="Writer.fs" />
+	  <Compile Include="Ast.fs" />
 	  <Compile Include="EffectGen.fs" />
 	  <Compile Include="RunnerGen.fs" />
 	</ItemGroup>

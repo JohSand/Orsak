@@ -7,10 +7,13 @@ open Orsak
 module Face =
     let countBeans a b =
         Effect.Create(fun (er: #IProvide<IFace>) -> er.Effect.CountBeans a b)
+    let pushButton () =
+        Effect.Create(fun (er: #IProvide<IFace>) -> er.Effect.PushButton ())
 
 namespace Orsak.Myriad.Showcase
 open Orsak
 open Orsak.Myriad
+open System.Threading.Tasks
 type Runner2W0 = {
     Face: IFace
     RandomGenerator: IRandomGenerator
@@ -22,6 +25,7 @@ type Runner2W0 = {
 namespace Orsak.Myriad.Showcase.Orsak.Myriad.Gen
 open Orsak
 open Orsak.Myriad
+open System.Threading.Tasks
 open Orsak.Myriad.Gen
 open System.Runtime.InteropServices
 open Orsak.Myriad.Showcase
