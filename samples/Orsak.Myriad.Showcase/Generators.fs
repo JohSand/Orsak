@@ -6,8 +6,8 @@ namespace Orsak.Myriad.Showcase
 open Orsak
 module Face =
     let countBeans a b =
-        Effect.Create(fun (er: #IProvide<IFace>) -> er.Effect.CountBeans a b)
-    let pushButton () =
+        Effect.Create(fun (er: #IProvide<IFace>) -> er.Effect.CountBeans(a, b))
+    let pushButton ()=
         Effect.Create(fun (er: #IProvide<IFace>) -> er.Effect.PushButton ())
 
 namespace Orsak.Myriad.Showcase

@@ -32,7 +32,13 @@ type RunnerCfg = { effects: string array; name: string }
 
 type ContextWriterScope = { ns: string; openStatements: string list; effects: EffectAttributeMatches list }
 
-type EffectMemberCfg = { memberName: string; argumentCount: int; isTuple: bool }
+type EffectMemberCfg = {
+    memberName: string
+    argumentCount: int
+    isTuple: bool
+    isUnit: bool
+}
+
 type EffectProviderCfg = { effectName: string; members: EffectMemberCfg list }
 type ContextEffectScope = { ns: string; openStatements: string list; effects: EffectProviderCfg list }
 /// <summary>
@@ -289,15 +295,19 @@ module Writer =
             for m in e.members do
                 sb.Append($"    let {m.memberName |> toCamelCase} ")
                 let parameterCount = m.argumentCount
-
-                for i = 1 to parameterCount do
-                    let varName = char (96 + i) |> string
-                    sb.Append($"{varName} ")
+                if m.isUnit then
+                    sb.Append("()")
+                else
+                    for i = 1 to parameterCount do
+                        let varName = char (96 + i) |> string
+                        sb.Append($"{varName} ")
 
                 sb.AppendLine("=")
 
                 let apply =
-                    if m.isTuple then
+                    if m.isUnit then
+                        "()"
+                    elif m.isTuple then
                         let p = String.Join(", ", [ for i in 1..parameterCount -> char (96 + i) |> string ])
                         $"({p})"
                     else

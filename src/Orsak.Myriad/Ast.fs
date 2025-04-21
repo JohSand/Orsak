@@ -73,6 +73,13 @@ let isTuple (t: SynType) =
     | SynType.Fun(SynType.Tuple _, _returnType, _range, _) -> true
     | _ -> false
 
+let isUnit (t: SynType) =
+    match t with
+    | SynType.Fun(SynType.LongIdent(SynLongIdent([ x ], _, _)), _returnType, _range, _) -> x.idText = "unit"
+    | _ -> false
+
+let parseTypeName (SynComponentInfo(_, _, _, longId, _, _, _, _)) = longId |> List.last |> _.idText
+
 let parseInParamCount (m: SynMemberDefn) =
     match m with
     | SynMemberDefn.AbstractSlot(slotSig = s) ->
@@ -98,8 +105,6 @@ let parseMemberName (m: SynMemberDefn) =
     | SynMemberDefn.AbstractSlot(slotSig = (SynValSig(ident = SynIdent(id, _)))) -> id.idText
     | _ -> ""
 
-let parseTypeName (SynComponentInfo(_, _, _, longId, _, _, _, _)) = longId |> List.last |> _.idText
-
 let (|EffectMemberCfg|_|) (SynTypeDefn(typeInfo: SynComponentInfo, objModel, _, _, _, _)) =
     match objModel with
     | SynTypeDefnRepr.ObjectModel(_, members, _) ->
@@ -110,6 +115,7 @@ let (|EffectMemberCfg|_|) (SynTypeDefn(typeInfo: SynComponentInfo, objModel, _, 
                     argumentCount = parseInParamCount m
                     memberName = parseMemberName m
                     isTuple = isTuple d
+                    isUnit = isUnit d
                   }
                 | _ -> ()
         ]
