@@ -6,7 +6,7 @@ open System.Threading.Tasks
 
 [<GenEffects>]
 type IFace =
-    abstract CountBeans: int -> string -> Result<int, string>
+    abstract CountBeans: int * string -> Result<int, string>
     abstract PushButton: unit -> Task<unit>
 
 [<GenRunner>]
