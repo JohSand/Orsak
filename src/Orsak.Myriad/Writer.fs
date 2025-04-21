@@ -296,7 +296,7 @@ module Writer =
                 sb.Append($"    let {m.memberName |> toCamelCase} ")
                 let parameterCount = m.argumentCount
                 if m.isUnit then
-                    sb.Append("()")
+                    sb.Append("() ")
                 else
                     for i = 1 to parameterCount do
                         let varName = char (96 + i) |> string
