@@ -11,6 +11,7 @@ open FSharp.Core.CompilerServices
 open FSharp.Core.CompilerServices.StateMachineHelpers
 open FSharp.Control
 
+
 type EffectSeqDelegate<'r, 'a, 'e> = delegate of 'r -> IAsyncEnumerable<Result<'a, 'e>>
 
 [<AbstractClass; NoComparison; NoEquality>]
@@ -399,7 +400,7 @@ module LowPrioritySeq =
                     .Invoke(&sm))
 
 
-[<AutoOpen>]
+[<AutoOpen; System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)>]
 module MediumPriority =
     type EffSeqBuilder with
 

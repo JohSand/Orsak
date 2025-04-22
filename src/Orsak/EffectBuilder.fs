@@ -1,6 +1,7 @@
 ﻿namespace Orsak
 
 open System.Buffers
+open System.ComponentModel
 
 #nowarn "57"
 #nowarn "3513"
@@ -3174,13 +3175,13 @@ type EffBuilder() =
             EffBuilder.RunDynamic(code)
 
 /// <exclude/>
-[<AutoOpen>]
+[<AutoOpen; EditorBrowsable(EditorBrowsableState.Never)>]
 module Builder =
     let inline mkEffect d = Effect(EffectDelegate d)
     let eff = EffBuilder()
 
 /// <exclude/>
-[<AutoOpen>]
+[<AutoOpen; EditorBrowsable(EditorBrowsableState.Never)>]
 module LowestPriority =
     open FSharp.Control
     type EffBuilderBase with
@@ -3196,7 +3197,7 @@ module LowestPriority =
             this.Bind(f, this.Return)
 
 /// <exclude/>
-[<AutoOpen>]
+[<AutoOpen; EditorBrowsable(EditorBrowsableState.Never)>]
 module LowPriority =
     open FSharp.Control
     type EffBuilderBase with
@@ -3312,7 +3313,7 @@ module LowPriority =
                     EffBuilder.BindDynamic(&sm, task, continuation))
 
 /// <exclude/>
-[<AutoOpen>]
+[<AutoOpen; EditorBrowsable(EditorBrowsableState.Never)>]
 module Medium =
     open FSharp.Control
 

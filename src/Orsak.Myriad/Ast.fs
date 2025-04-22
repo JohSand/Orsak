@@ -82,8 +82,7 @@ let parseTypeName (SynComponentInfo(_, _, _, longId, _, _, _, _)) = longId |> Li
 
 let parseInParamCount (m: SynMemberDefn) =
     match m with
-    | SynMemberDefn.AbstractSlot(slotSig = s) ->
-        let (SynValSig(synType = d)) = s
+    | SynMemberDefn.AbstractSlot(slotSig = (SynValSig(synType = d))) ->
 
         let rec countArguments synType acc =
             match synType with
@@ -93,10 +92,11 @@ let parseInParamCount (m: SynMemberDefn) =
             | SynType.LongIdent(SynLongIdent _) -> 1 + acc
             | SynType.Paren(innerType = inner) -> countArguments inner acc
             | SynType.Tuple(_, types, _) -> types.Length / 2 + 1 + acc
-            //| SynType.Var _ -> acc
+            | SynType.Var _ -> 1 + acc
             | _ -> acc
 
-        countArguments d 0
+        let a = countArguments d 0
+        a
 
     | _ -> 0
 
