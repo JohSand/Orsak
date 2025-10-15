@@ -4,17 +4,20 @@ open System
 open System.Text
 
 type IndentingStringBuilder(sb: StringBuilder) =
-    member val IndentationLevel = 0 with get, set
+    let mutable indentationLevel = 0
+    member this.IndentationLevel
+        with get () =
+            indentationLevel
+        and set value =
+            indentationLevel <- value
+            if value > 0 then
+                sb.Append("".PadRight(indentationLevel)) |> ignore
+            else
+                sb.AppendLine() |> ignore
 
     member this.Append(s: string) = sb.Append(s) |> ignore
 
-    member this.AppendStart(s: string) =
-        sb.Append(String.replicate this.IndentationLevel " ").Append(s) |> ignore
-
-    member this.AppendLineStart(s: string) =
-        sb.Append(String.replicate this.IndentationLevel " ").AppendLine(s) |> ignore
-
-    member this.AppendLine(s: string) = sb.AppendLine(s) |> ignore
+    member this.AppendLine(s: string) = sb.AppendLine(s).Append("".PadRight(indentationLevel)) |> ignore
 
     override this.ToString() : string = sb.ToString()
 
@@ -87,7 +90,7 @@ module Writer =
     let writeExtractorMembers (extractorName: string) (effectName: string) (arity: int) (sb: IndentingStringBuilder) =
         for i = 1 to arity do
             let prop = char (64 + i) |> string
-            sb.AppendStart($"static member Extract(_: {extractorName}, e: EffectContext")
+            sb.Append($"static member Extract(_: {extractorName}, e: EffectContext")
             do writeTypeParameters effectName arity i sb
             sb.AppendLine($") = e.%s{prop}")
 
@@ -105,8 +108,8 @@ module Writer =
     let writeExtractPattern (effectName: string) (sb: IndentingStringBuilder) =
         let typeName = $"{trimI effectName}Extractor"
         let patternName = $"Extract{trimI effectName}"
-        sb.AppendLineStart($"let inline (|{patternName}|) a : {effectName} =")
-        sb.AppendLineStart($"    Writer.extract Unchecked.defaultof<{typeName}> a")
+        sb.AppendLine($"let inline (|{patternName}|) a : {effectName} =")
+        sb.AppendLine($"    Writer.extract Unchecked.defaultof<{typeName}> a")
 
     let writeExtractPatterns (cfgs: RunnerArityCfg array) (sb: IndentingStringBuilder) =
         let allEffects =
@@ -232,14 +235,14 @@ module Writer =
         sb.AppendLine("type EffectRunnerBuilder() =")
         sb.IndentationLevel <- sb.IndentationLevel + 4
         //yield
-        sb.AppendLineStart("member _.Yield(_: unit) = EffectContext()")
+        sb.AppendLine("member _.Yield(_: unit) = EffectContext()")
         //bonus run
-        sb.AppendLineStart("member inline _.Run(a: EffectContext<'a>) = Runner.createFrom a.A")
+        sb.AppendLine("member inline _.Run(a: EffectContext<'a>) = Runner.createFrom a.A")
 
         //custom operations
         for eff in allEffects do
-            sb.AppendLineStart(@"[<CustomOperation(""fromEffect"")>]")
-            sb.AppendLineStart($"member inline _.FromEffect(x: GenContext<_, _, _>, p: %s{eff}) = x.Create(p)")
+            sb.AppendLine(@"[<CustomOperation(""fromEffect"")>]")
+            sb.AppendLine($"member inline _.FromEffect(x: GenContext<_, _, _>, p: %s{eff}) = x.Create(p)")
 
         //run
         for cfg in cfgs do

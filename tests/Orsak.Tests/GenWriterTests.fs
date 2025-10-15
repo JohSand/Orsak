@@ -53,6 +53,7 @@ type RandomGeneratorExtractor =
     static member Extract(_: RandomGeneratorExtractor, e: EffectContext<'a, 'b, IRandomGenerator, 'd, 'e>) = e.C
     static member Extract(_: RandomGeneratorExtractor, e: EffectContext<'a, 'b, 'c, IRandomGenerator, 'e>) = e.D
     static member Extract(_: RandomGeneratorExtractor, e: EffectContext<'a, 'b, 'c, 'd, IRandomGenerator>) = e.E
+    
 "
 
     Assert.Equal(expected, result, ignoreLineEndingDifferences = true)
