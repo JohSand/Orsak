@@ -21,6 +21,17 @@ type IndentingStringBuilder(sb: StringBuilder) =
 
     override this.ToString() : string = sb.ToString()
 
+    member this.PushIndentation() =
+        new IndentationScope(this) :> IDisposable
+
+and IndentationScope(sb: IndentingStringBuilder) =
+    do
+        sb.IndentationLevel <- sb.IndentationLevel + 4
+
+    interface IDisposable with
+        member this.Dispose (): unit = 
+            sb.IndentationLevel <- sb.IndentationLevel - 4
+
 [<AutoOpen>]
 module StringBuilderExtensions =
     type StringBuilder with
@@ -67,10 +78,11 @@ module Writer =
 
         sb.AppendLine("} with")
 
+        use _ = sb.PushIndentation()
         for e in builderInfo.effects do
             let effectName = trimI e
-            sb.AppendLine($"    interface IProvide<{e}> with")
-            sb.AppendLine($"        member this.Effect = this.{effectName}")
+            sb.AppendLine($"interface IProvide<{e}> with")
+            sb.AppendLine($"    member this.Effect = this.{effectName}")
 
     let writeTypeParameters (effectName: string) (arity: int) (pos: int) (sb: IndentingStringBuilder) =
         sb.Append("<")
@@ -98,12 +110,10 @@ module Writer =
     let writeExtractor (effectName: string) (arities: int array) (sb: IndentingStringBuilder) =
         let typeName = $"{trimI effectName}Extractor"
         sb.AppendLine($"type {typeName} =")
-        sb.IndentationLevel <- sb.IndentationLevel + 4
+        use _ = sb.PushIndentation()
 
         for i in arities |> Array.sort do
             writeExtractorMembers typeName effectName i sb
-
-        sb.IndentationLevel <- sb.IndentationLevel - 4
 
     let writeExtractPattern (effectName: string) (sb: IndentingStringBuilder) =
         let typeName = $"{trimI effectName}Extractor"
@@ -117,12 +127,10 @@ module Writer =
 
         sb.AppendLine($"[<AutoOpen>]")
         sb.AppendLine($"module Extractors =")
-        sb.IndentationLevel <- sb.IndentationLevel + 4
+        use _ = sb.PushIndentation()
 
         for eff in allEffects do
             writeExtractPattern eff sb
-
-        sb.IndentationLevel <- sb.IndentationLevel - 4
 
     let getTieBreakerType (i: int) =
         match (i % 13) with
@@ -233,7 +241,7 @@ module Writer =
             cfgs |> Array.collect _.runners |> Array.collect _.effects |> Array.distinct
         //create runner builder...
         sb.AppendLine("type EffectRunnerBuilder() =")
-        sb.IndentationLevel <- sb.IndentationLevel + 4
+        use _ = sb.PushIndentation()
         //yield
         sb.AppendLine("member _.Yield(_: unit) = EffectContext()")
         //bonus run
@@ -247,8 +255,6 @@ module Writer =
         //run
         for cfg in cfgs do
             writeRunMethods cfg sb
-
-        sb.IndentationLevel <- sb.IndentationLevel - 4
 
     let writeForScope (scope: ContextWriterScope) (sb: IndentingStringBuilder) =
 
@@ -317,8 +323,7 @@ module Writer =
                         let p = String.Join(" ", [ for i in 1..parameterCount -> char (96 + i) |> string ])
                         $" {p}"
 
-                sb.AppendLine
-                    $"        Effect.Create(fun (er: #IProvide<{e.effectName}>) -> er.Effect.{m.memberName}{apply})"
+                sb.AppendLine $"        Effect.Create(fun (er: #IProvide<{e.effectName}>) -> er.Effect.{m.memberName}{apply})"
 
     //just the one
     let inline extract a b =
