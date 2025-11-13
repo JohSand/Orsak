@@ -13,7 +13,7 @@ open Swensen.Unquote
 module Helpers2 =
     let runOrFail (e: Effect<_, _, _>) = e.RunOrFail()
 
-    let evaluatesToSequence s (es: EffSeq<unit, 'a, string>) = task {
+    let evaluatesToSequence (s: 'a list) (es: EffSeq<unit, 'a, string>) = task {
         let res = ResizeArray<_>()
 
         do!

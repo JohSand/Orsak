@@ -4,17 +4,23 @@ open System
 open System.Text
 
 type IndentingStringBuilder(sb: StringBuilder) =
+    let mutable prepend = true
     member val IndentationLevel = 0 with get, set
 
-    member this.Append(s: string) = sb.Append(s) |> ignore
+    member private this.EnsureIndentation() =
+        if prepend then
+            sb.Append(String.replicate this.IndentationLevel " ") |> ignore
+            prepend <- false
 
-    member this.AppendStart(s: string) =
-        sb.Append(String.replicate this.IndentationLevel " ").Append(s) |> ignore
+    member this.Append(s: string) =
+        this.EnsureIndentation()
+        sb.Append(s) |> ignore
 
-    member this.AppendLineStart(s: string) =
-        sb.Append(String.replicate this.IndentationLevel " ").AppendLine(s) |> ignore
+    member this.AppendLine(s: string) =
+        this.EnsureIndentation()
 
-    member this.AppendLine(s: string) = sb.AppendLine(s) |> ignore
+        sb.AppendLine(s) |> ignore
+        prepend <- true
 
     override this.ToString() : string = sb.ToString()
 
@@ -24,13 +30,14 @@ module StringBuilderExtensions =
 
         member this.ToIndentingBuilder() = IndentingStringBuilder(this)
 
-type EffectCfg = { name: string; fullName: string }
+type EffectCfg = {
+    name: string
+    providerName: string
+    fullName: string
+    providerPropertyName: string
+}
 
-type EffectAttributeMatches = { effects: EffectCfg array; typeName: string }
-
-type RunnerCfg = { effects: string array; name: string }
-
-type ContextWriterScope = { ns: string; openStatements: string list; effects: EffectAttributeMatches list }
+type EffectAttributeMatches = { effects: EffectCfg array; nameOverride: string }
 
 type EffectMemberCfg = {
     memberName: string
@@ -39,7 +46,17 @@ type EffectMemberCfg = {
     isUnit: bool
 }
 
-type EffectProviderCfg = { effectName: string; members: EffectMemberCfg list }
+type EffectProviderCfg = {
+    providerPropertyName: string
+    effectName: string
+    providerName: string
+    members: EffectMemberCfg list
+}
+
+type RunnerCfg = { effects: EffectProviderCfg array; name: string }
+
+type ContextWriterScope = { ns: string; openStatements: string list; effects: EffectAttributeMatches list }
+
 type ContextEffectScope = { ns: string; openStatements: string list; effects: EffectProviderCfg list }
 /// <summary>
 /// All runners in the runners-array must have effects-arrays of equal length, that is the arity
@@ -59,15 +76,26 @@ module Writer =
         sb.AppendLine($"type {builderInfo.name} = {{")
 
         for e in builderInfo.effects do
-            let effectName = trimI e
-            sb.AppendLine($"    {effectName}: {e}")
+            let effectName = trimI e.effectName
+            sb.AppendLine($"    %s{effectName}: %s{e.effectName}")
 
         sb.AppendLine("} with")
 
         for e in builderInfo.effects do
-            let effectName = trimI e
-            sb.AppendLine($"    interface IProvide<{e}> with")
-            sb.AppendLine($"        member this.Effect = this.{effectName}")
+            let effectMember = e.providerPropertyName
+            let effectName = trimI e.effectName
+            let providerName = $"%s{e.providerName}"
+            if providerName = "ILoggerFactory" then
+                sb.AppendLine($"    interface ILoggerFactory with")
+                sb.AppendLine($"        member this.CreateLogger s = this.%s{effectName}.CreateLogger s")
+                sb.AppendLine($"        member this.AddProvider s = this.%s{effectName}.AddProvider s")
+                sb.AppendLine($"    interface Orsak.ILoggerProvider with")
+                sb.AppendLine($"        member this.Effect = this.%s{effectName}.CreateLogger(this.GetType())")
+                sb.AppendLine($"    interface System.IDisposable with")
+                sb.AppendLine($"        member this.Dispose() = this.%s{effectName}.Dispose()")
+            else
+                sb.AppendLine($"    interface %s{providerName} with")
+                sb.AppendLine($"        member this.%s{effectMember} = this.%s{effectName}")
 
     let writeTypeParameters (effectName: string) (arity: int) (pos: int) (sb: IndentingStringBuilder) =
         sb.Append("<")
@@ -87,7 +115,7 @@ module Writer =
     let writeExtractorMembers (extractorName: string) (effectName: string) (arity: int) (sb: IndentingStringBuilder) =
         for i = 1 to arity do
             let prop = char (64 + i) |> string
-            sb.AppendStart($"static member Extract(_: {extractorName}, e: EffectContext")
+            sb.Append($"static member Extract(_: {extractorName}, e: EffectContext")
             do writeTypeParameters effectName arity i sb
             sb.AppendLine($") = e.%s{prop}")
 
@@ -105,8 +133,8 @@ module Writer =
     let writeExtractPattern (effectName: string) (sb: IndentingStringBuilder) =
         let typeName = $"{trimI effectName}Extractor"
         let patternName = $"Extract{trimI effectName}"
-        sb.AppendLineStart($"let inline (|{patternName}|) a : {effectName} =")
-        sb.AppendLineStart($"    Writer.extract Unchecked.defaultof<{typeName}> a")
+        sb.AppendLine($"let inline (|{patternName}|) a : {effectName} =")
+        sb.AppendLine($"    Writer.extract Unchecked.defaultof<{typeName}> a")
 
     let writeExtractPatterns (cfgs: RunnerArityCfg array) (sb: IndentingStringBuilder) =
         let allEffects =
@@ -117,7 +145,7 @@ module Writer =
         sb.IndentationLevel <- sb.IndentationLevel + 4
 
         for eff in allEffects do
-            writeExtractPattern eff sb
+            writeExtractPattern eff.effectName sb
 
         sb.IndentationLevel <- sb.IndentationLevel - 4
 
@@ -144,22 +172,17 @@ module Writer =
             sb.Append($", [<Optional>]_{c}: ")
             sb.Append(getTieBreakerType (i + tieBreakerSeed))
 
-    let writeRunMethod
-        (tieBreakerSeed: int)
-        (tieBreakerCount: int)
-        (effects: string array)
-        (sb: IndentingStringBuilder)
-        =
-        sb.Append($"    member inline _.Run(a")
+    let writeRunMethod (tieBreakerSeed: int) (tieBreakerCount: int) (effects: EffectProviderCfg array) (sb: IndentingStringBuilder) =
+        sb.Append($"member inline _.Run(a")
         writeRunTieBreakerParams tieBreakerSeed tieBreakerCount sb
         sb.AppendLine(") =")
-        sb.AppendLine($"        match a with")
-        sb.Append("        | ")
+        sb.AppendLine($"    match a with")
+        sb.Append("    | ")
 
         effects
         |> Array.iteri (fun i effectName ->
             let varName = char (97 + i) |> string
-            let patternName = $"Extract{trimI effectName}"
+            let patternName = $"Extract{trimI effectName.effectName}"
             sb.Append($"{patternName}({varName})")
 
             if i < effects.Length - 1 then
@@ -170,22 +193,34 @@ module Writer =
         effects
         |> Array.iteri (fun i effectName ->
             let varName = char (97 + i) |> string
-            sb.AppendLine($"            {trimI effectName} = {varName}"))
+            sb.AppendLine($"        {trimI effectName.effectName} = {varName}"))
 
-        sb.AppendLine("        }")
+        sb.AppendLine("    }")
 
-    let writeRunMethods (info: RunnerArityCfg) (sb: IndentingStringBuilder) =
+    /// <summary>
+    /// Write all runners with given arity
+    /// </summary>
+    /// <param name="info"></param>
+    /// <param name="sb"></param>
+    let writeRunMethodLayer (info: RunnerArityCfg) (sb: IndentingStringBuilder) =
         let mutable seed = 0
+
+        sb.IndentationLevel <- sb.IndentationLevel + 4
 
         for b in info.runners do
             writeRunMethod seed info.requiredTieBreakers b.effects sb
             seed <- seed + 1
 
+        sb.IndentationLevel <- sb.IndentationLevel - 4
+
     let findAritiesForEffect (eff: string) (cfgs: RunnerArityCfg array) =
         let rar = ResizeArray<_>()
 
         for cfg in cfgs do
-            if cfg.runners |> Array.exists (fun r -> r.effects |> Array.contains eff) then
+            if
+                cfg.runners
+                |> Array.exists (fun r -> r.effects |> Array.exists (fun e -> e.effectName = eff))
+            then
                 rar.Add(cfg.arity)
 
         rar.ToArray()
@@ -197,55 +232,91 @@ module Writer =
         let rar = ResizeArray<_>()
 
         for eff in allEffects do
-            rar.Add((eff, findAritiesForEffect eff cfgs))
+            rar.Add((eff, findAritiesForEffect eff.effectName cfgs))
 
         rar.ToArray()
 
     let writeExtractors (cfgs: RunnerArityCfg array) (sb: IndentingStringBuilder) =
         let usages = findEffectUsage cfgs
 
-        for effectName, arity in usages do
-            writeExtractor effectName arity sb
+        for e, arity in usages do
+            writeExtractor e.effectName arity sb
 
     let rec createLayers (seed: int) acc =
         function
         | [] -> List.rev acc |> List.toArray
-        | (arity, effects) :: xs ->
+        | (arity, cfgs: RunnerCfg list) :: xs ->
             let a =
-                effects
-                |> List.mapi (fun i effects -> { name = $"Runner{arity}W{i}"; effects = effects })
+                cfgs
+                |> List.mapi (fun i cfg ->
+                    if cfg.name = "" then
+                        { cfg with name = $"Runner{arity}W{i}" }
+                    else
+                        cfg)
+
                 |> List.toArray
 
-            let tie = if a.Length = 1 && seed = 0 then 0 else 1
+            let tie =
+                //if we have more than 1 effect, we need to bump up the seed
+                if seed = 0 && a.Length > 1 then
+                    1
+                else
+                    seed
             createLayers (tie + 1) ({ runners = a; requiredTieBreakers = tie; arity = arity } :: acc) xs
 
-    let orderLayers (effects: string array list) =
+    let orderLayers (effects: RunnerCfg list) =
         effects
-        |> List.groupBy _.Length
+        |> List.groupBy _.effects.Length
         |> List.sortByDescending fst
         |> createLayers 0 []
 
-    let writeExpressionBuilder (cfgs: RunnerArityCfg array) (sb: IndentingStringBuilder) =
+    let writeRunMethods ns (cfgs: RunnerArityCfg array) (sb: IndentingStringBuilder) =
+        //run
+        if cfgs.Length > 1 then
+            writeRunMethodLayer cfgs[0] sb
+
+            for cfg in cfgs[1..] |> Array.rev do
+                let moduleName = $"Extension{cfg.arity}"
+                sb.AppendLine($"namespace {ns}")
+                sb.AppendLine($"open Orsak.Myriad.Gen.{ns}")
+                sb.AppendLine("open System.Runtime.InteropServices")
+                sb.AppendLine("")
+                sb.AppendLine("[<AutoOpen>]")
+                sb.AppendLine($"module {moduleName} =")
+                sb.IndentationLevel <- sb.IndentationLevel + 4
+                sb.AppendLine("type EffectRunnerBuilder with")
+                writeRunMethodLayer cfg sb
+                sb.IndentationLevel <- sb.IndentationLevel - 4
+        else
+            //1 or 0
+            for cfg in cfgs do
+                writeRunMethodLayer cfg sb
+
+    let writeExpressionBuilder (ns: string) (cfgs: RunnerArityCfg array) (sb: IndentingStringBuilder) =
         let allEffects =
             cfgs |> Array.collect _.runners |> Array.collect _.effects |> Array.distinct
         //create runner builder...
         sb.AppendLine("type EffectRunnerBuilder() =")
         sb.IndentationLevel <- sb.IndentationLevel + 4
         //yield
-        sb.AppendLineStart("member _.Yield(_: unit) = EffectContext()")
+        sb.AppendLine("member _.Yield(_: unit) = EffectContext()")
+
         //bonus run
-        sb.AppendLineStart("member inline _.Run(a: EffectContext<'a>) = Runner.createFrom a.A")
+        for eff in allEffects do
+            if eff.effectName <> "ILoggerFactory" then
+                sb.AppendLine(
+                    $"member inline _.Run(a: EffectContext<{eff.effectName}>) = {{ new {eff.providerName} with member _.{eff.providerPropertyName} = a.A }}"
+                )
 
         //custom operations
         for eff in allEffects do
-            sb.AppendLineStart(@"[<CustomOperation(""fromEffect"")>]")
-            sb.AppendLineStart($"member inline _.FromEffect(x: GenContext<_, _, _>, p: %s{eff}) = x.Create(p)")
-
-        //run
-        for cfg in cfgs do
-            writeRunMethods cfg sb
+            sb.AppendLine(@"[<CustomOperation(""fromEffect"")>]")
+            sb.AppendLine($"member inline _.FromEffect(x: GenContext<_, _, _>, p: %s{eff.effectName}) = x.Create(p)")
 
         sb.IndentationLevel <- sb.IndentationLevel - 4
+
+        writeRunMethods ns cfgs sb
+
 
     let writeForScope (scope: ContextWriterScope) (sb: IndentingStringBuilder) =
 
@@ -255,14 +326,27 @@ module Writer =
             sb.AppendLine($"open {op}")
 
         //write runner types
-        let x = scope.effects |> List.map (fun a -> a.effects |> Array.map _.name)
+        let x =
+            scope.effects
+            |> List.map (fun a -> {
+                name = a.nameOverride
+                effects =
+                    a.effects
+                    |> Array.map (fun a -> {
+                        providerPropertyName = a.providerPropertyName
+                        effectName = a.name
+                        providerName = a.providerName
+                        members = []
+                    })
+            })
+
         let runnerLayers = orderLayers x
 
         for layer in runnerLayers do
             for runner in layer.runners do
                 writeRunner runner sb
 
-        sb.AppendLine($"namespace {scope.ns}.Orsak.Myriad.Gen")
+        sb.AppendLine($"namespace Orsak.Myriad.Gen.{scope.ns}")
         //write opens
         for op in scope.openStatements |> List.rev do
             sb.AppendLine($"open {op}")
@@ -276,11 +360,12 @@ module Writer =
         //write Extractor active patterns
         writeExtractPatterns runnerLayers sb
 
-        writeExpressionBuilder runnerLayers sb
+        writeExpressionBuilder scope.ns runnerLayers sb
 
         sb.AppendLine($"namespace {scope.ns}")
-        sb.AppendLine($"open {scope.ns}.Orsak.Myriad.Gen")
+        sb.AppendLine($"open Orsak.Myriad.Gen.{scope.ns}")
         //instantiate runner builder
+        sb.AppendLine("[<AutoOpen>]")
         sb.AppendLine("module Runner =")
         sb.AppendLine("    let mkRunner = EffectRunnerBuilder()")
         ()
@@ -289,12 +374,18 @@ module Writer =
         sb.AppendLine($"namespace {ctx.ns}")
         sb.AppendLine("open Orsak")
 
+
         for e in ctx.effects do
+            sb.AppendLine($"type {e.effectName}Provider =")
+            sb.AppendLine($"    abstract {e.providerPropertyName}: {e.effectName}")
+            sb.AppendLine("")
+
             sb.AppendLine($"module {e.effectName.TrimStart('I')} =")
 
             for m in e.members do
                 sb.Append($"    let {m.memberName |> toCamelCase} ")
                 let parameterCount = m.argumentCount
+
                 if m.isUnit then
                     sb.Append("() ")
                 else
@@ -314,8 +405,7 @@ module Writer =
                         let p = String.Join(" ", [ for i in 1..parameterCount -> char (96 + i) |> string ])
                         $" {p}"
 
-                sb.AppendLine
-                    $"        Effect.Create(fun (er: #IProvide<{e.effectName}>) -> er.Effect.{m.memberName}{apply})"
+                sb.AppendLine $"        Effect.Create(fun (er: #{e.providerName}) -> er.{e.providerPropertyName}.{m.memberName}{apply})"
 
     //just the one
     let inline extract a b =

@@ -32,7 +32,7 @@ type Runner(fakeTimeProvider: FakeTimeProvider) =
         member _.Clock = fakeTimeProvider
 
     interface IRandomProvider with
-        member _.Random = DefaultRandom(Random(11_000))
+        member _.Effect = DefaultRandom(Random(11_000))
 
     interface Effect.IStateKeys with
         member _.Key

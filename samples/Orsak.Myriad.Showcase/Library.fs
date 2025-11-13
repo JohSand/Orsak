@@ -8,8 +8,9 @@ open System.Threading.Tasks
 type IFace =
     abstract CountBeans: int * string -> Result<int, string>
     abstract PushButton: unit -> Task<unit>
-
-[<GenRunner>]
+/////
+///
+[<GenRunner(Name = "BasicRunner")>]
 type ITest =
     inherit IProvide<IFace>
     inherit IProvide<IRandomGenerator>

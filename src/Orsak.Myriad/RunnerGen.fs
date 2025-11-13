@@ -12,12 +12,13 @@ type EffectRunnerGen() =
         member _.Generate(context: GeneratorContext) =
             let ast, _x =
                 Ast.fromFilename context.InputFilename |> Async.RunSynchronously |> Array.head
-
+            
             let sb = StringBuilder().ToIndentingBuilder()
-            match Ast.parseRunnerDefn ast with
+            match Ast.parseRunnerDefn context ast with
             | [ a ] ->
                 if a.effects.Length > 0 then
                     Writer.writeForScope a sb
 
             | _ -> ()
+
             Output.Source(sb.ToString())

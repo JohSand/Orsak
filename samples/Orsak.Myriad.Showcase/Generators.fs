@@ -4,25 +4,28 @@
 //------------------------------------------------------------------------------
 namespace Orsak.Myriad.Showcase
 open Orsak
+type IFaceProvider =
+    abstract Effect: IFace
+
 module Face =
     let countBeans a b =
-        Effect.Create(fun (er: #IProvide<IFace>) -> er.Effect.CountBeans(a, b))
-    let pushButton ()=
-        Effect.Create(fun (er: #IProvide<IFace>) -> er.Effect.PushButton ())
+        Effect.Create(fun (er: #IFaceProvider) -> er.Effect.CountBeans(a, b))
+    let pushButton () =
+        Effect.Create(fun (er: #IFaceProvider) -> er.Effect.PushButton())
 
 namespace Orsak.Myriad.Showcase
 open Orsak
 open Orsak.Myriad
 open System.Threading.Tasks
-type Runner2W0 = {
+type BasicRunner = {
     Face: IFace
     RandomGenerator: IRandomGenerator
 } with
-    interface IProvide<IFace> with
+    interface IFaceProvider with
         member this.Effect = this.Face
-    interface IProvide<IRandomGenerator> with
+    interface IRandomGeneratorProvider with
         member this.Effect = this.RandomGenerator
-namespace Orsak.Myriad.Showcase.Orsak.Myriad.Gen
+namespace Orsak.Myriad.Gen.Orsak.Myriad.Showcase
 open Orsak
 open Orsak.Myriad
 open System.Threading.Tasks
@@ -43,7 +46,8 @@ module Extractors =
         Writer.extract Unchecked.defaultof<RandomGeneratorExtractor> a
 type EffectRunnerBuilder() =
     member _.Yield(_: unit) = EffectContext()
-    member inline _.Run(a: EffectContext<'a>) = Runner.createFrom a.A
+    member inline _.Run(a: EffectContext<IFace>) = { new IFaceProvider with member _.Effect = a.A }
+    member inline _.Run(a: EffectContext<IRandomGenerator>) = { new IRandomGeneratorProvider with member _.Effect = a.A }
     [<CustomOperation("fromEffect")>]
     member inline _.FromEffect(x: GenContext<_, _, _>, p: IFace) = x.Create(p)
     [<CustomOperation("fromEffect")>]
@@ -55,7 +59,8 @@ type EffectRunnerBuilder() =
             RandomGenerator = b
         }
 namespace Orsak.Myriad.Showcase
-open Orsak.Myriad.Showcase.Orsak.Myriad.Gen
+open Orsak.Myriad.Gen.Orsak.Myriad.Showcase
+[<AutoOpen>]
 module Runner =
     let mkRunner = EffectRunnerBuilder()
 
