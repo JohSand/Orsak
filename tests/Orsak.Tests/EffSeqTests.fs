@@ -1,6 +1,7 @@
 ﻿namespace Orsak.Tests
 
 open Xunit
+open Orsak.Control
 open FSharp.Control
 open Orsak
 open System.Threading.Tasks
@@ -8,6 +9,22 @@ open System
 open System.Threading
 open System.Collections.Generic
 open Swensen.Unquote
+
+module Task =
+    let map f t = task {
+        let! a = t
+        return f a
+    }
+
+module TaskSeq =
+    let toListAsync (s: IAsyncEnumerable<'t>) = task {
+        let rar = ResizeArray<'t>()
+        use enumerator = s.GetAsyncEnumerator()
+        while! enumerator.MoveNextAsync() do
+            rar.Add(enumerator.Current)
+
+        return List.ofSeq rar
+    }
 
 [<AutoOpen>]
 module Helpers2 =
