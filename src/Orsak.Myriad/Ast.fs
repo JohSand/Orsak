@@ -6,13 +6,27 @@ open Orsak.Myriad
 open Fantomas.FCS.Syntax
 open System.Text
 
+let (|Ident|_|) (s: string) (ident: Ident) =
+    if ident.idText = s then Some() else None
+
 let toString (ident: LongIdent) =
     String.Join(".", ident |> List.map (fun i -> i.idText))
 
 let getName (SynTypeDefn(c, _, _, _, _, _)) =
     match c with
-    | SynComponentInfo({ Attributes = { TypeName = SynLongIdent(name, _, _) } :: _ } :: _, _, _, _, _, _, _, _) ->
-        toString name
+    | SynComponentInfo({ Attributes = { TypeName = SynLongIdent([ Ident "GenRunner" ], _, _) } as runnerAttr :: _ } :: _, _, _, [ ident ], _, _, _, _) ->
+        //as long as GenRunnerAttribute only has these properties, these matches will work.
+        //If we add more, we need to match better.
+        match runnerAttr.ArgExpr with
+        //UserInterfaceName = true
+        | SynExpr.Paren(SynExpr.App(_, _, _funcExpr, SynExpr.Const(SynConst.Bool true, _), _), _, _, _) ->
+            //ident is the interface name
+            ident.idText.TrimStart('I')
+        //Name = {name}
+        | SynExpr.Paren(SynExpr.App(_, _, _funcExpr, SynExpr.Const(SynConst.String(s, _, _), _), _), _, _, _) ->
+            //s is name set equal to Name.
+            s
+        | _ -> ""
     | _ -> ""
 
 let (|Provider|_|) =
@@ -21,23 +35,51 @@ let (|Provider|_|) =
         if xx.idText = "IProvide" then Some a.LongIdent else None
     | _ -> None
 
-let getInherits (SynTypeDefn(_c, typeRepr: SynTypeDefnRepr, _, _, _, _)) = [|
+let getInherits (context: GeneratorContext) (SynTypeDefn(_c, typeRepr: SynTypeDefnRepr, _, _, _, _)) = [|
     match typeRepr with
     | SynTypeDefnRepr.ObjectModel(_kind, members: SynMemberDefn list, _range) ->
         for mem in members do
             match mem with
             | SynMemberDefn.Inherit(Provider name, _, _) ->
+                let effectName = name |> List.last |> _.idText
 
-                yield { name = name |> List.last |> _.idText; fullName = toString name }
+                let providerName =
+                    if effectName = "ILoggerFactory" then
+                        "ILoggerFactory"
+                    else
+                        context.ConfigGetter effectName
+                        |> Seq.tryPick (fun (key, value) ->
+                            if key = "ProviderName" then
+                                Some(value :?> string)
+                            else
+                                None)
+                        |> Option.defaultValue $"%s{effectName}Provider"
+
+                let effectMember =
+                    context.ConfigGetter effectName
+                    |> Seq.tryPick (fun (key, value) ->
+                        if key = "ProviderPropertyName" then
+                            Some(value :?> string)
+                        else
+                            None)
+                    |> Option.defaultValue "Effect"
+
+                yield {
+                    name = effectName
+                    fullName = toString name
+                    providerName = providerName
+                    providerPropertyName = effectMember
+                }
             | _ ->
 
                 ()
     | _ -> ()
 |]
 
-let mkEffectAttributeMatches (s: SynTypeDefn) = { effects = getInherits s; typeName = getName s }
+let mkEffectAttributeMatches (context: GeneratorContext) (s: SynTypeDefn) =
+    { effects = getInherits context s; nameOverride = getName s }
 
-let rec createContextScope (decls: SynModuleDecl list) (acc: ContextWriterScope) =
+let rec createContextScope (context: GeneratorContext) (decls: SynModuleDecl list) (acc: ContextWriterScope) =
     match decls with
     | [] -> acc
     | x :: xs ->
@@ -46,25 +88,24 @@ let rec createContextScope (decls: SynModuleDecl list) (acc: ContextWriterScope)
             let attributedTypes =
                 types
                 |> List.filter Ast.hasAttribute<GenRunnerAttribute>
-                |> List.map mkEffectAttributeMatches
+                |> List.map (mkEffectAttributeMatches context)
 
-            createContextScope xs { acc with effects = attributedTypes @ acc.effects }
+            createContextScope context xs { acc with effects = attributedTypes @ acc.effects }
 
         | SynModuleDecl.Open(SynOpenDeclTarget.ModuleOrNamespace(SynLongIdent(target, _, _), _), _) ->
             let ns = toString target
 
-            createContextScope xs { acc with openStatements = ns :: acc.openStatements }
+            createContextScope context xs { acc with openStatements = ns :: acc.openStatements }
 
-        | SynModuleDecl.NestedModule(SynComponentInfo(_, _, _, _longId, _, _, _, _), _, _decls, _, _, _) ->
-            createContextScope xs acc
-        | _other -> createContextScope xs acc
+        | SynModuleDecl.NestedModule(SynComponentInfo(_, _, _, _longId, _, _, _, _), _, _decls, _, _, _) -> createContextScope context xs acc
+        | _other -> createContextScope context xs acc
 
 
-let parseRunnerDefn (ast: ParsedInput) = [
+let parseRunnerDefn (context: GeneratorContext) (ast: ParsedInput) = [
     match ast with
     | ParsedInput.ImplFile(ParsedImplFileInput(_name, _, _, _, _, modules, _, _, _)) ->
         for SynModuleOrNamespace(namespaceId, _, _, moduleDecls, _, _, _, _, _) in modules do
-            createContextScope moduleDecls { openStatements = []; effects = []; ns = toString namespaceId }
+            createContextScope context moduleDecls { openStatements = []; effects = []; ns = toString namespaceId }
     | _ -> ()
 ]
 
@@ -105,7 +146,7 @@ let parseMemberName (m: SynMemberDefn) =
     | SynMemberDefn.AbstractSlot(slotSig = (SynValSig(ident = SynIdent(id, _)))) -> id.idText
     | _ -> ""
 
-let (|EffectMemberCfg|_|) (SynTypeDefn(typeInfo: SynComponentInfo, objModel, _, _, _, _)) =
+let effectMemberCfg (context: GeneratorContext) (SynTypeDefn(typeInfo: SynComponentInfo, objModel, _, _, _, _)) =
     match objModel with
     | SynTypeDefnRepr.ObjectModel(_, members, _) ->
         let members = [
@@ -120,10 +161,37 @@ let (|EffectMemberCfg|_|) (SynTypeDefn(typeInfo: SynComponentInfo, objModel, _, 
                 | _ -> ()
         ]
 
-        Some({ effectName = parseTypeName typeInfo; members = members })
+        let effectName = parseTypeName typeInfo
+
+        let providerName =
+            context.ConfigGetter effectName
+            |> Seq.tryPick (fun (key, value) ->
+                if key = "ProviderName" then
+                    Some(value :?> string)
+                else
+                    None)
+            |> Option.defaultValue $"%s{effectName}Provider"
+
+        let effectMember =
+            context.ConfigGetter effectName
+            |> Seq.tryPick (fun (key, value) ->
+                if key = "ProviderPropertyName" then
+                    Some(value :?> string)
+                else
+                    None)
+            |> Option.defaultValue "Effect"
+
+        Some(
+            {
+                providerPropertyName = effectMember
+                effectName = effectName
+                providerName = providerName
+                members = members
+            }
+        )
     | _ -> None
 
-let rec createEffectModule (decls: SynModuleDecl list) (agg: ContextEffectScope) =
+let rec createEffectModule (context: GeneratorContext) (decls: SynModuleDecl list) (agg: ContextEffectScope) =
     match decls with
     | [] -> agg
     | x :: xs ->
@@ -132,17 +200,17 @@ let rec createEffectModule (decls: SynModuleDecl list) (agg: ContextEffectScope)
             let providerTypes =
                 types
                 |> List.filter Ast.hasAttribute<GenEffectsAttribute>
-                |> List.choose ((|EffectMemberCfg|_|))
+                |> List.choose (effectMemberCfg context)
 
-            createEffectModule xs { agg with effects = providerTypes @ agg.effects }
-        | _ -> createEffectModule xs agg
+            createEffectModule context xs { agg with effects = providerTypes @ agg.effects }
+        | _ -> createEffectModule context xs agg
 
-let parseEffects (ast: ParsedInput) : ContextEffectScope list = [
+let parseEffects (context: GeneratorContext) (ast: ParsedInput) : ContextEffectScope list = [
 
     match ast with
     | ParsedInput.ImplFile(ParsedImplFileInput(_name, _, _, _, _, modules, _, _, _)) ->
         for SynModuleOrNamespace(namespaceId, _, _, moduleDecls, _, _, _, _, _) in modules do
             { ContextEffectScope.effects = []; openStatements = []; ns = toString namespaceId }
-            |> createEffectModule moduleDecls
+            |> createEffectModule context moduleDecls
     | _ -> ()
 ]

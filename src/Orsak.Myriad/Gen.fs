@@ -150,6 +150,8 @@ open System
 [<AttributeUsage(AttributeTargets.Interface)>]
 type GenRunnerAttribute() =
     inherit Attribute()
+    member val Name = "" with get, set
+    member val UserInterfaceName = false with get, set
 
 [<AttributeUsage(AttributeTargets.Interface)>]
 type GenEffectsAttribute() =

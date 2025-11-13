@@ -29,24 +29,28 @@ module Time =
         Effect.Create(fun (provider: #ITimeProvider) -> provider.Clock.GetUtcNow())
 #endif
 
-type IRandomGenerator =
+type IRandom =
     abstract Next: (int * int) -> int
     abstract NextDouble: unit -> float
+
+type IRandomGenerator = IRandom
 
 type DefaultRandom(rand: Random) =
     interface IRandomGenerator with
         member _.Next((minValue, maxValue)) = rand.Next(minValue, maxValue)
         member _.NextDouble() = rand.NextDouble()
 
-type IRandomProvider =
-    abstract Random: IRandomGenerator
+type IRandomGeneratorProvider =
+    abstract Effect: IRandomGenerator
+
+type IRandomProvider = IRandomGeneratorProvider
 
 module Random =
     let next min max =
-        Effect.Create(fun (provider: #IRandomProvider) -> provider.Random.Next(min, max))
+        Effect.Create(fun (provider: #IRandomProvider) -> provider.Effect.Next(min, max))
 
     let nextDouble () =
-        Effect.Create(fun (provider: #IRandomProvider) -> provider.Random.NextDouble())
+        Effect.Create(fun (provider: #IRandomProvider) -> provider.Effect.NextDouble())
 
 
 type ICacheProvider =
@@ -96,6 +100,10 @@ module CancellationSource =
         Effect.Create(fun (provider: #ICancellationProvider) -> task { do! provider.Source.CancelAsync() })
 #endif
 
+open Microsoft.Extensions.Logging
+
+type ILoggerProvider =
+    abstract member Effect: ILogger
 
 module Runner =
     let createFrom<'a> a =

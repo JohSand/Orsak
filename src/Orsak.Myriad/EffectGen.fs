@@ -14,7 +14,7 @@ type EffectGen() =
 
             let sb = StringBuilder().ToIndentingBuilder()
 
-            match Ast.parseEffects _ast with
+            match Ast.parseEffects context _ast with
             | [ ctx ] ->
                 Writer.writeEffectGen ctx sb
                 ()

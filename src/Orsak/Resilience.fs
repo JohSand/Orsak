@@ -144,7 +144,7 @@ module Effect =
         mkEffect (fun provider ->
             let randomizer =
                 match box provider with
-                | :? IRandomProvider as p -> p.Random
+                | :? IRandomProvider as p -> p.Effect
                 | _ -> DefaultRandom(Random.Shared) :> IRandomGenerator
 
             let p =
