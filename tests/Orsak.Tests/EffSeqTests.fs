@@ -8,7 +8,6 @@ open System.Threading.Tasks
 open System
 open System.Threading
 open System.Collections.Generic
-open Swensen.Unquote
 
 module Task =
     let map f t = task {
@@ -20,6 +19,7 @@ module TaskSeq =
     let toListAsync (s: IAsyncEnumerable<'t>) = task {
         let rar = ResizeArray<'t>()
         use enumerator = s.GetAsyncEnumerator()
+
         while! enumerator.MoveNextAsync() do
             rar.Add(enumerator.Current)
 
@@ -77,7 +77,7 @@ module Helpers2 =
             else
                 failwith $"Got error %O{es} when expecting error %O{error}")
 
-    let evaluatesToSequenceThenFails (s) (error) (es: EffSeq<unit, 'a, string>) = task {
+    let evaluatesToSequenceThenFails s error (es: EffSeq<unit, 'a, string>) = task {
         let res = ResizeArray<_>()
 
         do!
@@ -186,7 +186,7 @@ module ``Empty Effect Sequences`` =
     [<Fact>]
     let ``should work with For-form`` () =
         effSeq {
-            for i in 1..10 do
+            for _i in 1..10 do
                 do ()
         }
         |> evaluatesToSequence []
@@ -194,7 +194,7 @@ module ``Empty Effect Sequences`` =
     [<Fact>]
     let ``should work with For-form with IAsyncEnumerable`` () =
         effSeq {
-            for i in (makeAsyncEnumerable []) do
+            for _i in (makeAsyncEnumerable []) do
                 do ()
         }
         |> evaluatesToSequence []
@@ -219,7 +219,7 @@ module ``Empty Effect Sequences`` =
     [<Fact>]
     let ``should work with For-form with EffSeq`` () =
         effSeq {
-            for i in (makeEffSeq []) do
+            for _i in (makeEffSeq []) do
                 do ()
         }
         |> evaluatesToSequence []
@@ -265,7 +265,7 @@ module ``Empty Effect Sequences`` =
     [<Fact>]
     let ``should propagate errors from effSeq`` () =
         effSeq {
-            for i in (makeEffSeqWithError []) do
+            for _i in (makeEffSeqWithError []) do
                 do ()
         }
         |> evaluatesToSequenceThenFails [] "Expected Error"
@@ -351,7 +351,7 @@ module ``Empty Effect Sequences`` =
 
         let spyEnumerator =
             { new IAsyncEnumerator<int> with
-                member this.Current = raise (System.NotImplementedException())
+                member this.Current = raise (NotImplementedException())
 
                 member this.DisposeAsync() =
                     (spy :> IAsyncDisposable).DisposeAsync()
@@ -361,7 +361,7 @@ module ``Empty Effect Sequences`` =
 
         let spyEnumerable =
             { new IAsyncEnumerable<int> with
-                member this.GetAsyncEnumerator(_) = spyEnumerator
+                member this.GetAsyncEnumerator _ = spyEnumerator
             }
 
         let dispLike = spyEnumerable.WithCancellation(CancellationToken.None)
@@ -483,7 +483,7 @@ module ``Effect Sequences With Elements`` =
             3
         }
 
-        for i = 0 to 1000 do
+        for _i = 0 to 1000 do
             do! evaluatesToSequence [ 1; 2; 3 ] s
     }
 
@@ -761,6 +761,7 @@ module ``Effect Sequences With Elements`` =
             do! Error("Expected Error")
             2
         }
+
         do! s |> evaluatesToSequenceThenFails [ 1 ] "Expected Error"
         do! s |> evaluatesToSequenceThenFails [ 1 ] "Expected Error"
     }
@@ -864,7 +865,7 @@ module ``Effect Sequences With Elements`` =
 
         let spyEnumerator =
             { new IAsyncEnumerator<int> with
-                member this.Current = raise (System.NotImplementedException())
+                member this.Current = raise (NotImplementedException())
 
                 member this.DisposeAsync() =
                     (spy :> IAsyncDisposable).DisposeAsync()
@@ -874,7 +875,7 @@ module ``Effect Sequences With Elements`` =
 
         let spyEnumerable =
             { new IAsyncEnumerable<int> with
-                member this.GetAsyncEnumerator(_) = spyEnumerator
+                member this.GetAsyncEnumerator _ = spyEnumerator
             }
 
         let dispLike = spyEnumerable.WithCancellation(CancellationToken.None)

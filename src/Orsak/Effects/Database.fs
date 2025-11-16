@@ -40,7 +40,8 @@ open System.Threading.Tasks
 
 [<AutoOpen>]
 module Builder =
-    let commitEff = Orsak.Scoped.CompletableScopeCreatingEffectBuilder<DbTransactional>()
+    let commitEff =
+        Orsak.Scoped.CompletableScopeCreatingEffectBuilder<DbTransactional>()
 
     let trxAware = Orsak.ScopeAware.ScopeAwareEffectBuilder<DbTransactional>()
 
@@ -79,34 +80,33 @@ module Progress =
         //it can now only really be called through pEff or enlistP
         Effect.Create(fun (x: IProgressScope) -> x.Progress.Report(t))
 
-    let reportWhenDone total (e: Effect<'r,_,_>) = enlistP {
+    let reportWhenDone total (e: Effect<'r, _, _>) = enlistP {
         let! result = e
         do! report total
         return result
     }
 
-    let reportWhenDone2 total (e: Effect<'r,_,_>) = eff {
+    let reportWhenDone2 total (e: Effect<'r, _, _>) = eff {
         let! a = reportWhenDone total e
         return a
     }
 
-    let whenAll (effects: Effect<'r,_,_> array) = pEff {
+    let whenAll (effects: Effect<'r, _, _> array) = pEff {
         let total = float effects.Length
-        let! result =
-            effects
-            |> Array.map(reportWhenDone total)
-            |> Effect.whenAll
+        let! result = effects |> Array.map (reportWhenDone total) |> Effect.whenAll
 
         return result
     }
 
-    let whenAllBatch size (effects: Effect<'r,_,_> array) = pEff {
+    let whenAllBatch size (effects: Effect<'r, _, _> array) = pEff {
         let total = float effects.Length
         use ss = new SemaphoreSlim(size)
+
         let! _x =
             effects
-            |> Array.map(fun e -> eff {
+            |> Array.map (fun e -> eff {
                 do! ss.WaitAsync()
+
                 try
                     return! reportWhenDone total e
                 finally
@@ -121,11 +121,11 @@ module Progress =
 type ProgressScope() =
     let mutable Calls = 0.
     //unique progress per scope.
-    let p = System.Progress<float>(fun total ->
-                Calls <- Calls + 1.
-                let pcnt = Calls / total
-                System.Console.WriteLine(pcnt)
-            )
+    let p =
+        System.Progress<float>(fun total ->
+            Calls <- Calls + 1.
+            let pcnt = Calls / total
+            System.Console.WriteLine(pcnt))
 
     interface IProgressScope with
         member this.Progress = p
@@ -147,25 +147,17 @@ type IProgressScopeProvider = ScopeProvider<IProgressScope>
 
 type Runner() =
     interface IProgressScopeProvider with
-        member this.BeginScope() = ValueTask<IProgressScope>(ProgressScope())
+        member this.BeginScope() =
+            ValueTask<IProgressScope>(ProgressScope())
 
     interface GuidProvider with
         member this.Gen = raise (System.NotImplementedException())
 
 module Test =
-    let test2() = eff {
-        return!
-            [| GuidGenerator.newGuid () |]
-            |> Progress.whenAllBatch 10
+    let test2 () = eff { return! [| GuidGenerator.newGuid () |] |> Progress.whenAllBatch 10 }
+
+    let test () = task {
+        match! test2 () |> Effect.run (Runner()) with
+        | Ok() -> ()
+        | Error(_: string) -> ()
     }
-    
-    let test() = task {
-        match!
-            test2()
-            |> id
-            |> Effect.run (Runner())
-        with
-        | Ok () -> ()
-        | Error (_ :string) -> ()
-    }
-        

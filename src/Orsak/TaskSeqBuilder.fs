@@ -57,6 +57,11 @@ and TaskSeqCode<'T> = ResumableCode<TaskSeqStateMachineData<'T>, unit>
 and TaskSeqStateMachine<'T> = ResumableStateMachine<TaskSeqStateMachineData<'T>>
 
 type TaskSeqBuilder() =
+
+    [<NoCompilerInlining>]
+    static member notImplemented() : IAsyncEnumerable<'T> =
+        raise (NotImplementedException "No dynamic implementation yet.")
+
     member inline _.Delay(f: unit -> TaskSeqCode<'T>) =
         TaskSeqCode<'T>(fun sm -> f().Invoke(&sm))
 
@@ -86,12 +91,9 @@ type TaskSeqBuilder() =
                         sm.Data.Enumerator.InProgress <- 0))
                 (SetStateMachineMethodImpl<_>(fun _ _ -> ()))
                 (AfterCode<_, _>(fun sm ->
-                    let ts = TaskSeqEnumerable<_, 'T>(InitialMachine = sm, InProgress = -1)
-
-
-                    ts :> IAsyncEnumerable<'T>))
+                    TaskSeqEnumerable<_, 'T>(InitialMachine = sm, InProgress = -1) :> IAsyncEnumerable<'T>))
         else
-            NotImplementedException "No dynamic implementation yet." |> raise
+            TaskSeqBuilder.notImplemented ()
 
 
     member inline _.Zero() : TaskSeqCode<'T> = ResumableCode.Zero()
@@ -105,10 +107,8 @@ type TaskSeqBuilder() =
             __stack_fin)
 
     member inline _.WhileAsync
-        (
-            [<InlineIfLambda>] condition: unit -> ValueTask<bool>,
-            body: TaskSeqCode<'T>
-        ) : TaskSeqCode<'T> =
+        ([<InlineIfLambda>] condition: unit -> ValueTask<bool>, body: TaskSeqCode<'T>)
+        : TaskSeqCode<'T> =
         let mutable condition_res = true
 
         ResumableCode.While(
@@ -190,10 +190,8 @@ module LowPrioritySeq =
             and ^Awaiter :> ICriticalNotifyCompletion
             and ^Awaiter: (member get_IsCompleted: unit -> bool)
             and ^Awaiter: (member GetResult: unit -> 'T)>
-            (
-                task: ^TaskLike,
-                [<InlineIfLambda>] continuation: 'T -> TaskSeqCode<'U>
-            ) =
+            (task: ^TaskLike, [<InlineIfLambda>] continuation: 'T -> TaskSeqCode<'U>)
+            =
 
             TaskSeqCode<'U>(fun sm ->
                 let mutable awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) task)
@@ -219,10 +217,8 @@ module LowPrioritySeq =
             and ^Awaiter :> ICriticalNotifyCompletion
             and ^Awaiter: (member get_IsCompleted: unit -> bool)
             and ^Awaiter: (member GetResult: unit -> unit)>
-            (
-                body: TaskSeqCode<'T>,
-                [<InlineIfLambda>] compensationAction: unit -> ^TaskLike
-            ) =
+            (body: TaskSeqCode<'T>, [<InlineIfLambda>] compensationAction: unit -> ^TaskLike)
+            =
             ResumableCode.TryFinallyAsync(
                 TaskSeqCode<'T>(fun sm -> body.Invoke(&sm)),
                 TaskSeqCode<'T>(fun sm ->
@@ -254,10 +250,8 @@ module LowPrioritySeq =
             and ^Awaiter :> ICriticalNotifyCompletion
             and ^Awaiter: (member get_IsCompleted: unit -> bool)
             and ^Awaiter: (member GetResult: unit -> unit)>
-            (
-                disp: ^DisposableLike,
-                [<InlineIfLambda>] body: ^DisposableLike -> TaskSeqCode<'T>
-            ) : TaskSeqCode<'T> =
+            (disp: ^DisposableLike, [<InlineIfLambda>] body: ^DisposableLike -> TaskSeqCode<'T>)
+            : TaskSeqCode<'T> =
             this.TryFinallyAsync2(
                 (fun sm -> (body disp).Invoke(&sm)),
                 (fun () ->
@@ -309,13 +303,11 @@ module MediumPriority =
         member inline this.YieldFrom(source: seq<'T>) : TaskSeqCode<'T> = this.For(source, this.Yield)
 
         member inline this.For(source: #IAsyncEnumerable<'TElement>, body: 'TElement -> TaskSeqCode<'T>) =
-            TaskSeqCode<'T>(fun sm ->
-                this
-                    .Using(
-                        source.GetAsyncEnumerator(),
-                        fun e -> this.WhileAsync(e.MoveNextAsync, (fun sm -> (body e.Current).Invoke(&sm)))
-                    )
-                    .Invoke(&sm))
+            this.Using(
+                source.GetAsyncEnumerator(),
+                fun e -> this.WhileAsync(e.MoveNextAsync, (fun sm -> (body e.Current).Invoke(&sm)))
+            )
+
 
         member inline this.YieldFrom(source: IAsyncEnumerable<'T>) =
             this.For(source, (fun v -> this.Yield(v)))

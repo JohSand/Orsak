@@ -14,6 +14,7 @@
 namespace FSharp.Control
 
 open System
+open System.Collections.Generic
 open System.Runtime.CompilerServices
 open System.Threading.Tasks
 open Microsoft.FSharp.Core
@@ -62,36 +63,28 @@ type ValueTaskBuilder() =
     /// Note that this requires that the first step has no result.
     /// This prevents constructs like `task { return 1; return 2; }`.
     member inline _.Combine
-        (
-            task1: ValueTaskCode<'TOverall, unit>,
-            task2: ValueTaskCode<'TOverall, 'T>
-        ) : ValueTaskCode<'TOverall, 'T> =
+        (task1: ValueTaskCode<'TOverall, unit>, task2: ValueTaskCode<'TOverall, 'T>)
+        : ValueTaskCode<'TOverall, 'T> =
         ResumableCode.Combine(task1, task2)
 
     /// Builds a step that executes the body while the condition predicate is true.
     member inline _.While
-        (
-            [<InlineIfLambda>] condition: unit -> bool,
-            body: ValueTaskCode<'TOverall, unit>
-        ) : ValueTaskCode<'TOverall, unit> =
+        ([<InlineIfLambda>] condition: unit -> bool, body: ValueTaskCode<'TOverall, unit>)
+        : ValueTaskCode<'TOverall, unit> =
         ResumableCode.While(condition, body)
 
     /// Wraps a step in a try/with. This catches exceptions both in the evaluation of the function
     /// to retrieve the step, and in the continuation of the step (if any).
     member inline _.TryWith
-        (
-            body: ValueTaskCode<'TOverall, 'T>,
-            catch: exn -> ValueTaskCode<'TOverall, 'T>
-        ) : ValueTaskCode<'TOverall, 'T> =
+        (body: ValueTaskCode<'TOverall, 'T>, catch: exn -> ValueTaskCode<'TOverall, 'T>)
+        : ValueTaskCode<'TOverall, 'T> =
         ResumableCode.TryWith(body, catch)
 
     /// Wraps a step in a try/finally. This catches exceptions both in the evaluation of the function
     /// to retrieve the step, and in the continuation of the step (if any).
     member inline _.TryFinally
-        (
-            body: ValueTaskCode<'TOverall, 'T>,
-            [<InlineIfLambda>] compensation: unit -> unit
-        ) : ValueTaskCode<'TOverall, 'T> =
+        (body: ValueTaskCode<'TOverall, 'T>, [<InlineIfLambda>] compensation: unit -> unit)
+        : ValueTaskCode<'TOverall, 'T> =
         ResumableCode.TryFinally(
             body,
             ResumableCode<_, _>(fun _sm ->
@@ -100,17 +93,13 @@ type ValueTaskBuilder() =
         )
 
     member inline _.For
-        (
-            sequence: seq<'T>,
-            body: 'T -> ValueTaskCode<'TOverall, unit>
-        ) : ValueTaskCode<'TOverall, unit> =
+        (sequence: seq<'T>, body: 'T -> ValueTaskCode<'TOverall, unit>)
+        : ValueTaskCode<'TOverall, unit> =
         ResumableCode.For(sequence, body)
 
     member inline internal this.TryFinallyAsync
-        (
-            body: ValueTaskCode<'TOverall, 'T>,
-            compensation: unit -> ValueTask
-        ) : ValueTaskCode<'TOverall, 'T> =
+        (body: ValueTaskCode<'TOverall, 'T>, compensation: unit -> ValueTask)
+        : ValueTaskCode<'TOverall, 'T> =
         ResumableCode.TryFinallyAsync(
             body,
             ResumableCode<_, _>(fun sm ->
@@ -146,10 +135,8 @@ type ValueTaskBuilder() =
         )
 
     member inline this.Using<'Resource, 'TOverall, 'T when 'Resource :> IAsyncDisposable>
-        (
-            resource: 'Resource,
-            body: 'Resource -> ValueTaskCode<'TOverall, 'T>
-        ) : ValueTaskCode<'TOverall, 'T> =
+        (resource: 'Resource, body: 'Resource -> ValueTaskCode<'TOverall, 'T>)
+        : ValueTaskCode<'TOverall, 'T> =
         this.TryFinallyAsync(
             (fun sm -> (body resource).Invoke(&sm)),
             (fun () ->
@@ -351,10 +338,8 @@ module LowPriority =
             )
 
         member inline this.For
-            (
-                sequence: System.Collections.Generic.IAsyncEnumerable<'T>,
-                body: 'T -> ValueTaskCode<'TOverall, unit>
-            ) : ValueTaskCode<'TOverall, unit> =
+            (sequence: IAsyncEnumerable<'T>, body: 'T -> ValueTaskCode<'TOverall, unit>)
+            : ValueTaskCode<'TOverall, unit> =
             this.Delay(fun () ->
                 this.Using(
                     sequence.GetAsyncEnumerator(),
@@ -393,10 +378,8 @@ module LowPriority =
             this.Bind(task, this.Return)
 
         member inline _.Using<'Resource, 'TOverall, 'T when 'Resource :> IDisposable>
-            (
-                resource: 'Resource,
-                body: 'Resource -> ValueTaskCode<'TOverall, 'T>
-            ) =
+            (resource: 'Resource, body: 'Resource -> ValueTaskCode<'TOverall, 'T>)
+            =
             ResumableCode.Using(resource, body)
 
 /// <exclude/>
@@ -470,10 +453,8 @@ module MediumPriority =
     type ValueTaskBuilder with
 
         member inline this.While
-            (
-                [<InlineIfLambda>] condition: unit -> Task<bool>,
-                body: ValueTaskCode<'TOverall, unit>
-            ) : ValueTaskCode<'TOverall, unit> =
+            ([<InlineIfLambda>] condition: unit -> Task<bool>, body: ValueTaskCode<'TOverall, unit>)
+            : ValueTaskCode<'TOverall, unit> =
             this.Delay(fun () ->
                 let mutable cont = false
 

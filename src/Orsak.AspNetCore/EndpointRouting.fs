@@ -17,8 +17,8 @@ open FSharp.Core.Operators.NonStructuralComparison
 
 type HandlingMethod = HandlingMethod of MethodInfo
 
-type Endpoint =
-    | Endpoint of
+type EffectEndpoint =
+    | EffectEndpoint of
         {|
             verb: string
             path: string
@@ -27,19 +27,22 @@ type Endpoint =
         |}
 
     member inline this.AddConvention([<InlineIfLambda>] f: IEndpointConventionBuilder -> IEndpointConventionBuilder) =
-        let (Endpoint this) = this in Endpoint {| this with conventions = fun b -> f (this.conventions b) |}
+        let (EffectEndpoint this) = this in EffectEndpoint {| this with conventions = fun b -> f (this.conventions b) |}
 
     member this.RequiresAuthorization() =
         this.AddConvention(fun a -> a.RequireAuthorization())
 
-    member this.AllowAnonymous() = this.AddConvention(fun a -> a.AllowAnonymous())
+    member this.AllowAnonymous() =
+        this.AddConvention(fun a -> a.AllowAnonymous())
 
-    member this.RequireCors(name: string) = this.AddConvention(fun a -> a.RequireCors(name))
+    member this.RequireCors(name: string) =
+        this.AddConvention(fun a -> a.RequireCors(name))
 
     member this.RequireCors(builder: Action<_>) =
         this.AddConvention(fun a -> a.RequireCors(builder))
 
-    member this.WithName(name) = this.AddConvention(fun a -> a.WithName(name))
+    member this.WithName(name) =
+        this.AddConvention(fun a -> a.WithName(name))
 
     member this.WithMetadata([<ParamArray>] items) =
         this.AddConvention(fun a -> a.WithMetadata(items))
@@ -54,9 +57,7 @@ type Endpoint =
         this.AddConvention(fun a -> a.WithGroupName(name))
 
     member this.Add(f) =
-        this.AddConvention(fun b ->
-            b.Add(f)
-            b)
+        this.AddConvention(fun b -> let () = b.Add(f) in b)
 
 module Helpers =
     let getConstraint name (ep: RouteEndpoint) =
@@ -102,10 +103,7 @@ module Helpers =
             if paramIndex = -1 then
                 sb.Append(chars).ToString()
             elif chars[paramIndex + 1] = '%' then
-                sb
-                    .Append(chars.Slice(0, paramIndex))
-                    .Append('%')
-                    .AppendPath(chars.Slice(paramIndex + 2), names)
+                sb.Append(chars.Slice(0, paramIndex)).Append('%').AppendPath(chars.Slice(paramIndex + 2), names)
             else
                 sb
                     .Append(chars.Slice(0, paramIndex))
@@ -162,9 +160,7 @@ module Helpers =
             |> Array.mapi (fun i pinfo ->
                 Expression.Convert(Expression.ArrayIndex(args, Expression.Constant(i)), pinfo.ParameterType))
 
-        Expression
-            .Lambda(typeof<Func<obj array, 'T>>, Expression.New(ctorInfo, ctorArgs), args)
-            .CompileFast()
+        Expression.Lambda(typeof<Func<obj array, 'T>>, Expression.New(ctorInfo, ctorArgs), args).CompileFast()
         :?> Func<obj array, 'T>
 
     let inline createEndpointDelegate (eff: 'T -> 'A) (names: string[]) this =
@@ -202,40 +198,39 @@ open Helpers
 [<Extension>]
 type EffectRunnerExtensions =
     [<EditorBrowsable(EditorBrowsableState.Never)>]
-    static member inline CreateEndpoint< 'H, 'Eff, 'Printer, 'T when ('Eff or 'H): (static member ( *>> ): 'Eff * 'H -> RequestDelegate)>
-        (
-            this: 'H,
-            path: PrintfFormat<'Printer, unit, unit, 'Eff,'T>,
-            verb: string,
-            handler: (Expr<'T -> 'Eff>)
-        ) =
+    static member inline CreateEndpoint<'H, 'Eff, 'Printer, 'T
+        when ('Eff or 'H): (static member ( *>> ): 'Eff * 'H -> RequestDelegate)>
+        (this: 'H, path: PrintfFormat<'Printer, unit, unit, 'Eff, 'T>, verb: string, handler: Expr<'T -> 'Eff>)
+        =
         match handler with
         | WithValue(:? ('T -> 'Eff) as eff, _type, expr) ->
             if typeof<'T> = typeof<unit> then
-                Endpoint {|
-                    verb = verb
-                    path = path.ToString().Replace("%%", "%")
-                    requestDelegate = eff (Unchecked.defaultof<'T>) *>> this
-                    conventions = id
-                |}
+                EffectEndpoint
+                    {|
+                        verb = verb
+                        path = path.ToString().Replace("%%", "%")
+                        requestDelegate = eff Unchecked.defaultof<'T> *>> this
+                        conventions = id
+                    |}
             else
                 let names = getNames expr
 
-                Endpoint {|
-                    verb = verb
-                    path = StringBuilder().AppendPath(path.Value, names)
-                    requestDelegate = createEndpointDelegate eff names this
-                    conventions = id
-                |}
+                EffectEndpoint
+                    {|
+                        verb = verb
+                        path = StringBuilder().AppendPath(path.Value, names)
+                        requestDelegate = createEndpointDelegate eff names this
+                        conventions = id
+                    |}
             |> fun x -> x.WithMetadata(HandlingMethod(getMethodInfo expr))
 
         | _ ->
-            Throwhelpers.argumentException "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
-            Unchecked.defaultof<_>
+            Throwhelpers.argumentException
+                "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
 
     [<Extension>]
     static member inline RouteGet(this: 'H, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
-        EffectRunnerExtensions.CreateEndpoint< 'H, 'Eff, 'Printer, 'T >(this, path, HttpMethods.Get, routeHandler)
+        EffectRunnerExtensions.CreateEndpoint<'H, 'Eff, 'Printer, 'T>(this, path, HttpMethods.Get, routeHandler)
 
     [<Extension>]
     static member inline RoutePost(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
@@ -270,8 +265,8 @@ type EffectRunnerExtensions =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Options, routeHandler)
 
     [<Extension>]
-    static member inline MapEffectEndpoints(builder: IEndpointRouteBuilder, endpoints: Endpoint list) =
+    static member inline MapEffectEndpoints(builder: IEndpointRouteBuilder, endpoints: EffectEndpoint list) =
         endpoints
-        |> List.iter (fun (Endpoint e) ->
+        |> List.iter (fun (EffectEndpoint e) ->
             let convBuilder = builder.MapMethods(e.path, [| e.verb |], e.requestDelegate)
             e.conventions convBuilder |> ignore)

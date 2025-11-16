@@ -19,7 +19,6 @@
         <None Include="TestDataVerified\*.fsx"/>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="OverloadTests.fs"/>
         <Compile Include="RepeatAttribute.fs"/>
         <Compile Include="ResilienceTests.fs"/>
         <Compile Include="RetryTests.fs" Condition="'$(TargetFramework)' != 'NET6.0'"/>
@@ -43,6 +42,7 @@
         <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="6.0.3"/>
+        <PackageReference Update="FSharp.Core" Version="10.0.100" />
     </ItemGroup>
     <ItemGroup Condition="'$(TargetFramework)' != 'NET6.0'">
         <PackageReference Include="xunit.v3" Version="2.0.2"/>

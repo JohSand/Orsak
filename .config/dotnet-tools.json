@@ -6,31 +6,36 @@
       "version": "3.1.1",
       "commands": [
         "sourcelink"
-      ]
+      ],
+      "rollForward": false
     },
     "dotnet-reportgenerator-globaltool": {
       "version": "4.8.13",
       "commands": [
         "reportgenerator"
-      ]
+      ],
+      "rollForward": false
     },
     "fsdocs-tool": {
       "version": "17.2.3",
       "commands": [
         "fsdocs"
-      ]
+      ],
+      "rollForward": false
     },
     "fantomas": {
-      "version": "6.2.3",
+      "version": "7.0.3",
       "commands": [
         "fantomas"
-      ]
+      ],
+      "rollForward": false
     },
     "gitversion.tool": {
       "version": "5.10.3",
       "commands": [
         "dotnet-gitversion"
-      ]
+      ],
+      "rollForward": false
     }
   }
 }

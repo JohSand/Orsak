@@ -45,13 +45,25 @@ let ``CE taskSeq: use 'do!' with all kinds of overloads at once`` () =
         do! ValueTask <| task { do value <- value + 1 }
         do! ValueTask(task { do value <- value + 1 })
         do! ValueTask<_>(()) // unit ValueTask that completes immediately
-        do! Task.FromResult (()) // unit Task that completes immediately
+        do! Task.FromResult() // unit Task that completes immediately
         do! Task.Delay 0
         do! Async.Sleep 0
         do! async { value <- value + 1 } // eq 4
     }
     |> verifyEmpty
     |> Task.map (fun _ -> Assert.Equal(4, value))
+
+
+[<Theory>]
+[<InlineData(1)>]
+[<InlineData(10)>]
+[<InlineData(100)>]
+let ``should work with For-form with Seq`` (size: int) =
+    taskSeq {
+        for i in [ 1..size ] do
+            i
+    }
+    |> evaluatesToSequence [ 1..size ]
 
 [<Theory>]
 [<InlineData(1)>]

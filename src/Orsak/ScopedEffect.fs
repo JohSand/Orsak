@@ -77,7 +77,7 @@ module Extension =
                         sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
                         false
                 else
-                    EffBuilder.BindDynamic(&sm, task, continuation))                    
+                    EffBuilder.BindDynamic(&sm, task, continuation))
 
 type Scoped = IAsyncDisposable
 
@@ -85,7 +85,7 @@ type ScopeProvider<'Scope when 'Scope :> Scoped> =
     abstract member BeginScope: unit -> ValueTask<'Scope>
 
 ///A computation expression that knows how to start a scope local to the effect, and bind effects in that scope
-[<ExperimentalAttribute("")>]
+[<Experimental("")>]
 type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
     inherit ScopedEffectBuilder()
 
@@ -146,7 +146,7 @@ type CompletableScope =
 type CompletableScopeProvider<'Scope when 'Scope :> CompletableScope> = ScopeProvider<'Scope>
 
 ///A computation expression that knows how to start a completable scope local to the effect, and bind effects in that scope
-[<ExperimentalAttribute("")>]
+[<Experimental("")>]
 type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScope>() =
     inherit ScopedEffectBuilder()
 
@@ -243,7 +243,7 @@ open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 /// Typically would be run by binding them in a scoped effect. Not expected to be run by themselves, since the
 /// Effect.run must run it with an already started scope, and the scopes would generally be started implicitly.
 /// </summary>
-[<ExperimentalAttribute("")>]
+[<Experimental("")>]
 type ScopeAwareEffectBuilder<'Scope>() =
     inherit ScopedEffectBuilder()
 
