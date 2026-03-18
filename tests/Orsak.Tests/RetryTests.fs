@@ -1,6 +1,7 @@
 ﻿namespace Orsak.Tests
 
 open System
+open System.Linq
 open System.Threading
 open System.Threading.Tasks
 
@@ -13,6 +14,8 @@ open Microsoft.Extensions.Time.Testing
 open Xunit
 open Swensen.Unquote
 
+type DelayKey = Orsak.Resilience.Effect.DelayKey
+
 type DelayInspectingFakeTimeProvider() =
     inherit FakeTimeProvider()
     member val TotalObservedRequestedDelays = 0. with get, set
@@ -22,8 +25,8 @@ type DelayInspectingFakeTimeProvider() =
         base.CreateTimer(callback, state, dueTime, period)
 
 type Runner(fakeTimeProvider: FakeTimeProvider) =
-    let mutable key = Unchecked.defaultof<Guid>
-    member _.Key = key
+    let mutable key = Unchecked.defaultof<DelayKey>
+    member internal _.Key = key
 
     interface Dummy with
         member _.ok() = task { return Ok() }
@@ -85,6 +88,21 @@ type DelayTests() =
 
         TimeSpan(days = 0, hours = 0, minutes = 30, seconds = 35, milliseconds = 902)
         =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
+
+        return ()
+    }
+
+    [<Fact>]
+    let ``Delay is cleaned up once the effect is gone`` () = task {
+        do! ``add delay_ properly adds delay on false`` ()
+        //
+
+
+        while (cache.Count() > 0) do
+            GC.Collect()
+            GC.WaitForPendingFinalizers()
+            GC.WaitForFullGCComplete() |> ignore
+            GC.Collect()
 
         return ()
     }

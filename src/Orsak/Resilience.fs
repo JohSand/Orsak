@@ -1,5 +1,6 @@
 ﻿namespace Orsak.Resilience
 open System
+open System.Runtime.CompilerServices
 open System.Threading.Tasks
 open FSharp.Control
 open Orsak
@@ -123,24 +124,24 @@ type EffectDelayState
 type s = FSharp.Data.UnitSystems.SI.UnitSymbols.s
 
 module Effect =
-    open System.Collections.Concurrent
-
-    let internal cache = ConcurrentDictionary<Guid, EffectDelayState>()
+    type internal DelayKey() = class end
+    let internal cache = ConditionalWeakTable<DelayKey, EffectDelayState>()
 
     type internal IStateKeys =
-        abstract member Key: Guid with get, set
+        abstract member Key: DelayKey with get, set
 
-    let internal getOrCreate (key: Guid) (f: Guid -> Effect<_, EffectDelayState, 'Err>) = eff {
+    let internal getOrCreate (key: DelayKey) (f: DelayKey -> Effect<_, EffectDelayState, 'Err>) = eff {
         let mutable result = Unchecked.defaultof<EffectDelayState>
 
         if (not (cache.TryGetValue(key, &result))) then
             let! result' = f key
-            result <- cache.GetOrAdd(key, result')
+            cache.AddOrUpdate(key, result')
+            result <- result'
 
         return result
     }
 
-    let internal createDelayState (baseDelay: TimeSpan) maxDelay (key: Guid) =
+    let internal createDelayState (baseDelay: TimeSpan) maxDelay (key: DelayKey) =
         mkEffect (fun provider ->
             let randomizer =
                 match box provider with
@@ -170,7 +171,7 @@ module Effect =
     /// <param name="baseDelay"></param>
     /// <param name="effect"></param>
     let addDelay (baseDelay: float<s>) (effect: Effect<_, bool, _>) =
-        let key = Guid.NewGuid()
+        let key = DelayKey()
 
         eff {
             let! state = getOrCreate key (createDelayState (TimeSpan.FromSeconds(float baseDelay)) (Nullable<_>()))
@@ -193,7 +194,7 @@ module Effect =
     /// <param name="baseDelay"></param>
     /// <param name="effect"></param>
     let addDelay_ (baseDelay: float<s>) (effect: Effect<_, bool, _>) =
-        let key = Guid.NewGuid()
+        let key = DelayKey()
 
         eff {
             let! state = getOrCreate key (createDelayState (TimeSpan.FromSeconds(float baseDelay)) (Nullable<_>()))
@@ -212,7 +213,7 @@ module Effect =
     /// <param name="maxDelay"></param>
     /// <param name="effect"></param>
     let addDelayWithMax (baseDelay: float<s>) (maxDelay: float<s>) (effect: Effect<_, bool, _>) =
-        let key = Guid.NewGuid()
+        let key = DelayKey()
 
         eff {
             let! state =
@@ -241,7 +242,7 @@ module Effect =
     /// <param name="maxDelay"></param>
     /// <param name="effect"></param>
     let addDelayWithMax_ (baseDelay: float<s>) (maxDelay: float<s>) (effect: Effect<_, bool, _>) =
-        let key = Guid.NewGuid()
+        let key = DelayKey()
 
         eff {
             let! state =
@@ -264,7 +265,7 @@ module Effect =
     /// <param name="baseDelay"></param>
     /// <param name="effect"></param>
     let addDelayOnError (baseDelay: float<s>) (effect: Effect<_, 'a, 'e>) =
-        let key = Guid.NewGuid()
+        let key = DelayKey()
 
         eff {
             let! state = getOrCreate key (createDelayState (TimeSpan.FromSeconds(float baseDelay)) (Nullable<_>()))
@@ -287,7 +288,7 @@ module Effect =
     /// <param name="maxDelay"></param>
     /// <param name="effect"></param>
     let addDelayOnErrorWithMax (baseDelay: float<s>) (maxDelay: float<s>) (effect: Effect<_, 'a, 'e>) =
-        let key = Guid.NewGuid()
+        let key = DelayKey()
 
         eff {
             let! state =

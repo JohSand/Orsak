@@ -1549,7 +1549,7 @@ type EffBuilderBase() =
     static member inline HandleResultsBind(sm : byref<ResumableStateMachine<EffectStateMachineData<_,_,_>>>, result1, result2, result3, result4, result5, result6, result7, f: 'TResult1 * 'TResult2 * 'TResult3 * 'TResult4 * 'TResult5 * 'TResult6 * 'TResult7 -> EffectCode<_,_,_,_>) =
         match result1, result2, result3, result4, result5, result6, result7 with
         | Ok result, Ok result2, Ok result3, Ok result4, Ok result5, Ok result6, Ok result7 ->
-            (f (result, result2, result3, result4, result5, result6, result7)).Invoke(&sm)            
+            (f (result, result2, result3, result4, result5, result6, result7)).Invoke(&sm)
         | Error error, _, _, _, _, _, _ ->
             sm.Data.Result <-
                 Error(error.Merge(result2).Merge(result3).Merge(result4).Merge(result5).Merge(result6).Merge(result7))
@@ -2932,7 +2932,7 @@ type EffBuilderBase() =
                                                 awaiter6.GetResult(),
                                                 awaiter7.GetResult(),
                                                 f
-                                            )                                            
+                                            )
                                         else
                                             sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter7, &sm)
                                             false
@@ -3207,7 +3207,7 @@ module LowPriority =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
                 EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
                     let task = f sm.Data.Environment.Effect
-  
+
                     let mutable awaiter = task.GetAwaiter()
 
                     let mutable __stack_fin = true
@@ -3234,7 +3234,7 @@ module LowPriority =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
                 EffectCode<'Env, 'TOverall, _, 'Err>(fun sm ->
                     let task = f sm.Data.Environment.Effect
-  
+
                     let mutable awaiter = task.GetAwaiter()
 
                     let mutable __stack_fin = true
@@ -3741,7 +3741,7 @@ type Effect<'R, 'T, 'E> with
 
     (* applicative *)
     ///Implements Apply on the effect, making it an applicative
-    static member inline (<*>)(f: Effect<'r, 'b -> 'a, 'e>, e: Effect<'r, 'b, 'e>) =
+    static member inline (<*>)(f: Effect<'r, 'b -> 'a, _>, e: Effect<'r, 'b, _>) =
         eff {
             let! fn = f
             and! a = e
