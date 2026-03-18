@@ -14,7 +14,7 @@ open Microsoft.Extensions.Time.Testing
 open Xunit
 open Swensen.Unquote
 
-type DelayKey = Orsak.Resilience.Effect.DelayKey
+type internal DelayKey = Orsak.Resilience.Effect.DelayKey
 
 type DelayInspectingFakeTimeProvider() =
     inherit FakeTimeProvider()
