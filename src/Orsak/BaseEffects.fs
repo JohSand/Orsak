@@ -104,9 +104,3 @@ open Microsoft.Extensions.Logging
 
 type ILoggerProvider =
     abstract member Effect: ILogger
-
-module Runner =
-    let createFrom<'a> a =
-        { new IProvide<'a> with
-            member _.Effect = a
-        }

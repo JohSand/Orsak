@@ -1,6 +1,6 @@
-﻿#r "../bin/Debug/net9.0/Orsak.dll" 
-#r "../bin/Debug/net9.0/Orsak.Myriad.dll" 
-#r "../bin/Debug/net9.0/Microsoft.Extensions.Logging.Abstractions.dll" 
+﻿#r "../bin/Debug/net10.0/Orsak.dll"
+#r "../bin/Debug/net10.0/Orsak.Myriad.dll"
+#r "../bin/Debug/net10.0/Microsoft.Extensions.Logging.Abstractions.dll"
 namespace Tmp
 open System
 open Orsak
