@@ -9,6 +9,7 @@ open System.Reflection
 open System.IO
 open VerifyTests
 open VerifyXunit
+open Microsoft.Extensions.Logging
 
 type AssemblyHook() =
     class
@@ -31,7 +32,7 @@ module Ast =
                 fun s ->
                     match s with
                     | "TimeProvider" -> [ "ProviderName", box "ITimeProvider"; "ProviderPropertyName", "Clock" ]
-                    | "CancellationTokenSource" -> [ "ProviderName", box "ICancellationProvider" ]
+                    | "CancellationTokenSource" -> [ "ProviderName", box "ICancellationProvider"; "ProviderPropertyName", "Source"  ]
                     | "IGuidGenerator" -> [ "ProviderName", box "IGuidGenProvider"; "ProviderPropertyName", "GuidGenerator" ]
                     | _ -> [
 
@@ -62,6 +63,8 @@ module MyriadTests =
     [<InlineData(5)>]
     let ``RunnerGen creates the expected output`` (i: int) = task {
         let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
+        let logger = Unchecked.defaultof<ILogger>
+        ignore logger
 
         use resource =
             assm.GetManifestResourceStream($"Orsak.Tests.TestData.Effects.Myriad.%02i{i}.fsx")
@@ -74,9 +77,9 @@ module MyriadTests =
             System.String.Join(
                 System.Environment.NewLine,
                 value = [|
-                    """#r "../bin/Debug/net9.0/Orsak.dll" """
-                    """#r "../bin/Debug/net9.0/Orsak.Myriad.dll" """
-                    """#r "../bin/Debug/net9.0/Microsoft.Extensions.Logging.Abstractions.dll" """
+                    "#r \"../bin/Debug/net10.0/Orsak.dll\""
+                    "#r \"../bin/Debug/net10.0/Orsak.Myriad.dll\""
+                    "#r \"../bin/Debug/net10.0/Microsoft.Extensions.Logging.Abstractions.dll\""
                     result
                 |]
             )

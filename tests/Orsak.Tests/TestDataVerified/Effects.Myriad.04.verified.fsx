@@ -1,6 +1,6 @@
-﻿#r "../bin/Debug/net9.0/Orsak.dll" 
-#r "../bin/Debug/net9.0/Orsak.Myriad.dll" 
-#r "../bin/Debug/net9.0/Microsoft.Extensions.Logging.Abstractions.dll" 
+﻿#r "../bin/Debug/net10.0/Orsak.dll"
+#r "../bin/Debug/net10.0/Orsak.Myriad.dll"
+#r "../bin/Debug/net10.0/Microsoft.Extensions.Logging.Abstractions.dll"
 namespace Tmp
 open System
 open System.Threading
@@ -16,7 +16,7 @@ type Runner3 = {
     interface IRandomProvider with
         member this.Effect = this.Random
     interface ICancellationProvider with
-        member this.Effect = this.CancellationTokenSource
+        member this.Source = this.CancellationTokenSource
 type Runner2 = {
     GuidGenerator: IGuidGenerator
     CancellationTokenSource: CancellationTokenSource
@@ -24,7 +24,7 @@ type Runner2 = {
     interface IGuidGenProvider with
         member this.GuidGenerator = this.GuidGenerator
     interface ICancellationProvider with
-        member this.Effect = this.CancellationTokenSource
+        member this.Source = this.CancellationTokenSource
 type Runner1 = {
     GuidGenerator: IGuidGenerator
     TimeProvider: TimeProvider
@@ -74,7 +74,7 @@ type EffectRunnerBuilder() =
     member _.Yield(_: unit) = EffectContext()
     member inline _.Run(a: EffectContext<IGuidGenerator>) = { new IGuidGenProvider with member _.GuidGenerator = a.A }
     member inline _.Run(a: EffectContext<IRandom>) = { new IRandomProvider with member _.Effect = a.A }
-    member inline _.Run(a: EffectContext<CancellationTokenSource>) = { new ICancellationProvider with member _.Effect = a.A }
+    member inline _.Run(a: EffectContext<CancellationTokenSource>) = { new ICancellationProvider with member _.Source = a.A }
     member inline _.Run(a: EffectContext<TimeProvider>) = { new ITimeProvider with member _.Clock = a.A }
     [<CustomOperation("fromEffect")>]
     member inline _.FromEffect(x: GenContext<_, _, _>, p: IGuidGenerator) = x.Create(p)

@@ -5,6 +5,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<Compile Include="Marker.fs" />
 		<Compile Include="ValueTaskBuilder.fs" />
 		<Compile Include="EffectBuilder.fs" />
 		<Compile Include="EffSeqBuilder.fs" />
