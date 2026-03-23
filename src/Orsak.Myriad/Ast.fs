@@ -132,6 +132,8 @@ let parseInParamCount (m: SynMemberDefn) =
             | SynType.Fun(_argType, (SynType.Fun _ as t), _range, _) -> countArguments t (acc + 1)
             | SynType.Fun(argType, _, _range, _) -> countArguments argType acc
             | SynType.LongIdent(SynLongIdent _) -> 1 + acc
+            | SynType.Var(_) -> 1 + acc
+            | SynType.SignatureParameter(_) -> 1 + acc
             | SynType.Paren(innerType = inner) -> countArguments inner acc
             | SynType.Tuple(_, types, _) -> types.Length / 2 + 1 + acc
             //| SynType.Var _ -> acc

@@ -22,12 +22,6 @@
         <Compile Include="ScopedTests.fs"/>
         <Compile Include="MyriadTests.fs"/>
     </ItemGroup>
-    <ItemGroup>
-    </ItemGroup>
-    <PropertyGroup>
-        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
-        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-    </PropertyGroup>
     <ItemGroup Condition="'$(TargetFramework)' == 'NET6.0'">
         <PackageReference Include="xunit" Version="2.9.3"/>
         <PackageReference Include="Verify.Xunit" Version="31.0.1"/>
@@ -37,6 +31,7 @@
     </ItemGroup>
     <ItemGroup Condition="'$(TargetFramework)' != 'NET6.0'">
         <PackageReference Include="xunit.v3" Version="2.0.2"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
         <PackageReference Include="Verify.XunitV3" Version="30.0.0"/>
         <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3"/>
@@ -51,7 +46,6 @@
         <PackageReference Include="Unquote" Version="7.0.1"/>
         <PackageReference Include="Myriad.Core" Version="0.8.3"/>
     </ItemGroup>
-
     <ItemGroup>
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj"/>
         <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj"/>

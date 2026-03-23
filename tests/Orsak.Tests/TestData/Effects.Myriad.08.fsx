@@ -1,0 +1,17 @@
+#r "../bin/Debug/net9.0/Orsak.dll"
+#r "../bin/Debug/net9.0/Orsak.Myriad.dll"
+
+open System
+open System.Threading.Tasks
+open Orsak
+open Orsak.Myriad
+
+[<GenEffects>]
+type IPersistenceService =
+    abstract Persistence: int -> Task
+
+    abstract Test1: int -> Task
+
+    abstract Test2: int -> Task
+
+    abstract Test3: int -> Task

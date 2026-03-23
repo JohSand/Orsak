@@ -53,6 +53,27 @@ module Ast =
 
         sb.ToString()
 
+    let generateEff s =
+        let sb = StringBuilder().ToIndentingBuilder()
+
+        let context = {
+            GeneratorContext.ConfigKey = None
+            ConfigGetter = fun _ -> [ ]
+            InputFilename = ""
+            ProjectContext = None
+            AdditionalParameters = Map.empty
+        }
+
+        let ast, _ = parse s
+
+        match Ast.parseEffects context ast with
+        | [ ctx ] ->
+            Writer.writeEffectGen ctx sb
+            ()
+        | _ -> ()
+
+        sb.ToString()
+
 module MyriadTests =
 
     [<Theory>]
@@ -80,6 +101,40 @@ module MyriadTests =
                     "#r \"../bin/Debug/net10.0/Orsak.dll\""
                     "#r \"../bin/Debug/net10.0/Orsak.Myriad.dll\""
                     "#r \"../bin/Debug/net10.0/Microsoft.Extensions.Logging.Abstractions.dll\""
+                    result
+                |]
+            )
+
+        let settings = VerifySettings()
+        settings.UseDirectory("TestDataVerified")
+        settings.UseFileName($"Effects.Myriad.%02i{i}")
+        let! _result = Verifier.Verify(target = opens, extension = "fsx", settings = settings)
+        ()
+    }
+
+    [<Theory>]
+    [<InlineData(6)>]
+    [<InlineData(7)>]
+    [<InlineData(8)>]
+    [<InlineData(9)>]
+    [<InlineData(10)>]
+    [<InlineData(11)>]
+    let ``EffectGen creates the expected output`` (i: int) = task {
+        let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
+
+        use resource =
+            assm.GetManifestResourceStream($"Orsak.Tests.TestData.Effects.Myriad.%02i{i}.fsx")
+
+        use reader = new StreamReader(resource)
+        let txt = reader.ReadToEnd()
+        let result = Ast.generateEff txt
+
+        let opens =
+            System.String.Join(
+                System.Environment.NewLine,
+                value = [|
+                    """namespace Tmp"""
+                    txt
                     result
                 |]
             )
