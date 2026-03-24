@@ -2,8 +2,6 @@
 
 open System
 open System.Security.Cryptography
-open Microsoft.FSharp.NativeInterop
-open System.Runtime.InteropServices
 
 //#nowarn "9"
 #nowarn "57"
@@ -14,10 +12,9 @@ open Microsoft.Data.Sqlite
 
 open Orsak
 open Orsak.Effects
-open Orsak.ScopeAware
 open Orsak.Scoped
 open Xunit
-open Swensen.Unquote
+
 
 type RNGProvider =
     abstract member Gen: RandomNumberGenerator
@@ -238,7 +235,7 @@ type Scoped() =
             return! Error "Error"
         }
         |> expectError "Error"
-        |> Effect.bind (readEmpty)
+        |> Effect.bind readEmpty
         |> run
 
 
@@ -308,7 +305,6 @@ type Scoped() =
             use conn = new SqliteConnection("Data Source=test.db;Cache=Shared")
             conn.Open()
             use tran = conn.BeginTransaction()
-            let command = conn.CreateCommand()
-            command.CommandText <- "DROP TABLE IF EXISTS TestData;"
+            let command = conn.CreateCommand(CommandText = "DROP TABLE IF EXISTS TestData;")
             command.ExecuteNonQuery() |> ignore
             tran.Commit()

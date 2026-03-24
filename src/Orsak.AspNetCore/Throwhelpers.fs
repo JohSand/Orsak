@@ -4,6 +4,11 @@ open System
 
 
 [<NoCompilerInlining>]
-let argumentException (reason) : unit =
-    raise (ArgumentException(reason))
+let argumentException (reason) = raise (ArgumentException(reason))
 
+[<NoCompilerInlining>]
+let invalidCreation () =
+    let reason =
+        "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
+
+    raise (ArgumentException(reason))
