@@ -28,6 +28,10 @@ The test suite uses **Verify.Xunit** for snapshot/approval testing. When snapsho
 
 ## Architecture
 
+Prefer a functional style, with short pure functions where possible.
+
+Use interfaces primarily to describe side-effects.
+
 ### Core Types (`src/Orsak/`)
 
 - **`Effect<'r, 'a, 'e>`** — struct wrapper around `EffectDelegate<'r, 'a, 'e>`, a delegate returning `ValueTask<Result<'a, 'e>>`. Lazy — nothing runs until `run`/`runOrFail` is called with an environment.
@@ -56,6 +60,7 @@ let workflow () = eff {
 ```
 
 The real environment type (usually passed at the composition root) implements all required interfaces.
+
 
 ### Myriad Code Generation (`src/Orsak.Myriad/`)
 
