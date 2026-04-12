@@ -11,6 +11,7 @@ type ScopedEffectCode<'Scope, 'Env, 'TOverall, 'T, 'Err> = EffectCode<'Env * 'Sc
 
 #nowarn "57"
 #nowarn "3511"
+#nowarn "3559"
 
 [<AbstractClass>]
 type ScopedEffectBuilder() =
@@ -45,6 +46,11 @@ module Extension =
                         false
                 else
                     EffBuilder.BindDynamic(&sm, task, this.Return))
+
+        member inline this.ReturnFromFinal<'Scope, 'Env, 'TOverall, 'Err>
+            (eff: Effect<'Env, 'TOverall, 'Err>)
+            : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
+            this.ReturnFrom(eff)
 
         [<NoEagerConstraintApplication>]
         member inline _.Bind<'Scope, 'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
@@ -179,6 +185,11 @@ type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScop
             else
                 EffBuilder.BindDynamic(&sm, task, this.Return))
 
+    member inline this.ReturnFromFinal<'Scope, 'Env, 'TOverall, 'Err>
+        (eff: Effect<'Scope, 'TOverall, 'Err>)
+        : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
+        this.ReturnFrom(eff)
+
     [<NoEagerConstraintApplication>]
     member inline _.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
         (
@@ -273,6 +284,11 @@ type ScopeAwareEffectBuilder<'Scope>() =
                     false
             else
                 EffBuilder.BindDynamic(&sm, task, this.Return))
+
+    member inline this.ReturnFromFinal<'Scope, 'Env, 'TOverall, 'Err>
+        (eff: Effect<'Scope, 'TOverall, 'Err>)
+        : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
+        this.ReturnFrom(eff)
 
     /// <summary>
     /// Binds the effects from the scope

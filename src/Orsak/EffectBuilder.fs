@@ -3179,6 +3179,34 @@ type EffBuilder() =
         else
             EffBuilder.RunDynamic(code)
 
+    /// Dynamic path for ReturnFromFinal on Effect. Checks the trampoline before
+    /// running the inner effect; if ShouldBounce, stores a re-entry continuation
+    /// so the iterative loop dispatches the next step without growing the stack.
+    static member ReturnFromFinalDynamic(sm: byref<EffectStateMachine<'Env, 'T, 'Err>>, effect: Effect<'Env, 'T, 'Err>) : bool =
+        if Trampoline.Current.ShouldBounce then
+            sm.ResumptionDynamicInfo.ResumptionFunc <-
+                EffectResumptionFunc<'Env, 'T, 'Err>(fun sm -> EffBuilder.ReturnFromFinalDynamic(&sm, effect))
+            sm.ResumptionDynamicInfo.ResumptionData <- (Trampoline.Current :> ICriticalNotifyCompletion)
+            false
+        else
+            let task = effect.Run sm.Data.Environment
+            let mutable awaiter = task.GetAwaiter()
+            let cont =
+                EffectResumptionFunc<'Env, 'T, 'Err>(fun sm ->
+                    match awaiter.GetResult() with
+                    | Ok t ->
+                        sm.Data.Result <- Ok t
+                        true
+                    | Error e ->
+                        sm.Data.Result <- Error e
+                        true)
+            if awaiter.IsCompleted then
+                cont.Invoke(&sm)
+            else
+                sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+                sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                false
+
 /// <exclude/>
 [<AutoOpen>]
 module Builder =
@@ -3249,6 +3277,17 @@ module LowPriority =
                         false
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation))
+
+        /// Generic fallback: any awaitable that is not Effect/Result/Async/Task.
+        /// Lower priority than all specific ReturnFromFinal overloads.
+        [<NoEagerConstraintApplication>]
+        member inline this.ReturnFromFinal< ^TaskLike, 'Env, 'TResult, ^Awaiter, 'Err
+            when ^TaskLike: (member GetAwaiter: unit -> ^Awaiter)
+            and ^Awaiter :> ICriticalNotifyCompletion
+            and ^Awaiter: (member get_IsCompleted: unit -> bool)
+            and ^Awaiter: (member GetResult: unit -> 'TResult)>
+            (task: ^TaskLike) : EffectCode<'Env, 'TResult, 'TResult, 'Err> =
+            this.Bind(task, fun t -> this.Return t)
 
 /// <exclude/>
 [<AutoOpen>]
@@ -3448,6 +3487,53 @@ module Medium =
             EffectCode<'Env, 'T, _, 'Err>(fun sm ->
                 sm.Data.Result <- result
                 true)
+
+        /// Tail-call-optimised return!  for Effect values.
+        /// Checks the thread-local Trampoline before running the inner effect so that
+        /// deeply tail-recursive eff {} blocks do not grow the call stack without bound.
+        member inline _.ReturnFromFinal(effect: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
+            EffectCode<'Env, 'T, 'T, 'Err>(fun sm ->
+                if __useResumableCode<obj> then
+                    // --- bounce check -------------------------------------------------
+                    // Before running the inner effect, check whether we should yield to
+                    // the trampoline to prevent unbounded synchronous stack growth.
+                    let mutable __stack_bounce_fin = true
+                    if Trampoline.Current.ShouldBounce then
+                        let __stack_bounce = ResumableCode.Yield().Invoke(&sm)
+                        __stack_bounce_fin <- __stack_bounce
+                        if not __stack_bounce then
+                            let mutable tramp = Trampoline.Current
+                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&tramp, &sm)
+                    // --- run inner effect (same as Bind(effect, Return)) --------------
+                    if __stack_bounce_fin then
+                        let task = effect.Run sm.Data.Environment
+                        let mutable awaiter = task.GetAwaiter()
+                        let mutable __stack_fin = true
+                        if not awaiter.IsCompleted then
+                            let __stack_yield_fin = ResumableCode.Yield().Invoke(&sm)
+                            __stack_fin <- __stack_yield_fin
+                        if __stack_fin then
+                            sm.Data.Result <- awaiter.GetResult()
+                            true
+                        else
+                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+                            false
+                    else
+                        false
+                else
+                    EffBuilder.ReturnFromFinalDynamic(&sm, effect))
+
+        /// Fallback: return! on Result is not recursive, no trampoline needed.
+        member inline this.ReturnFromFinal(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
+            this.ReturnFrom(result)
+
+        /// Fallback: return! on Async is not recursive, no trampoline needed.
+        member inline this.ReturnFromFinal(a: Async<'T>) : EffectCode<'Env, 'T, 'T, 'Err> =
+            this.ReturnFrom(a)
+
+        /// Fallback: do! on Task in tail position (e.g. the last do! in a CE body).
+        member inline this.ReturnFromFinal(task: Task) : EffectCode<'Env, unit, unit, 'Err> =
+            this.Bind(task, fun () -> this.Return())
 
         member inline _.Using<'Resource, 'TOverall, 'T, 'Env, 'Err when 'Resource :> IDisposable>
             (
