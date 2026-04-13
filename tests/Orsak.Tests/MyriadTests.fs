@@ -5,6 +5,7 @@ open Xunit
 open System.Text
 open Orsak.Myriad
 open Myriad.Core
+open System
 open System.Reflection
 open System.IO
 open VerifyTests
@@ -95,8 +96,8 @@ module MyriadTests =
         let result = Ast.generate txt
 
         let opens =
-            System.String.Join(
-                System.Environment.NewLine,
+            String.Join(
+                Environment.NewLine,
                 value = [|
                     "#r \"../bin/Debug/net10.0/Orsak.dll\""
                     "#r \"../bin/Debug/net10.0/Orsak.Myriad.dll\""

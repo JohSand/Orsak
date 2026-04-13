@@ -1,13 +1,9 @@
 ﻿module Orsak.Tests.RecoveryTests
 
 open Orsak
-open System.Diagnostics
 open Xunit
 open Swensen.Unquote
-open System.Threading
 open System.Threading.Tasks
-open System.Threading.Channels
-open System
 
 let createFailingEffect timesToFail =
     let mutable failureCount = timesToFail

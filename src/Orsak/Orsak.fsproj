@@ -10,6 +10,7 @@
 		<Compile Include="Trampoline.fs" />
 		<Compile Include="EffectBuilder.fs" />
 		<Compile Include="EffSeqBuilder.fs" />
+		<Compile Include="TaskSeqBuilder.fs" />
 		<Compile Include="Effect.fs" />
 		<Compile Include="BaseEffects.fs" />
 		<Compile Include="Resilience.fs" Condition="'$(TargetFramework)' != 'NET6.0'" />

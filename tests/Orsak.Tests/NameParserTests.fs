@@ -105,7 +105,7 @@ let ``Can parse four tuple argument`` () =
 let ``Can parse four tuple mixed arguments`` () =
     let s = Helper.Convert(mixedFourTupleFunction)
 
-    Assert.Equal<_ array>(
+    Assert.Equal<string>(
         [|
             "i"
             "j"

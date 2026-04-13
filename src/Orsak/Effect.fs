@@ -1,6 +1,7 @@
 ﻿namespace Orsak
 
 open System.Threading
+open System.Threading.Channels
 open FSharp.Control
 open System.Threading.Tasks
 open System
@@ -94,7 +95,7 @@ module Effect =
     /// This allows for taking recovery action inside the effect, based on the outcome of a sub-effect.
     /// </summary>
     /// <param name="e">The effect</param>
-    let inline asResult (e: Effect<'r, 'a, 'e>) : Effect<'r, Result<'a, 'e>, 'e> = e |> map Ok |> recover (Error)
+    let inline asResult (e: Effect<'r, 'a, 'e>) : Effect<'r, Result<'a, 'e>, 'e> = e |> map Ok |> recover Error
 
 
     [<TailCall>]
@@ -305,7 +306,7 @@ module Effect =
     }
 
     let inline fanOut size (f: IAsyncEnumerable<'a> -> Effect<'r, unit, 'err>) (s: IAsyncEnumerable<'a>) =
-        let write (workers: Channels.Channel<_> array) = eff {
+        let write (workers: Channel<_> array) = eff {
             let mutable i = 0
 
             try
@@ -318,10 +319,8 @@ module Effect =
         }
 
         eff {
-            let workers = [|
-                for _ = 1 to size do
-                    Channels.Channel.CreateBounded(10)
-            |]
+            let workers =
+                Array.init size (fun _ -> Channel.CreateBounded(10))
 
             let readers =
                 workers
