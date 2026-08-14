@@ -350,6 +350,18 @@ module LowPriority =
             //-- RESUMABLE CODE END
             )
 
+        // KNOWN GAP (not fixed - unreachable on this repo's own build, since Debug defaults to
+        // Optimize=true; only affects a downstream consumer building Debug under SDK 10.0.400+
+        // without setting Optimize=true themselves): this.While below resolves to the plain
+        // `unit -> bool` overload (this file, ~line 72), which delegates straight to FSharp.Core's
+        // own ResumableCode.WhileDynamic. That has the same bug class the task-condition
+        // While(unit -> Task<bool>, ...) overload further down this file (WhileConditionDynamic /
+        // WhileBodyConditionDynamicAux) was hand-rolled specifically to avoid: after the trailing
+        // re-check Bind (enum.MoveNextAsync() below) suspends, WhileDynamic loses track and
+        // re-invokes the loop body forever without ever awaiting the condition again - a silent
+        // infinite loop, not a crash, whenever the loop body itself genuinely suspends. Fixing this
+        // would mean giving this For(IAsyncEnumerable<'T>, ...) overload its own hand-rolled dynamic
+        // driver, the same shape as WhileConditionDynamic.
         member inline this.For
             (
                 sequence: System.Collections.Generic.IAsyncEnumerable<'T>,
@@ -474,32 +486,98 @@ module MediumPriority =
     // Medium priority extensions
     type ValueTaskBuilder with
 
+        // Dynamic path for While(condition: unit -> Task<bool>, ...). The static path below
+        // constructs the ResumableCode.While(...) call *inside* a Bind continuation closure
+        // (the pre-check Bind), rather than at the top level of the CE - reducible statically,
+        // but when that falls back to FSharp.Core's own WhileDynamic/CombineDynamic (not owned
+        // by Orsak), resuming after the body's trailing re-check Bind suspends does not
+        // correctly return to WhileDynamic's own loop-check: it silently loses the updated
+        // condition result and just re-invokes the loop body forever, without ever awaiting
+        // condition() again. Hand-rolling the driver here (mirroring the already-verified
+        // EffBuilderBase.WhileDynamic/WhileBodyDynamicAux pattern in EffectBuilder.fs) avoids
+        // depending on that FSharp.Core dynamic path at all.
+#nowarn "3513"
+        static member WhileConditionDynamic
+            (
+                sm: byref<ValueTaskStateMachine<'TOverall>>,
+                condition: unit -> Task<bool>,
+                body: ValueTaskCode<'TOverall, unit>
+            ) : bool =
+            let mutable awaiter = (condition ()).GetAwaiter()
+
+            let cont =
+                ValueTaskResumptionFunc<'TOverall>(fun sm ->
+                    if awaiter.GetResult() then
+                        if body.Invoke(&sm) then
+                            ValueTaskBuilder.WhileConditionDynamic(&sm, condition, body)
+                        else
+                            let rf = sm.ResumptionDynamicInfo.ResumptionFunc
+
+                            sm.ResumptionDynamicInfo.ResumptionFunc <-
+                                ValueTaskResumptionFunc<'TOverall>(fun sm ->
+                                    ValueTaskBuilder.WhileBodyConditionDynamicAux(&sm, condition, body, rf))
+
+                            false
+                    else
+                        true)
+
+            if awaiter.IsCompleted then
+                cont.Invoke(&sm)
+            else
+                sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+                sm.ResumptionDynamicInfo.ResumptionFunc <- cont
+                false
+
+        static member WhileBodyConditionDynamicAux
+            (
+                sm: byref<ValueTaskStateMachine<'TOverall>>,
+                condition: unit -> Task<bool>,
+                body: ValueTaskCode<'TOverall, unit>,
+                rf: ValueTaskResumptionFunc<'TOverall>
+            ) : bool =
+            if rf.Invoke(&sm) then
+                ValueTaskBuilder.WhileConditionDynamic(&sm, condition, body)
+            else
+                let rf = sm.ResumptionDynamicInfo.ResumptionFunc
+
+                sm.ResumptionDynamicInfo.ResumptionFunc <-
+                    ValueTaskResumptionFunc<'TOverall>(fun sm ->
+                        ValueTaskBuilder.WhileBodyConditionDynamicAux(&sm, condition, body, rf))
+
+                false
+#warnon "3513"
+
         member inline this.While
             (
                 [<InlineIfLambda>] condition: unit -> Task<bool>,
                 body: ValueTaskCode<'TOverall, unit>
             ) : ValueTaskCode<'TOverall, unit> =
-            this.Delay(fun () ->
-                let mutable cont = false
+            ValueTaskCode<'TOverall, unit>(fun sm ->
+                if __useResumableCode<obj> then
+                    (this.Delay(fun () ->
+                        let mutable cont = false
 
-                this.Bind(
-                    condition (),
-                    fun b ->
-                        cont <- b
+                        this.Bind(
+                            condition (),
+                            fun b ->
+                                cont <- b
 
-                        ResumableCode.While(
-                            (fun () -> cont),
-                            this.Combine(
-                                body,
-                                this.Bind(
-                                    condition (),
-                                    fun b ->
-                                        cont <- b
-                                        this.Zero()
+                                ResumableCode.While(
+                                    (fun () -> cont),
+                                    this.Combine(
+                                        body,
+                                        this.Bind(
+                                            condition (),
+                                            fun b ->
+                                                cont <- b
+                                                this.Zero()
+                                        )
+                                    )
                                 )
-                            )
-                        )
-                ))
+                        )))
+                        .Invoke(&sm)
+                else
+                    ValueTaskBuilder.WhileConditionDynamic(&sm, condition, body))
 
         member inline this.Bind
             (

@@ -34,8 +34,19 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 		</PackageReference>
 	</ItemGroup>
+	<!-- Resumable-code state machines (eff {}, effSeq {}, ...) rely on the F# compiler
+	     statically reducing them at compile time. Starting with the F# compiler shipped
+	     in .NET SDK 10.0.400, that reduction is no longer guaranteed when Optimize=false,
+	     which is the default for Debug builds. When reduction fails, affected builders
+	     silently fall back to Orsak's dynamic implementation.
+	     Default Optimize on for every configuration so ordinary Debug builds stay correct,
+	     but only as a default (Condition guards against an already-set value) so a
+	     dedicated test run can still force the dynamic path on purpose via
+	     `-p:Optimize=false`, to verify the dynamic implementations themselves stay correct. -->
+	<PropertyGroup>
+		<Optimize Condition="'$(Optimize)' == ''">true</Optimize>
+	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
-		<Optimize>true</Optimize>
 		<Tailcalls>true</Tailcalls>
 	</PropertyGroup>
 </Project>

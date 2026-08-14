@@ -77,18 +77,52 @@ module Helpers2 =
         Assert.Equal<'a>(s, list)
     }
 
-    let makeAsyncEnumerable (list: _ list) = taskSeq {
-        for a in list do
-            yield a
-    }
+    // Hand-rolled IAsyncEnumerable<'T> fixtures, deliberately not using FSharp.Control.TaskSeq's
+    // `taskSeq { }` - that CE has its own incomplete dynamic-path implementation (raises
+    // NotImplementedException when the F# compiler can't statically reduce it), which these test
+    // fixtures would otherwise trip whenever the wider suite is run with Optimize=false to
+    // exercise Orsak's own dynamic paths. Neither needs any CE machinery: MoveNextAsync
+    // completing synchronously is fine for both, and cancellation for the tests that need it is
+    // already handled by the *consuming* EffSeq enumerator (see evaluateWithCancellation) rather
+    // than needing to originate here.
+    type private ListAsyncEnumerator<'T>(items: 'T[]) =
+        let mutable index = -1
 
-    let infiniteAsyncEnumerable () = taskSeq {
-        let mutable i = 1
+        interface IAsyncEnumerator<'T> with
+            member _.Current = items[index]
+            member _.MoveNextAsync() =
+                index <- index + 1
+                ValueTask<bool>(index < items.Length)
 
-        while true do
-            i
-            i <- i + 1
-    }
+            member _.DisposeAsync() = ValueTask.CompletedTask
+
+    type private ListAsyncEnumerable<'T>(items: 'T[]) =
+        interface IAsyncEnumerable<'T> with
+            member _.GetAsyncEnumerator(_ct) =
+                new ListAsyncEnumerator<'T>(items) :> IAsyncEnumerator<'T>
+
+    let makeAsyncEnumerable (list: 'a list) : IAsyncEnumerable<'a> =
+        ListAsyncEnumerable(List.toArray list) :> IAsyncEnumerable<'a>
+
+    type private CountingAsyncEnumerator() =
+        let mutable current = 0
+
+        interface IAsyncEnumerator<int> with
+            member _.Current = current
+
+            member _.MoveNextAsync() =
+                current <- current + 1
+                ValueTask<bool>(true)
+
+            member _.DisposeAsync() = ValueTask.CompletedTask
+
+    type private CountingAsyncEnumerable() =
+        interface IAsyncEnumerable<int> with
+            member _.GetAsyncEnumerator(_ct) =
+                new CountingAsyncEnumerator() :> IAsyncEnumerator<int>
+
+    let infiniteAsyncEnumerable () : IAsyncEnumerable<int> =
+        CountingAsyncEnumerable() :> IAsyncEnumerable<int>
 
     let makeEffSeq (list: _ list) = effSeq {
         for a in list do
@@ -539,10 +573,8 @@ module ``Effect Sequences With Elements`` =
                 try
                     for i in enumerable do
                         i
-                with :? AggregateException as agg ->
-                    let inner = agg.InnerException
-                    let t = Assert.IsType<TaskCanceledException> inner
-                    Assert.Equal(cts.Token, t.CancellationToken)
+                with :? OperationCanceledException as ex ->
+                    Assert.Equal(cts.Token, ex.CancellationToken)
                     ()
             }
             |> evaluatesToSequence [ 1 ]

@@ -37,7 +37,7 @@ jobs:
             6.0.x
             8.0.x
             9.0.x
-            10.0.201
+            10.0.400
 
       - name: Restore tools
         run: dotnet tool restore
@@ -60,7 +60,7 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-            files: tests/**/test-results/**/*.trx 
+            files: tests/**/test-results/**/*.trx
 
       - name: Pack NuGet package
         if: ${{ success() && github.event_name != 'pull_request' }}
@@ -68,4 +68,52 @@ jobs:
 
       - name: Push generated package to GitHub registry
         if: ${{ success() && github.event_name != 'pull_request' }}
-        run: dotnet nuget push "**/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate 
+        run: dotnet nuget push "**/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+
+  build-and-test-dynamic-path:
+    # Resumable-code state machines (eff {}, effSeq {}, ...) are normally reduced to a real
+    # compiled state machine at compile time. src/Directory.Build.props defaults Optimize=true
+    # (even for Debug) so that reduction stays reliable under newer F# compilers where it's no
+    # longer guaranteed at Optimize=false - but that default can be overridden with
+    # -p:Optimize=false, which is exactly what this job does, to keep Orsak's dynamic
+    # (non-statically-reduced) fallback implementations under CI coverage on their own. Without
+    # this job those code paths only ever get exercised by accident, which is how the SDK
+    # 10.0.400 F# compiler regression went unnoticed for as long as it did.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            6.0.x
+            8.0.x
+            9.0.x
+            10.0.400
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Set version
+        run: |
+          dotnet gitversion /updateprojectfiles /output json > $HOME/version.json
+          echo "GITVERSION=$(jq -c . < $HOME/version.json)" >> $GITHUB_ENV
+
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      - name: Build the project (dynamic resumable-code path forced)
+        run: dotnet build --configuration Debug -p:Optimize=false
+
+      - name: Run unit tests (dynamic resumable-code path forced)
+        run: dotnet test --no-build -c debug -p:Optimize=false -- --report-xunit-trx --results-directory ./test-results
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+            check_name: Dynamic Path Test Results
+            files: tests/**/test-results/**/*.trx
