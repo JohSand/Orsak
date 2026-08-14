@@ -6,6 +6,7 @@
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <NoWarn>0057; 0988</NoWarn>
         <LangVersion>preview</LangVersion>
+        <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     </PropertyGroup>
     <ItemGroup>
         <EmbeddedResource Include="TestData\*.fsx"/>
