@@ -51,7 +51,7 @@ jobs:
         run: dotnet restore
 
       - name: Build the project
-        run: dotnet build --configuration Release -maxCpuCount:1
+        run: dotnet build --configuration Release
 
       - name: Run unit tests
         run: dotnet test --no-build -c release -- --report-xunit-trx --results-directory ./test-results
