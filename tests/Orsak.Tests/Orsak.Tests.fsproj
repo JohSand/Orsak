@@ -1,12 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net8.0; net10.0</TargetFrameworks>
+        <TargetFrameworks>net10.0</TargetFrameworks>
         <IsTestProject>true</IsTestProject>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <NoWarn>0057; 0988</NoWarn>
         <LangVersion>preview</LangVersion>
-        <UseAppHost>false</UseAppHost>
     </PropertyGroup>
     <ItemGroup>
         <EmbeddedResource Include="TestData\*.fsx"/>
