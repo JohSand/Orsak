@@ -368,15 +368,20 @@ module LowPriority =
 
                                 this.While(
                                     (fun () -> cont),
-                                    this.Combine(
-                                        body enum.Current,
-                                        this.Bind(
-                                            enum.MoveNextAsync(),
-                                            fun b ->
-                                                cont <- b
-                                                this.Zero()
-                                        )
-                                    )
+                                    // Reading Current and advancing the enumerator both belong inside the
+                                    // loop body. Delay defers them to each invocation - without it the
+                                    // dynamic path evaluates them once, while building the body.
+                                    this.Delay(fun () ->
+                                        this.Combine(
+                                            body enum.Current,
+                                            this.Delay(fun () ->
+                                                this.Bind(
+                                                    enum.MoveNextAsync(),
+                                                    fun b ->
+                                                        cont <- b
+                                                        this.Zero()
+                                                ))
+                                        ))
                                 )
                         )
                 ))

@@ -20,6 +20,7 @@
         <Compile Include="RecoveryTests.fs"/>
         <Compile Include="Tests.fs"/>
         <Compile Include="TailCallTests.fs"/>
+        <Compile Include="ForLoopTests.fs"/>
         <Compile Include="WhenAllTests.fs"/>
         <Compile Include="ScopedTests.fs"/>
         <Compile Include="MyriadTests.fs"/>
