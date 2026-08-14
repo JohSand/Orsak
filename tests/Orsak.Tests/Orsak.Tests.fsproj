@@ -7,6 +7,7 @@
         <NoWarn>0057; 0988</NoWarn>
         <LangVersion>preview</LangVersion>
         <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+        <UseAppHost>true</UseAppHost>
     </PropertyGroup>
     <ItemGroup>
         <EmbeddedResource Include="TestData\*.fsx"/>
