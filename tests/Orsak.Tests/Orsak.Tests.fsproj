@@ -9,6 +9,14 @@
         <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
         <UseAppHost>true</UseAppHost>
     </PropertyGroup>
+    <!-- ForLoopTests.fs deliberately defines a non-inline function accepting/returning resumable
+         code (FS3501) to force the dynamic path for testing without needing an SDK swap. That's
+         only informative in a build where the dynamic path itself is under test - the dedicated
+         CI job (build-and-test-dynamic-path, -p:Optimize=false) and local dynamic-path testing
+         already cover that. In Release it's just noise, so silence it there only. -->
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <NoWarn>$(NoWarn);3501</NoWarn>
+    </PropertyGroup>
     <ItemGroup>
         <EmbeddedResource Include="TestData\*.fsx"/>
         <EmbeddedResource Include="TestDataVerified\*.fsx"/>

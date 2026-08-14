@@ -105,7 +105,15 @@ type EffBuilderBase() =
             code2: EffectCode<_, 'TOverall, 'T, 'Err>
         ) : bool =
         if code1.Invoke(&sm) then
-            code2.Invoke(&sm)
+            // Must check Result here exactly like the synchronous __stack_fin branch of
+            // the static Combine above - code1 can finish synchronously with an Error
+            // (e.g. a While loop that broke out early), and code2 must not run in that
+            // case. The resumed `resume` closure below already does this check; this
+            // branch was the one place it was missing, letting code2 (e.g. a trailing
+            // Return) silently overwrite an Error recorded earlier in the block.
+            match sm.Data.Result with
+            | Ok _ -> code2.Invoke(&sm)
+            | Error _ -> true
         else
             let rec resume (mf: ResumptionFunc<EffectStateMachineData<_, _, _>>) =
                 ResumptionFunc<EffectStateMachineData<_, _, _>>(fun sm ->
@@ -2971,11 +2979,20 @@ type EffBuilderBase() =
         if waits.Length = 0 then
             let final = Array.zeroCreate results.Count
             let mutable value = Ok final
+            let mutable i = 0
+            let mutable cont = true
 
-            for i = 0 to results.Count - 1 do
+            // Stop at the first error by index, matching the static WhenAll path
+            // (EffBuilderBase.WhenAll's `cont`-guarded while loop above) rather than
+            // keeping the last error seen while scanning to the end.
+            while i < results.Count && cont do
                 match results[i] with
                 | Ok ok -> final[i] <- ok
-                | Error err -> value <- Error err
+                | Error err ->
+                    value <- Error err
+                    cont <- false
+
+                i <- i + 1
 
             sm.Data.Result <- value
             true
@@ -2987,30 +3004,25 @@ type EffBuilderBase() =
                 results.Add(awaiter.GetResult())
                 EffBuilderBase.WhenAllDynamic(&sm, rest, results)
             else
-                let rf = EffBuilderBase.GetResumptionFunc &sm
+                // Leaf suspend point: WhenAllDynamic owns this awaiter directly (it
+                // isn't wrapping some other code's Bind), so it must register its own
+                // continuation and ResumptionData here, mirroring BindDynamic/
+                // ReturnFromFinalDynamic. It must NOT use the GetResumptionFunc/"rf"
+                // wrapper trick that Combine/While use, since that trick only works
+                // when called right after an inner EffectCode.Invoke suspended and
+                // freshly overwrote ResumptionFunc with its own leaf continuation —
+                // here it would instead capture whatever frame is currently running
+                // (the top-level code), and resuming would restart the whole
+                // computation from the top instead of continuing past this awaiter.
+                let cont =
+                    ResumptionFunc<_>(fun sm ->
+                        results.Add(awaiter.GetResult())
+                        EffBuilderBase.WhenAllDynamic(&sm, rest, results))
 
-                sm.ResumptionDynamicInfo.ResumptionFunc <-
-                    ResumptionFunc<_>(fun sm -> EffBuilderBase.WhenAllDynamicAux(&sm, waits, results, rf))
+                sm.ResumptionDynamicInfo.ResumptionData <- (awaiter :> ICriticalNotifyCompletion)
+                sm.ResumptionDynamicInfo.ResumptionFunc <- cont
 
                 false
-
-    static member WhenAllDynamicAux
-        (
-            sm: byref<ResumableStateMachine<_>>,
-            waits: ValueTaskAwaiter<_> Memory,
-            results: ResizeArray<_>,
-            rf: ResumptionFunc<_>
-        ) : bool =
-
-        if rf.Invoke(&sm) then
-            EffBuilderBase.WhenAllDynamic(&sm, waits, results)
-        else
-            let rf = EffBuilderBase.GetResumptionFunc &sm
-
-            sm.ResumptionDynamicInfo.ResumptionFunc <-
-                ResumptionFunc<_>(fun sm -> EffBuilderBase.WhenAllDynamicAux(&sm, waits, results, rf))
-
-            false
 
     static member inline AwaiterNotComplete(v: ValueTaskAwaiter<_> inref) = not v.IsCompleted
 
@@ -3098,43 +3110,58 @@ type EffBuilder() =
 
     static member inline RunDynamic(code: EffectCode<'Env, 'T, 'T, 'Err>) : Effect<'Env, 'T, 'Err> =
 
-        let mutable sm = EffectStateMachine<'Env, 'T, 'Err>()
-#nowarn "3513"
-        let initialResumptionFunc =
-            EffectResumptionFunc<'Env, 'T, 'Err>(fun sm -> code.Invoke(&sm))
-#warnon "3513"
-
-        let resumptionInfo =
-            { new EffectResumptionDynamicInfo<'Env, 'T, 'Err>(initialResumptionFunc) with
-                member info.MoveNext(sm) =
-                    let mutable savedExn = null
-
-                    try
-                        sm.ResumptionDynamicInfo.ResumptionData <- Unchecked.defaultof<obj>
-                        let step = info.ResumptionFunc.Invoke(&sm)
-
-                        if step then
-                            sm.Data.MethodBuilder.SetResult(sm.Data.Result)
-                        else
-                            let mutable awaiter =
-                                sm.ResumptionDynamicInfo.ResumptionData :?> ICriticalNotifyCompletion
-
-                            assert not (isNull awaiter)
-                            sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
-
-                    with exn ->
-                        savedExn <- exn
-                    // Run SetException outside the stack unwind, see https://github.com/dotnet/roslyn/issues/26567
-                    match savedExn with
-                    | null -> ()
-                    | exn -> sm.Data.MethodBuilder.SetException exn
-
-                member _.SetStateMachine(sm, state) =
-                    sm.Data.MethodBuilder.SetStateMachine(state)
-            }
-
+        // An Effect is a lazy, replayable value - the same Effect can have .Run(env) called on
+        // it more than once (see e.g. TryRecoverDynamic's error branch, or a caller invoking
+        // Run twice). sm and resumptionInfo (in particular initialResumptionFunc /
+        // ResumptionFunc) must therefore be constructed fresh inside the EffectDelegate closure,
+        // not once outside it. The dynamic driver's resumption target lives entirely in
+        // resumptionInfo.ResumptionFunc, which is mutated by every Bind/etc. that suspends and is
+        // never reset back to initialResumptionFunc after a run completes - resetting only
+        // sm.ResumptionPoint is not enough to make a shared sm/resumptionInfo safe to reuse
+        // (unlike the statically-compiled Run below, whose __resumeAt-based MoveNext genuinely
+        // restarts from the top when ResumptionPoint is reset, since it has no separate
+        // "last resumption" closure to go stale). Sharing them here previously made a second
+        // .Run() call resume from wherever the first run's last suspend point left off - e.g.
+        // skipping straight to a stale post-await continuation instead of starting over from
+        // code.Invoke - silently corrupting results and mutable closure state instead of failing
+        // loudly.
         Effect(
             EffectDelegate(fun env ->
+                let mutable sm = EffectStateMachine<'Env, 'T, 'Err>()
+#nowarn "3513"
+                let initialResumptionFunc =
+                    EffectResumptionFunc<'Env, 'T, 'Err>(fun sm -> code.Invoke(&sm))
+#warnon "3513"
+
+                let resumptionInfo =
+                    { new EffectResumptionDynamicInfo<'Env, 'T, 'Err>(initialResumptionFunc) with
+                        member info.MoveNext(sm) =
+                            let mutable savedExn = null
+
+                            try
+                                sm.ResumptionDynamicInfo.ResumptionData <- Unchecked.defaultof<obj>
+                                let step = info.ResumptionFunc.Invoke(&sm)
+
+                                if step then
+                                    sm.Data.MethodBuilder.SetResult(sm.Data.Result)
+                                else
+                                    let mutable awaiter =
+                                        sm.ResumptionDynamicInfo.ResumptionData :?> ICriticalNotifyCompletion
+
+                                    assert not (isNull awaiter)
+                                    sm.Data.MethodBuilder.AwaitUnsafeOnCompleted(&awaiter, &sm)
+
+                            with exn ->
+                                savedExn <- exn
+                            // Run SetException outside the stack unwind, see https://github.com/dotnet/roslyn/issues/26567
+                            match savedExn with
+                            | null -> ()
+                            | exn -> sm.Data.MethodBuilder.SetException exn
+
+                        member _.SetStateMachine(sm, state) =
+                            sm.Data.MethodBuilder.SetStateMachine(state)
+                    }
+
                 sm.ResumptionPoint <- -1
                 sm.Data.Environment <- env
                 sm.ResumptionDynamicInfo <- resumptionInfo
