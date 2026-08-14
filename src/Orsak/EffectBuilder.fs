@@ -3559,17 +3559,21 @@ module Medium =
 
                                 this.While(
                                     (fun () -> continue'),
-                                    let current = enumerator.Current
-
-                                    this.Combine(
-                                        (f1 current),
-                                        this.Bind(
-                                            enumerator.MoveNextAsync(),
-                                            fun b ->
-                                                continue' <- b
-                                                this.Zero()
-                                        )
-                                    )
+                                    // Both the read of Current and the advance belong inside the loop body,
+                                    // one per iteration. Delay defers them to each invocation - without it
+                                    // the dynamic path reads Current once and awaits a single MoveNextAsync
+                                    // forever.
+                                    this.Delay(fun () ->
+                                        this.Combine(
+                                            (f1 enumerator.Current),
+                                            this.Delay(fun () ->
+                                                this.Bind(
+                                                    enumerator.MoveNextAsync(),
+                                                    fun b ->
+                                                        continue' <- b
+                                                        this.Zero()
+                                                ))
+                                        ))
                                 )
                         )
                 ))
@@ -3591,13 +3595,16 @@ module Medium =
                                     this.Delay(fun () ->
                                         this.Combine(
                                             (f enumerator.Current),
-                                            this.Bind(
-                                                enumerator.MoveNextAsync(),
-                                                fun b ->
-                                                    let y = b
-                                                    continue' <- y
-                                                    this.Zero()
-                                            )
+                                            // Delayed so the enumerator is advanced after the body has run,
+                                            // not while the dynamic path is building the loop body.
+                                            this.Delay(fun () ->
+                                                this.Bind(
+                                                    enumerator.MoveNextAsync(),
+                                                    fun b ->
+                                                        let y = b
+                                                        continue' <- y
+                                                        this.Zero()
+                                                ))
                                         ))
                                 )
                         )
@@ -3653,7 +3660,15 @@ module Medium =
             this.Delay(fun () ->
                 this.Using(
                     s.GetEnumerator(),
-                    fun enumerator -> this.While((fun () -> enumerator.MoveNext()), (f1 enumerator.Current))
+                    fun enumerator ->
+                        // Current must be read inside the loop body. While invokes the body value once
+                        // per iteration, so on the dynamic path anything evaluated while constructing the
+                        // body is hoisted out of the loop - here that would read Current before the first
+                        // MoveNext.
+                        this.While(
+                            (fun () -> enumerator.MoveNext()),
+                            EffectCode<'Env, 'TOverall, unit, 'Err>(fun sm -> (f1 enumerator.Current).Invoke(&sm))
+                        )
                 ))
 
         member inline this.For
