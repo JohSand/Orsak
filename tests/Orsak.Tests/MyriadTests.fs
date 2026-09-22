@@ -53,26 +53,62 @@ module Ast =
 
         sb.ToString()
 
-    let generateEff s =
-        let sb = StringBuilder().ToIndentingBuilder()
+    /// The Fantomas settings Myriad would apply to a generated file next to the snapshots,
+    /// i.e. those from the repository's .editorconfig.
+    let private formatConfig =
+        EditorConfig.readConfiguration (Path.Combine(__SOURCE_DIRECTORY__, "TestDataVerified", "Generated.fs"))
 
+    /// Formats generated modules the way Myriad does, with Fantomas and .editorconfig.
+    let format modules =
+        let file =
+            Syntax.ParsedInput.ImplFile(
+                Syntax.ParsedImplFileInput(
+                    "tmp.fs",
+                    false,
+                    Syntax.QualifiedNameOfFile(Syntax.Ident("Tmp", Range.range0)),
+                    [],
+                    [],
+                    modules,
+                    (false, false),
+                    { ConditionalDirectives = []; CodeComments = [] },
+                    Set.empty
+                )
+            )
+
+        Fantomas.Core.CodeFormatter.FormatASTAsync(file, formatConfig) |> Async.RunSynchronously
+
+    let generateEff s =
         let context = {
             GeneratorContext.ConfigKey = None
-            ConfigGetter = fun _ -> [ ]
+            ConfigGetter =
+                fun s ->
+                    match s with
+                    | "IStorage" -> [ "ProviderName", box "IStorageAccess"; "ProviderPropertyName", "Storage" ]
+                    | "IDotted" -> [ "ProviderName", box "Somewhere.IDottedProvider" ]
+                    | _ -> []
             InputFilename = ""
             ProjectContext = None
             AdditionalParameters = Map.empty
         }
 
         let ast, _ = parse s
+        Ast.parseEffects context ast |> EffectSyntax.create |> format
 
-        match Ast.parseEffects context ast with
-        | [ ctx ] ->
-            Writer.writeEffectGen ctx sb
-            ()
-        | _ -> ()
+    let generateEnvironment s =
+        let context = {
+            GeneratorContext.ConfigKey = None
+            ConfigGetter =
+                fun s ->
+                    match s with
+                    | "IBeanCounting" -> [ "EffectType", box "Beans.IBeanCounter"; "ProviderPropertyName", "Counter" ]
+                    | _ -> []
+            InputFilename = ""
+            ProjectContext = None
+            AdditionalParameters = Map.empty
+        }
 
-        sb.ToString()
+        let ast, _ = parse s
+        Ast.parseEnvironments context ast |> EnvironmentSyntax.create |> format
 
 module MyriadTests =
 
@@ -119,6 +155,7 @@ module MyriadTests =
     [<InlineData(9)>]
     [<InlineData(10)>]
     [<InlineData(11)>]
+    [<InlineData(15)>]
     let ``EffectGen creates the expected output`` (i: int) = task {
         let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
 
@@ -145,3 +182,49 @@ module MyriadTests =
         let! _result = Verifier.Verify(target = opens, extension = "fsx", settings = settings)
         ()
     }
+
+    [<Theory>]
+    [<InlineData(12)>]
+    [<InlineData(13)>]
+    [<InlineData(14)>]
+    let ``EnvironmentGen creates the expected output`` (i: int) = task {
+        let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
+
+        use resource =
+            assm.GetManifestResourceStream($"Orsak.Tests.TestData.Effects.Myriad.%02i{i}.fsx")
+
+        use reader = new StreamReader(resource)
+        let txt = reader.ReadToEnd()
+        let result = Ast.generateEnvironment txt
+
+        let settings = VerifySettings()
+        settings.UseDirectory("TestDataVerified")
+        settings.UseFileName($"Effects.Myriad.%02i{i}")
+
+        let! _result =
+            Verifier.Verify(target = System.String.Join(System.Environment.NewLine, txt, result), extension = "fsx", settings = settings)
+
+        ()
+    }
+
+    [<Theory>]
+    [<InlineData("inherit IProvide<IFoo>", "can only inherit non-generic provider interfaces")>]
+    [<InlineData("abstract Foo: int", "cannot declare members of its own")>]
+    [<InlineData("inherit IFooService", "cannot infer the effect type of 'IFooService'")>]
+    [<InlineData("inherit A.IFooProvider\n    inherit B.IFooProvider", "more than one provider whose effect is named 'Foo'")>]
+    let ``EnvironmentGen rejects interfaces it cannot implement by convention`` (body: string, expected: string) =
+        let source = $"[<GenEnvironment>]\ntype IEnvironment =\n    {body}\n"
+        let error = Assert.Throws<exn>(fun () -> Ast.generateEnvironment source |> ignore)
+        Assert.Contains(expected, error.Message)
+
+    [<Fact>]
+    let ``EnvironmentGen rejects a module with the same name as the declaring module`` () =
+        let source = "module Company.App.Environment\n\n[<GenEnvironment>]\ntype IEnvironment =\n    inherit IFooProvider\n"
+        let error = Assert.Throws<exn>(fun () -> Ast.generateEnvironment source |> ignore)
+        Assert.Contains("would have the same name as the module 'Company.App.Environment'", error.Message)
+
+    [<Fact>]
+    let ``EffectGen rejects a qualified ProviderName, since it declares the provider`` () =
+        let source = "[<GenEffects>]\ntype IDotted =\n    abstract Foo: unit -> int\n"
+        let error = Assert.Throws<exn>(fun () -> Ast.generateEff source |> ignore)
+        Assert.Contains("ProviderName 'Somewhere.IDottedProvider' for 'IDotted' must be a plain type name", error.Message)

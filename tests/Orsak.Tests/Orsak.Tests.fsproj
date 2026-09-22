@@ -6,8 +6,6 @@
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <NoWarn>0057; 0988</NoWarn>
         <LangVersion>preview</LangVersion>
-        <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
-        <UseAppHost>true</UseAppHost>
     </PropertyGroup>
     <!-- ForLoopTests.fs deliberately defines a non-inline function accepting/returning resumable
          code (FS3501) to force the dynamic path for testing without needing an SDK swap. That's
@@ -52,12 +50,12 @@
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.4.0"/>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Update="FSharp.Core " Version="8.0.300"/>
+        <PackageReference Update="FSharp.Core" Version="9.0.303"/>
         <PackageReference Include="Ben.Demystifier" Version="0.4.1"/>
         <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
         <PackageReference Include="Unquote" Version="7.0.1"/>
-        <PackageReference Include="Myriad.Core" Version="0.8.3"/>
+        <PackageReference Include="Myriad.Core" Version="1.0.0"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj"/>

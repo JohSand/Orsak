@@ -58,6 +58,25 @@ type RunnerCfg = { effects: EffectProviderCfg array; name: string }
 type ContextWriterScope = { ns: string; openStatements: string list; effects: EffectAttributeMatches list }
 
 type ContextEffectScope = { ns: string; openStatements: string list; effects: EffectProviderCfg list }
+
+/// A provider inherited by a [<GenEnvironment>] interface, e.g. `inherit IFooProvider`,
+/// together with the effect type and property it is resolved to by convention or config.
+type EnvironmentProviderCfg = {
+    providerType: string list
+    effectType: string list
+    propertyName: string
+    fieldName: string
+}
+
+type EnvironmentCfg = { name: string; providers: EnvironmentProviderCfg list }
+
+/// How the generated code is placed relative to the input file.
+/// A file declared as `module A.B` generates into `namespace A` and opens `A.B`.
+type ContextEnvironmentScope = {
+    ns: string list
+    openStatements: string list
+    environments: EnvironmentCfg list
+}
 /// <summary>
 /// All runners in the runners-array must have effects-arrays of equal length, that is the arity
 /// </summary>
@@ -369,43 +388,6 @@ module Writer =
         sb.AppendLine("module Runner =")
         sb.AppendLine("    let mkRunner = EffectRunnerBuilder()")
         ()
-
-    let writeEffectGen (ctx: ContextEffectScope) (sb: IndentingStringBuilder) =
-        sb.AppendLine($"namespace {ctx.ns}")
-        sb.AppendLine("open Orsak")
-
-
-        for e in ctx.effects do
-            sb.AppendLine($"type {e.effectName}Provider =")
-            sb.AppendLine($"    abstract {e.providerPropertyName}: {e.effectName}")
-            sb.AppendLine("")
-
-            sb.AppendLine($"module {e.effectName.TrimStart('I')} =")
-
-            for m in e.members do
-                sb.Append($"    let {m.memberName |> toCamelCase} ")
-                let parameterCount = m.argumentCount
-
-                if m.isUnit then
-                    sb.Append("() ")
-                else
-                    for i = 1 to parameterCount do
-                        let varName = char (96 + i) |> string
-                        sb.Append($"{varName} ")
-
-                sb.AppendLine("=")
-
-                let apply =
-                    if m.isUnit then
-                        "()"
-                    elif m.isTuple then
-                        let p = String.Join(", ", [ for i in 1..parameterCount -> char (96 + i) |> string ])
-                        $"({p})"
-                    else
-                        let p = String.Join(" ", [ for i in 1..parameterCount -> char (96 + i) |> string ])
-                        $" {p}"
-
-                sb.AppendLine $"        Effect.Create(fun (er: #{e.providerName}) -> er.{e.providerPropertyName}.{m.memberName}{apply})"
 
     //just the one
     let inline extract a b =

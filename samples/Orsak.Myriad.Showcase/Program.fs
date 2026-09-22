@@ -14,6 +14,23 @@ let myRunner  (cache: IFace) (rnd: IRandomGenerator) =
     |> fun runner ->
         Face.countBeans 1 "" |> Effect.run runner
 
-printfn "Hello from F#"
+let environment =
+    AppEnvironment.create {|
+        BeanCounter = { new IBeanCounter with member _.Count() = 3 }
+        GuidGenerator = GuidGenerator.defaultGen ()
+        RandomGenerator = DefaultRandom(System.Random 42)
+    |}
+
+let countBeans () =
+    Effect.Create(fun (provider: #IBeanCounterProvider) -> provider.Effect.Count())
+
+let workflow () : Effect<_, string, string> = eff {
+    let! beans = countBeans ()
+    let! extra = Random.next 1 2
+    let! id = GuidGenerator.genGuid ()
+    return $"{beans + extra} beans, batch {id}"
+}
+
+printfn "%s" ((workflow () |> Effect.runOrFail environment).Result)
 
 

@@ -19,7 +19,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Myriad.Sdk" Version="0.8.3" />
+        <PackageReference Include="Myriad.Sdk" Version="1.0.0" />
+        <!-- Myriad.Sdk declares this download in its own props, which NuGet only imports after
+             restore, so a clean restore never fetches the tool. Declare it here instead. -->
+        <PackageDownload Include="Myriad" Version="[1.0.0]" />
     </ItemGroup>
     <Import Project="..\..\src\Orsak.Myriad\build\Orsak.Myriad.InTest.props" />
     <ItemGroup>

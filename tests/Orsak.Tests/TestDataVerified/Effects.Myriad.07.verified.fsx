@@ -12,7 +12,9 @@ type IPersistenceService =
     abstract Persistence: unit -> Task
 
 namespace Tmp
+
 open Orsak
+
 type IPersistenceServiceProvider =
     abstract Effect: IPersistenceService
 
