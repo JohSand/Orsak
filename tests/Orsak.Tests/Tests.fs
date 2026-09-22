@@ -58,8 +58,95 @@ module Helpers =
             else
                 failwith $"Got error %O{es} when expecting error %O{error}")
 
-module BuilderTests =
+'type ITestEffect1 =
+    abstract Test: unit -> int
 
+type ITestEffect1Provider =
+    abstract Effect: ITestEffect1
+
+module TestEffect1 =
+    let test () =
+        Effect.Create(fun (a: #ITestEffect1Provider) -> a.Effect.Test())
+
+type ITestEffect2 =
+    abstract Test: unit -> int
+
+type ITestEffect2Provider =
+    abstract Effect: ITestEffect2
+
+type ITestEffect3 =
+    abstract Test: unit -> int
+
+type ITestEffect3Provider =
+    abstract Effect: ITestEffect3
+
+module TestEffect2 =
+    let test () =
+        Effect.Create(fun (a: #ITestEffect2Provider) -> a.Effect.Test())
+
+module TestEffect3 =
+    let test () =
+        Effect.Create(fun (a: #ITestEffect3Provider) -> a.Effect.Test())
+
+[<Interface>]
+type ITestEffect =
+    inherit ITestEffect1Provider
+    inherit ITestEffect2Provider
+    inherit ITestEffect3Provider
+
+module TestEffect =
+    let create (a: {| TestEffect1: ITestEffect1; TestEffect2: ITestEffect2; TestEffect3: ITestEffect3 |}) = {
+        new ITestEffect with
+            //interface ITestEffect2Provider with
+            member _.Effect = a.TestEffect2
+        interface ITestEffect1Provider with
+            member _.Effect = a.TestEffect1
+        interface ITestEffect3Provider with
+            member _.Effect = a.TestEffect3
+    }
+
+
+module BuilderTests =
+    [<Fact>]
+    let ``I hope this works`` () = task {
+        let s = {|
+            TestEffect1 = {
+                new ITestEffect1 with
+                    member this.Test() = 1
+            }
+            TestEffect2 = {
+                new ITestEffect2 with
+                    member this.Test() = 2
+            }
+            TestEffect3 = {
+                new ITestEffect3 with
+                    member this.Test() = 3
+            }
+        |}
+
+        let _b = {|
+            s with
+                TestEffect3 = {
+                    new ITestEffect3 with
+                        member this.Test() = 4
+                }
+        |}
+
+        let sut = s |> TestEffect.create
+
+        let! result: Result<int, string> =
+            eff {
+                let! a = TestEffect1.test ()
+                and! b = TestEffect2.test ()
+                and! c = TestEffect3.test ()
+                return a + b + c
+            }
+            |> Effect.run (sut)
+
+        match result with
+        | Ok a -> Assert.Equal(6, a)
+        | Error s -> failwith s
+    }
 
     [<Fact>]
     let ``Overload resolution for nested tupled results works`` () =
