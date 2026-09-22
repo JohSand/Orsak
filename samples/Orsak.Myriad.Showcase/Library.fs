@@ -29,3 +29,16 @@ type ITest =
 // type ITest4 =
 //     inherit IProvide<IRandomGenerator>
 //     inherit IProvide<CancellationTokenSource>
+
+type IBeanCounter =
+    abstract Count: unit -> int
+
+type IBeanCounterProvider =
+    abstract Effect: IBeanCounter
+
+/// Generates AppEnvironment.create, which implements every provider from an anonymous record.
+[<GenEnvironment>]
+type IAppEnvironment =
+    inherit IBeanCounterProvider
+    inherit IGuidGenProvider
+    inherit IRandomProvider

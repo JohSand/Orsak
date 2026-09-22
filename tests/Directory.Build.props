@@ -1,0 +1,10 @@
+<Project>
+	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+	<!-- CI (GitHub Actions sets CI=true) builds the tests for an explicit RID, which silences the
+	     SQLite native-asset warnings on the Linux runners. Kept out of the project file so local
+	     builds on other platforms can still run the tests; set CI=true to reproduce the CI build. -->
+	<PropertyGroup Condition="'$(CI)' == 'true'">
+		<RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+		<UseAppHost>true</UseAppHost>
+	</PropertyGroup>
+</Project>

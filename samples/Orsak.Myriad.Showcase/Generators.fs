@@ -3,13 +3,16 @@
 //        Changes to this file will be lost when the code is regenerated.
 //------------------------------------------------------------------------------
 namespace Orsak.Myriad.Showcase
+
 open Orsak
+
 type IFaceProvider =
     abstract Effect: IFace
 
 module Face =
     let countBeans a b =
         Effect.Create(fun (er: #IFaceProvider) -> er.Effect.CountBeans(a, b))
+
     let pushButton () =
         Effect.Create(fun (er: #IFaceProvider) -> er.Effect.PushButton())
 
@@ -63,4 +66,29 @@ open Orsak.Myriad.Gen.Orsak.Myriad.Showcase
 [<AutoOpen>]
 module Runner =
     let mkRunner = EffectRunnerBuilder()
+
+namespace Orsak.Myriad.Showcase
+
+open Orsak
+open Orsak.Myriad
+open System.Threading.Tasks
+
+module AppEnvironment =
+    let create
+        (effects:
+            {|
+                BeanCounter: IBeanCounter
+                GuidGenerator: Orsak.IGuidGenerator
+                RandomGenerator: Orsak.IRandomGenerator
+            |})
+        : IAppEnvironment =
+        { new IAppEnvironment
+
+          interface IBeanCounterProvider with
+              member _.Effect = effects.BeanCounter
+          interface IGuidGenProvider with
+              member _.GuidGenerator = effects.GuidGenerator
+          interface IRandomProvider with
+              member _.Effect = effects.RandomGenerator
+        }
 

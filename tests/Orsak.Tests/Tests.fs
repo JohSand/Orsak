@@ -58,7 +58,7 @@ module Helpers =
             else
                 failwith $"Got error %O{es} when expecting error %O{error}")
 
-'type ITestEffect1 =
+type ITestEffect1 =
     abstract Test: unit -> int
 
 type ITestEffect1Provider =

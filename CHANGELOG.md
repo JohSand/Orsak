@@ -4,12 +4,16 @@
 
 ### Changed
 More performant implementation of Effect.par
+Orsak.Myriad updated to Myriad 1.0.0, and now targets net8.0 (previously netstandard2.1) and requires FSharp.Core 9. Consumers must add `<PackageDownload Include="Myriad" Version="[1.0.0]" />`, see README
 
 ### Added
 Effect.whenAll, high performance alternative to Effect.par that returns an array
+Orsak.Myriad: `[<GenEnvironment>]` generates a `create` function for an interface that inherits provider interfaces, see README
 
 ### Fixed
 Issue where bound effects could be not rerun properly
+Orsak.Myriad `[<GenEffects>]`: a configured `ProviderName` now names the generated provider, not just the constraint on the effect functions
+Orsak.Myriad `[<GenEffects>]`: module names only trim one leading `I` (`IInventory` generates `Inventory`, not `nventory`)
 
 ## [0.3.0] - 2023-04-15
 Extend api

@@ -156,3 +156,9 @@ type GenRunnerAttribute() =
 [<AttributeUsage(AttributeTargets.Interface)>]
 type GenEffectsAttribute() =
     inherit Attribute()
+
+/// Generates a `create` function for an interface that only inherits provider interfaces,
+/// implementing every provider from an anonymous record of effects.
+[<AttributeUsage(AttributeTargets.Interface)>]
+type GenEnvironmentAttribute() =
+    inherit Attribute()

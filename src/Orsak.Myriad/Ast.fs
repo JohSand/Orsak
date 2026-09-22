@@ -216,3 +216,114 @@ let parseEffects (context: GeneratorContext) (ast: ParsedInput) : ContextEffectS
             |> createEffectModule context moduleDecls
     | _ -> ()
 ]
+
+/// Orsak's own providers, which do not follow the `IFooProvider` -> `Effect: IFoo` convention.
+/// Keyed by the provider's unqualified name; a myriad.toml section of the same name takes precedence.
+let knownProviders =
+    Map [
+        "IGuidGenProvider", ([ "Orsak"; "IGuidGenerator" ], "GuidGenerator")
+        "ITimeProvider", ([ "System"; "TimeProvider" ], "Clock")
+        "ICacheProvider", ([ "Microsoft"; "Extensions"; "Caching"; "Memory"; "IMemoryCache" ], "Cache")
+        "ICancellationProvider", ([ "System"; "Threading"; "CancellationTokenSource" ], "Source")
+        "IRandomProvider", ([ "Orsak"; "IRandomGenerator" ], "Effect")
+    ]
+
+let private tryConfig (context: GeneratorContext) (section: string) (key: string) =
+    context.ConfigGetter section
+    |> Seq.tryPick (fun (k, value) -> if k = key then Some(value :?> string) else None)
+
+/// Resolves `inherit A.IFooProvider` to the effect type `A.IFoo` and property `Effect`,
+/// unless overridden by a `[IFooProvider]` section with `EffectType` / `ProviderPropertyName`.
+let environmentProviderCfg (context: GeneratorContext) (environmentName: string) (providerType: string list) =
+    let providerName = List.last providerType
+    let known = knownProviders |> Map.tryFind providerName
+    let suffix = "Provider"
+
+    let effectType =
+        match tryConfig context providerName "EffectType", known with
+        | Some configured, _ -> configured.Split('.') |> List.ofArray
+        | None, Some(effectType, _) -> effectType
+        | None, None when providerName.EndsWith suffix && providerName.Length > suffix.Length ->
+            List.truncate (providerType.Length - 1) providerType
+            @ [ providerName.Substring(0, providerName.Length - suffix.Length) ]
+        | None, None ->
+            failwith
+                $"GenEnvironment: cannot infer the effect type of '%s{providerName}' inherited by '%s{environmentName}'. Name it '...Provider', or add a [%s{providerName}] section with EffectType to myriad.toml."
+
+    let propertyName =
+        tryConfig context providerName "ProviderPropertyName"
+        |> Option.orElse (known |> Option.map snd)
+        |> Option.defaultValue "Effect"
+
+    {
+        providerType = providerType
+        effectType = effectType
+        propertyName = propertyName
+        fieldName = Writer.trimI (List.last effectType)
+    }
+
+let environmentCfg (context: GeneratorContext) (SynTypeDefn(typeInfo, repr, _, _, _, _)) =
+    let name = parseTypeName typeInfo
+    let fail reason = failwith $"GenEnvironment: '%s{name}' %s{reason}"
+
+    let members =
+        match repr with
+        | SynTypeDefnRepr.ObjectModel(_, members, _) -> members
+        | _ -> fail "must be an interface."
+
+    let providers = [
+        for m in members do
+            match m with
+            | SynMemberDefn.Inherit(SynType.LongIdent(SynLongIdent(ids, _, _)), _, _) ->
+                environmentProviderCfg context name (ids |> List.map _.idText)
+            | SynMemberDefn.Inherit _ -> fail "can only inherit non-generic provider interfaces."
+            | _ -> fail "can only inherit provider interfaces, and cannot declare members of its own."
+    ]
+
+    if providers.IsEmpty then
+        fail "must inherit at least one provider interface."
+
+    match providers |> List.countBy _.fieldName |> List.tryFind (fun (_, count) -> count > 1) with
+    | Some(field, _) -> fail $"inherits more than one provider whose effect is named '%s{field}'."
+    | None -> ()
+
+    { name = name; providers = providers }
+
+let rec private collectEnvironments (context: GeneratorContext) (decls: SynModuleDecl list) (acc: ContextEnvironmentScope) =
+    match decls with
+    | [] -> acc
+    | SynModuleDecl.Types(types, _) :: rest ->
+        let environments =
+            types
+            |> List.filter Ast.hasAttribute<GenEnvironmentAttribute>
+            |> List.map (environmentCfg context)
+
+        collectEnvironments context rest { acc with environments = acc.environments @ environments }
+    | SynModuleDecl.Open(SynOpenDeclTarget.ModuleOrNamespace(SynLongIdent(target, _, _), _), _) :: rest ->
+        collectEnvironments context rest { acc with openStatements = acc.openStatements @ [ toString target ] }
+    | _ :: rest -> collectEnvironments context rest acc
+
+let parseEnvironments (context: GeneratorContext) (ast: ParsedInput) : ContextEnvironmentScope list = [
+    match ast with
+    | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
+        for SynModuleOrNamespace(longId = id; kind = kind; decls = decls) in modules do
+            let names = id |> List.map _.idText
+
+            let scope =
+                match kind with
+                | SynModuleOrNamespaceKind.NamedModule ->
+                    { ns = List.truncate (names.Length - 1) names; openStatements = [ toString id ]; environments = [] }
+                | _ -> { ns = names; openStatements = []; environments = [] }
+
+            let scope = collectEnvironments context decls scope
+
+            // The generated module sits next to the input module, so it cannot share its name.
+            if kind = SynModuleOrNamespaceKind.NamedModule then
+                for e in scope.environments do
+                    if Writer.trimI e.name = List.last names then
+                        failwith
+                            $"GenEnvironment: the module generated for '%s{e.name}' would have the same name as the module '%s{toString id}' that declares it."
+
+            scope
+    | _ -> ()
+]
