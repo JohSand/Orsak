@@ -114,3 +114,26 @@ let namespaceDecl (ns: string list) (decls: SynModuleDecl list) =
         range0,
         { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Namespace range0 }
     )
+
+/// Wraps generated declarations for their placement. `namespaceOpens` are only needed,
+/// and only emitted, when the code gets a namespace of its own.
+let place (placement: Placement) (namespaceOpens: string list) (decls: SynModuleDecl list) =
+    match placement with
+    | Namespace(ns, opens) ->
+        namespaceDecl ns [
+            for o in opens @ namespaceOpens do
+                SynModuleDecl.CreateOpen o
+            yield! decls
+        ]
+    | Appended ->
+        SynModuleOrNamespace(
+            [],
+            false,
+            SynModuleOrNamespaceKind.AnonModule,
+            decls,
+            PreXmlDoc.Empty,
+            [],
+            None,
+            range0,
+            { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.None }
+        )

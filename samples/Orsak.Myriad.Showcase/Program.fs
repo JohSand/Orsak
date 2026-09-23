@@ -33,4 +33,12 @@ let workflow () : Effect<_, string, string> = eff {
 
 printfn "%s" ((workflow () |> Effect.runOrFail environment).Result)
 
+let inlineWorkflow () : Effect<_, string, string> = eff {
+    let! greeting = Inline.greet "inline"
+    let! now = Inline.Clock.now ()
+    return $"""{greeting} at {now.ToString("HH:mm")}"""
+}
+
+printfn "%s" ((inlineWorkflow () |> Effect.runOrFail (Inline.environment ())).Result)
+
 

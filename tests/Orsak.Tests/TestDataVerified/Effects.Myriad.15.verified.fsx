@@ -18,16 +18,16 @@ namespace Tmp
 
 open Orsak
 
-type IStorageAccess =
-    abstract Storage: IStorage
-
-module Storage =
-    let save a =
-        Effect.Create(fun (er: #IStorageAccess) -> er.Storage.Save a)
-
 type IInventoryProvider =
     abstract Effect: IInventory
 
 module Inventory =
     let count () =
         Effect.Create(fun (er: #IInventoryProvider) -> er.Effect.Count())
+
+type IStorageAccess =
+    abstract Storage: IStorage
+
+module Storage =
+    let save a =
+        Effect.Create(fun (er: #IStorageAccess) -> er.Storage.Save a)

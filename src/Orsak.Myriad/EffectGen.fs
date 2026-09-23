@@ -108,12 +108,12 @@ module EffectSyntax =
     let private effectModule (effect: EffectProviderCfg) =
         moduleDecl (Writer.trimI effect.effectName) [ for m in effect.members -> effectFunction effect m ]
 
-    /// One namespace per input scope that has [<GenEffects>] interfaces.
+    /// Output for each input namespace or module that has [<GenEffects>] interfaces. Some Effect.Create
+    /// overloads are extensions that only `open Orsak` brings into scope, which appended code relies on the file for.
     let create (scopes: ContextEffectScope list) : SynModuleOrNamespace list = [
         for scope in scopes do
             if not scope.effects.IsEmpty then
-                namespaceDecl (List.ofArray (scope.ns.Split('.'))) [
-                    SynModuleDecl.CreateOpen "Orsak"
+                place scope.placement [ "Orsak" ] [
                     for e in scope.effects do
                         providerType e
                         effectModule e

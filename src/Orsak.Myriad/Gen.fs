@@ -157,8 +157,16 @@ type GenRunnerAttribute() =
 type GenEffectsAttribute() =
     inherit Attribute()
 
+    /// Set when the file uses MyriadInlineGeneration: the code is generated without namespace or opens,
+    /// to be appended to the end of the file. In a `rec` module or namespace it can then be used above.
+    member val Inline = false with get, set
+
 /// Generates a `create` function for an interface that only inherits provider interfaces,
 /// implementing every provider from an anonymous record of effects.
 [<AttributeUsage(AttributeTargets.Interface)>]
 type GenEnvironmentAttribute() =
     inherit Attribute()
+
+    /// Set when the file uses MyriadInlineGeneration: the code is generated without namespace or opens,
+    /// to be appended to the end of the file. In a `rec` module or namespace it can then be used above.
+    member val Inline = false with get, set
