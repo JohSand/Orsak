@@ -15,6 +15,9 @@
 			<MyriadFile>Library.fs</MyriadFile>
             <MyriadSdkVerboseOutput>true</MyriadSdkVerboseOutput>
         </Compile>
+        <Compile Include="Inline.fs">
+            <MyriadInlineGeneration>true</MyriadInlineGeneration>
+        </Compile>
         <Compile Include="Program.fs" />
     </ItemGroup>
 

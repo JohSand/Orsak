@@ -79,14 +79,12 @@ module EnvironmentSyntax =
             letDecl "create" [ parameter, Some parameterName ] (Some(longType [ environment.name ])) (objectExpression environment)
         ]
 
-    /// One namespace per input scope that has [<GenEnvironment>] interfaces, repeating the input's opens.
+    /// Output for each input namespace or module that has [<GenEnvironment>] interfaces,
+    /// repeating the input's opens when it gets a namespace of its own.
     let create (scopes: ContextEnvironmentScope list) : SynModuleOrNamespace list = [
         for scope in scopes do
             if not scope.environments.IsEmpty then
-                namespaceDecl scope.ns [
-                    for o in scope.openStatements -> SynModuleDecl.CreateOpen o
-                    for e in scope.environments -> environmentModule e
-                ]
+                place scope.placement scope.openStatements [ for e in scope.environments -> environmentModule e ]
     ]
 
 [<MyriadGenerator("EnvironmentGen")>]

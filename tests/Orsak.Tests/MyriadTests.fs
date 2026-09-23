@@ -156,6 +156,7 @@ module MyriadTests =
     [<InlineData(10)>]
     [<InlineData(11)>]
     [<InlineData(15)>]
+    [<InlineData(16)>]
     let ``EffectGen creates the expected output`` (i: int) = task {
         let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
 
@@ -228,3 +229,45 @@ module MyriadTests =
         let source = "[<GenEffects>]\ntype IDotted =\n    abstract Foo: unit -> int\n"
         let error = Assert.Throws<exn>(fun () -> Ast.generateEff source |> ignore)
         Assert.Contains("ProviderName 'Somewhere.IDottedProvider' for 'IDotted' must be a plain type name", error.Message)
+
+    /// Both AST generators run over a file whose attributes set Inline = true, their output
+    /// concatenated the way Myriad appends it to the end of that file.
+    [<Theory>]
+    [<InlineData(17)>]
+    [<InlineData(18)>]
+    let ``Generators produce code to append when Inline is set`` (i: int) = task {
+        let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
+
+        use resource =
+            assm.GetManifestResourceStream($"Orsak.Tests.TestData.Effects.Myriad.%02i{i}.fsx")
+
+        use reader = new StreamReader(resource)
+        let txt = reader.ReadToEnd()
+
+        let settings = VerifySettings()
+        settings.UseDirectory("TestDataVerified")
+        settings.UseFileName($"Effects.Myriad.%02i{i}")
+
+        let appended =
+            System.String.Join(System.Environment.NewLine, txt, Ast.generateEff txt, Ast.generateEnvironment txt)
+
+        let! _result = Verifier.Verify(target = appended, extension = "fsx", settings = settings)
+        ()
+    }
+
+    [<Fact>]
+    let ``EnvironmentGen allows a module named like the declaring module when Inline is set`` () =
+        let source =
+            "module Company.App.Environment\n\n[<GenEnvironment(Inline = true)>]\ntype IEnvironment =\n    inherit IFooProvider\n"
+
+        let generated = Ast.generateEnvironment source
+        Assert.Contains("module Environment =", generated)
+        Assert.DoesNotContain("namespace", generated)
+
+    [<Fact>]
+    let ``Inline is rejected outside the last namespace of a file`` () =
+        let source =
+            "namespace A\n\n[<Orsak.Myriad.GenEffects(Inline = true)>]\ntype IFoo =\n    abstract Foo: unit -> int\n\nnamespace B\n\ntype Other = int\n"
+
+        let error = Assert.Throws<exn>(fun () -> Ast.generateEff source |> ignore)
+        Assert.Contains("GenEffects: Inline = true is only supported in the last namespace or module of a file", error.Message)

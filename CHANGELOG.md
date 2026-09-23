@@ -9,11 +9,13 @@ Orsak.Myriad updated to Myriad 1.0.0, and now targets net8.0 (previously netstan
 ### Added
 Effect.whenAll, high performance alternative to Effect.par that returns an array
 Orsak.Myriad: `[<GenEnvironment>]` generates a `create` function for an interface that inherits provider interfaces, see README
+Orsak.Myriad: `Inline = true` on `[<GenEffects>]` and `[<GenEnvironment>]` generates code to append to its own file with MyriadInlineGeneration, e.g. an ad hoc environment in a `rec` test file, see README
 
 ### Fixed
 Issue where bound effects could be not rerun properly
 Orsak.Myriad `[<GenEffects>]`: a configured `ProviderName` now names the generated provider, not just the constraint on the effect functions
 Orsak.Myriad `[<GenEffects>]`: module names only trim one leading `I` (`IInventory` generates `Inventory`, not `nventory`)
+Orsak.Myriad `[<GenEffects>]`: an input declared as `module A.B` generates into `namespace A`, instead of a `namespace A.B` that clashes with the module
 
 ## [0.3.0] - 2023-04-15
 Extend api

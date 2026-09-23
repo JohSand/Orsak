@@ -193,27 +193,64 @@ let effectMemberCfg (context: GeneratorContext) (SynTypeDefn(typeInfo: SynCompon
         )
     | _ -> None
 
-let rec createEffectModule (context: GeneratorContext) (decls: SynModuleDecl list) (agg: ContextEffectScope) =
-    match decls with
-    | [] -> agg
-    | x :: xs ->
-        match x with
-        | SynModuleDecl.Types(types, _) ->
-            let providerTypes =
-                types
-                |> List.filter Ast.hasAttribute<GenEffectsAttribute>
-                |> List.choose (effectMemberCfg context)
+/// Matches `name = true` among an attribute's arguments.
+let rec private isNamedArgumentTrue (name: string) (expr: SynExpr) =
+    match expr with
+    | SynExpr.Paren(inner, _, _, _) -> isNamedArgumentTrue name inner
+    | SynExpr.Tuple(_, exprs, _, _) -> exprs |> List.exists (isNamedArgumentTrue name)
+    | SynExpr.App(_,
+                  false,
+                  SynExpr.App(_, true, SynExpr.LongIdent(_, SynLongIdent([ op ], _, _), _, _), SynExpr.Ident arg, _),
+                  SynExpr.Const(SynConst.Bool true, _),
+                  _) -> op.idText = "op_Equality" && arg.idText = name
+    | _ -> false
 
-            createEffectModule context xs { agg with effects = providerTypes @ agg.effects }
-        | _ -> createEffectModule context xs agg
+/// Whether the type's attribute, e.g. [<GenEnvironment(Inline = true)>], asks for code to append to its file.
+let isInlineRequested (attributeName: string) (SynTypeDefn(typeInfo = SynComponentInfo(attributes = attributes))) =
+    attributes
+    |> List.collect _.Attributes
+    |> List.exists (fun attribute ->
+        let name = (List.last attribute.TypeName.LongIdent).idText
+
+        (name = attributeName || name = attributeName + "Attribute")
+        && isNamedArgumentTrue "Inline" attribute.ArgExpr)
+
+/// Code is appended to the input file when requested with Inline = true. Otherwise it goes in its
+/// own file, which for `module A.B` means `namespace A` opening `A.B`.
+let placement (isInline: bool) (kind: SynModuleOrNamespaceKind) (id: LongIdent) =
+    let names = id |> List.map _.idText
+
+    if isInline then
+        Appended
+    else
+        match kind with
+        | SynModuleOrNamespaceKind.NamedModule -> Namespace(List.truncate (names.Length - 1) names, [ toString id ])
+        | _ -> Namespace(names, [])
+
+let private attributedTypes (hasAttribute: SynTypeDefn -> bool) (decls: SynModuleDecl list) = [
+    for decl in decls do
+        match decl with
+        | SynModuleDecl.Types(types, _) -> yield! List.filter hasAttribute types
+        | _ -> ()
+]
+
+/// Appended code lands in the file's last namespace or module, so it can only be requested there.
+let private ensureAppendable (attributeName: string) (isLast: bool) (id: LongIdent) =
+    if not isLast then
+        failwith
+            $"%s{attributeName}: Inline = true is only supported in the last namespace or module of a file, since the code is appended to the end of the file, not to '%s{toString id}'."
 
 let parseEffects (context: GeneratorContext) (ast: ParsedInput) : ContextEffectScope list = [
-
     match ast with
-    | ParsedInput.ImplFile(ParsedImplFileInput(_name, _, _, _, _, modules, _, _, _)) ->
-        for SynModuleOrNamespace(namespaceId, _, _, moduleDecls, _, _, _, _, _) in modules do
-            { ContextEffectScope.effects = []; openStatements = []; ns = toString namespaceId }
-            |> createEffectModule context moduleDecls
+    | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
+        for i, SynModuleOrNamespace(longId = id; kind = kind; decls = decls) in List.indexed modules do
+            let types = attributedTypes Ast.hasAttribute<GenEffectsAttribute> decls
+            let isInline = types |> List.exists (isInlineRequested "GenEffects")
+
+            if isInline then
+                ensureAppendable "GenEffects" (i = modules.Length - 1) id
+
+            { placement = placement isInline kind id; effects = types |> List.choose (effectMemberCfg context) }
     | _ -> ()
 ]
 
@@ -289,40 +326,37 @@ let environmentCfg (context: GeneratorContext) (SynTypeDefn(typeInfo, repr, _, _
 
     { name = name; providers = providers }
 
-let rec private collectEnvironments (context: GeneratorContext) (decls: SynModuleDecl list) (acc: ContextEnvironmentScope) =
-    match decls with
-    | [] -> acc
-    | SynModuleDecl.Types(types, _) :: rest ->
-        let environments =
-            types
-            |> List.filter Ast.hasAttribute<GenEnvironmentAttribute>
-            |> List.map (environmentCfg context)
-
-        collectEnvironments context rest { acc with environments = acc.environments @ environments }
-    | SynModuleDecl.Open(SynOpenDeclTarget.ModuleOrNamespace(SynLongIdent(target, _, _), _), _) :: rest ->
-        collectEnvironments context rest { acc with openStatements = acc.openStatements @ [ toString target ] }
-    | _ :: rest -> collectEnvironments context rest acc
+let private opensOf (decls: SynModuleDecl list) = [
+    for decl in decls do
+        match decl with
+        | SynModuleDecl.Open(SynOpenDeclTarget.ModuleOrNamespace(SynLongIdent(target, _, _), _), _) -> toString target
+        | _ -> ()
+]
 
 let parseEnvironments (context: GeneratorContext) (ast: ParsedInput) : ContextEnvironmentScope list = [
     match ast with
     | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
-        for SynModuleOrNamespace(longId = id; kind = kind; decls = decls) in modules do
-            let names = id |> List.map _.idText
+        for i, SynModuleOrNamespace(longId = id; kind = kind; decls = decls) in List.indexed modules do
+            let types = attributedTypes Ast.hasAttribute<GenEnvironmentAttribute> decls
+            let isInline = types |> List.exists (isInlineRequested "GenEnvironment")
 
-            let scope =
-                match kind with
-                | SynModuleOrNamespaceKind.NamedModule ->
-                    { ns = List.truncate (names.Length - 1) names; openStatements = [ toString id ]; environments = [] }
-                | _ -> { ns = names; openStatements = []; environments = [] }
+            if isInline then
+                ensureAppendable "GenEnvironment" (i = modules.Length - 1) id
 
-            let scope = collectEnvironments context decls scope
+            let scope = {
+                placement = placement isInline kind id
+                openStatements = opensOf decls
+                environments = types |> List.map (environmentCfg context)
+            }
 
-            // The generated module sits next to the input module, so it cannot share its name.
-            if kind = SynModuleOrNamespaceKind.NamedModule then
+            // In a separate file the generated module sits next to the input module, so it cannot share its name.
+            match scope.placement with
+            | Namespace _ when kind = SynModuleOrNamespaceKind.NamedModule ->
                 for e in scope.environments do
-                    if Writer.trimI e.name = List.last names then
+                    if Writer.trimI e.name = (List.last id).idText then
                         failwith
                             $"GenEnvironment: the module generated for '%s{e.name}' would have the same name as the module '%s{toString id}' that declares it."
+            | _ -> ()
 
             scope
     | _ -> ()

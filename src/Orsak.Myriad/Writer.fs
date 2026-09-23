@@ -57,7 +57,16 @@ type RunnerCfg = { effects: EffectProviderCfg array; name: string }
 
 type ContextWriterScope = { ns: string; openStatements: string list; effects: EffectAttributeMatches list }
 
-type ContextEffectScope = { ns: string; openStatements: string list; effects: EffectProviderCfg list }
+/// Where code generated from one namespace or module of the input file is placed.
+type Placement =
+    /// In `namespace ns`, opening what is needed to see the input's declarations,
+    /// e.g. `namespace A` opening `A.B` for an input declared as `module A.B`.
+    | Namespace of ns: string list * opens: string list
+    /// Appended to the end of the input file, as requested with Inline = true: no namespace or opens,
+    /// which would start a new scope, or be rejected in a `rec` module or namespace.
+    | Appended
+
+type ContextEffectScope = { placement: Placement; effects: EffectProviderCfg list }
 
 /// A provider inherited by a [<GenEnvironment>] interface, e.g. `inherit IFooProvider`,
 /// together with the effect type and property it is resolved to by convention or config.
@@ -70,13 +79,13 @@ type EnvironmentProviderCfg = {
 
 type EnvironmentCfg = { name: string; providers: EnvironmentProviderCfg list }
 
-/// How the generated code is placed relative to the input file.
-/// A file declared as `module A.B` generates into `namespace A` and opens `A.B`.
+/// The input's own opens are repeated when the code is placed in a namespace.
 type ContextEnvironmentScope = {
-    ns: string list
+    placement: Placement
     openStatements: string list
     environments: EnvironmentCfg list
 }
+
 /// <summary>
 /// All runners in the runners-array must have effects-arrays of equal length, that is the arity
 /// </summary>
