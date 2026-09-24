@@ -157,8 +157,9 @@ type GenRunnerAttribute() =
 type GenEffectsAttribute() =
     inherit Attribute()
 
-    /// Set when the file uses MyriadInlineGeneration: the code is generated without namespace or opens,
-    /// to be appended to the end of the file. In a `rec` module or namespace it can then be used above.
+    /// Only needed with Myriad 1.0: set when the file uses MyriadInlineGeneration, so the code is generated
+    /// without namespace or opens, to be appended to the end of the file. Myriad 1.1 and later say whether
+    /// a file is inline themselves, which then takes precedence.
     member val Inline = false with get, set
 
 /// Generates a `create` function for an interface that only inherits provider interfaces,
@@ -167,6 +168,7 @@ type GenEffectsAttribute() =
 type GenEnvironmentAttribute() =
     inherit Attribute()
 
-    /// Set when the file uses MyriadInlineGeneration: the code is generated without namespace or opens,
-    /// to be appended to the end of the file. In a `rec` module or namespace it can then be used above.
+    /// Only needed with Myriad 1.0: set when the file uses MyriadInlineGeneration, so the code is generated
+    /// without namespace or opens, to be appended to the end of the file. Myriad 1.1 and later say whether
+    /// a file is inline themselves, which then takes precedence.
     member val Inline = false with get, set

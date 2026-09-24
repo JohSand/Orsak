@@ -1,4 +1,4 @@
-/// Uses MyriadInlineGeneration with Inline = true on the attributes: the generated code is appended to
+/// Uses MyriadInlineGeneration: the generated code is appended to
 /// the end of this module without namespace or opens. As the module is rec, it can be used above that.
 module rec Orsak.Myriad.Showcase.Inline
 
@@ -6,7 +6,7 @@ open System
 open Orsak
 open Orsak.Myriad
 
-[<GenEffects(Inline = true)>]
+[<GenEffects>]
 type IClock =
     abstract Now: unit -> DateTimeOffset
 
@@ -17,7 +17,7 @@ type IGreeterProvider =
     abstract Effect: IGreeter
 
 /// An ad hoc environment, inheriting IClockProvider, which is generated further down this file.
-[<GenEnvironment(Inline = true)>]
+[<GenEnvironment>]
 type IInlineEnvironment =
     inherit IClockProvider
     inherit IGreeterProvider
@@ -54,4 +54,3 @@ module InlineEnvironment =
           interface IGreeterProvider with
               member _.Effect = effects.Greeter
         }
-

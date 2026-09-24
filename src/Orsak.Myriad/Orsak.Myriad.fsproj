@@ -31,7 +31,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Myriad.Core" Version="1.0.0" PrivateAssets="all" />
+		<PackageReference Include="Myriad.Core" Version="1.1.0" PrivateAssets="all" />
 	</ItemGroup>
 
 	<ItemGroup>

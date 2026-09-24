@@ -55,7 +55,7 @@
         <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
         <PackageReference Include="Unquote" Version="7.0.1"/>
-        <PackageReference Include="Myriad.Core" Version="1.0.0"/>
+        <PackageReference Include="Myriad.Core" Version="1.1.0"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj"/>

@@ -77,7 +77,7 @@ module Ast =
 
         Fantomas.Core.CodeFormatter.FormatASTAsync(file, formatConfig) |> Async.RunSynchronously
 
-    let generateEff s =
+    let generateEffWith (parameters: Map<string, string>) s =
         let context = {
             GeneratorContext.ConfigKey = None
             ConfigGetter =
@@ -88,13 +88,15 @@ module Ast =
                     | _ -> []
             InputFilename = ""
             ProjectContext = None
-            AdditionalParameters = Map.empty
+            AdditionalParameters = parameters
         }
 
         let ast, _ = parse s
         Ast.parseEffects context ast |> EffectSyntax.create |> format
 
-    let generateEnvironment s =
+    let generateEff s = generateEffWith Map.empty s
+
+    let generateEnvironmentWith (parameters: Map<string, string>) s =
         let context = {
             GeneratorContext.ConfigKey = None
             ConfigGetter =
@@ -104,11 +106,13 @@ module Ast =
                     | _ -> []
             InputFilename = ""
             ProjectContext = None
-            AdditionalParameters = Map.empty
+            AdditionalParameters = parameters
         }
 
         let ast, _ = parse s
         Ast.parseEnvironments context ast |> EnvironmentSyntax.create |> format
+
+    let generateEnvironment s = generateEnvironmentWith Map.empty s
 
 module MyriadTests =
 
@@ -270,4 +274,33 @@ module MyriadTests =
             "namespace A\n\n[<Orsak.Myriad.GenEffects(Inline = true)>]\ntype IFoo =\n    abstract Foo: unit -> int\n\nnamespace B\n\ntype Other = int\n"
 
         let error = Assert.Throws<exn>(fun () -> Ast.generateEff source |> ignore)
-        Assert.Contains("GenEffects: Inline = true is only supported in the last namespace or module of a file", error.Message)
+        Assert.Contains("GenEffects: inline generation only supports types in the last namespace or module of a file", error.Message)
+
+    /// What Myriad 1.1 and later pass in AdditionalParameters (Generation.InlineGenerationParameter).
+    let private myriadInline (value: bool) =
+        Map [ Generation.InlineGenerationParameter, (if value then "true" else "false") ]
+
+    let private environmentSource (attributeArgs: string) =
+        $"module Company.App.Tests\n\n[<GenEnvironment%s{attributeArgs}>]\ntype ITestEnvironment =\n    inherit IFooProvider\n"
+
+    [<Fact>]
+    let ``Myriad's inline parameter makes code appended without Inline on the attribute`` () =
+        let generated = Ast.generateEnvironmentWith (myriadInline true) (environmentSource "")
+        Assert.Contains("module TestEnvironment =", generated)
+        Assert.DoesNotContain("namespace", generated)
+        Assert.DoesNotContain("open ", generated)
+
+    [<Fact>]
+    let ``Myriad's inline parameter wins over the attribute when it says the output is not inline`` () =
+        let generated = Ast.generateEnvironmentWith (myriadInline false) (environmentSource "(Inline = true)")
+        Assert.Contains("namespace Company.App", generated)
+        Assert.Contains("open Company.App.Tests", generated)
+
+    [<Fact>]
+    let ``Inline generation only needs the attributed types to be in the last namespace`` () =
+        let source =
+            "namespace A\n\ntype Other = int\n\nnamespace B\n\n[<Orsak.Myriad.GenEffects>]\ntype IFoo =\n    abstract Foo: unit -> int\n"
+
+        let generated = Ast.generateEffWith (myriadInline true) source
+        Assert.Contains("module Foo =", generated)
+        Assert.DoesNotContain("namespace", generated)
