@@ -215,8 +215,16 @@ let isInlineRequested (attributeName: string) (SynTypeDefn(typeInfo = SynCompone
         (name = attributeName || name = attributeName + "Attribute")
         && isNamedArgumentTrue "Inline" attribute.ArgExpr)
 
-/// Code is appended to the input file when requested with Inline = true. Otherwise it goes in its
-/// own file, which for `module A.B` means `namespace A` opening `A.B`.
+/// Whether the output is appended to the input file (MyriadInlineGeneration). Myriad 1.1 and later say
+/// so in the parameters, which then decide; on older versions it is absent and the attributes'
+/// Inline = true stands in for it.
+let isInlineGeneration (context: GeneratorContext) (attributeName: string) (types: SynTypeDefn list) =
+    match context.AdditionalParameters.TryGetValue Generation.InlineGenerationParameter with
+    | true, value -> String.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+    | _ -> types |> List.exists (isInlineRequested attributeName)
+
+/// Code is appended to the input file when generated inline. Otherwise it goes in its own file,
+/// which for `module A.B` means `namespace A` opening `A.B`.
 let placement (isInline: bool) (kind: SynModuleOrNamespaceKind) (id: LongIdent) =
     let names = id |> List.map _.idText
 
@@ -234,20 +242,20 @@ let private attributedTypes (hasAttribute: SynTypeDefn -> bool) (decls: SynModul
         | _ -> ()
 ]
 
-/// Appended code lands in the file's last namespace or module, so it can only be requested there.
+/// Appended code lands in the file's last namespace or module, so inline generation only works for types there.
 let private ensureAppendable (attributeName: string) (isLast: bool) (id: LongIdent) =
     if not isLast then
         failwith
-            $"%s{attributeName}: Inline = true is only supported in the last namespace or module of a file, since the code is appended to the end of the file, not to '%s{toString id}'."
+            $"%s{attributeName}: inline generation only supports types in the last namespace or module of a file, since the code is appended to the end of the file, not to '%s{toString id}'."
 
 let parseEffects (context: GeneratorContext) (ast: ParsedInput) : ContextEffectScope list = [
     match ast with
     | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
         for i, SynModuleOrNamespace(longId = id; kind = kind; decls = decls) in List.indexed modules do
             let types = attributedTypes Ast.hasAttribute<GenEffectsAttribute> decls
-            let isInline = types |> List.exists (isInlineRequested "GenEffects")
+            let isInline = isInlineGeneration context "GenEffects" types
 
-            if isInline then
+            if isInline && not types.IsEmpty then
                 ensureAppendable "GenEffects" (i = modules.Length - 1) id
 
             { placement = placement isInline kind id; effects = types |> List.choose (effectMemberCfg context) }
@@ -338,9 +346,9 @@ let parseEnvironments (context: GeneratorContext) (ast: ParsedInput) : ContextEn
     | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
         for i, SynModuleOrNamespace(longId = id; kind = kind; decls = decls) in List.indexed modules do
             let types = attributedTypes Ast.hasAttribute<GenEnvironmentAttribute> decls
-            let isInline = types |> List.exists (isInlineRequested "GenEnvironment")
+            let isInline = isInlineGeneration context "GenEnvironment" types
 
-            if isInline then
+            if isInline && not types.IsEmpty then
                 ensureAppendable "GenEnvironment" (i = modules.Length - 1) id
 
             let scope = {

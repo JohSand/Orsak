@@ -4,12 +4,12 @@
 
 ### Changed
 More performant implementation of Effect.par
-Orsak.Myriad updated to Myriad 1.0.0, and now targets net8.0 (previously netstandard2.1) and requires FSharp.Core 9. Consumers must add `<PackageDownload Include="Myriad" Version="[1.0.0]" />`, see README
+Orsak.Myriad updated to Myriad 1.1.0, and now targets net8.0 (previously netstandard2.1) and requires FSharp.Core 9. Consumers must add `<PackageDownload Include="Myriad" Version="[1.1.0]" />`, see README
 
 ### Added
 Effect.whenAll, high performance alternative to Effect.par that returns an array
 Orsak.Myriad: `[<GenEnvironment>]` generates a `create` function for an interface that inherits provider interfaces, see README
-Orsak.Myriad: `Inline = true` on `[<GenEffects>]` and `[<GenEnvironment>]` generates code to append to its own file with MyriadInlineGeneration, e.g. an ad hoc environment in a `rec` test file, see README
+Orsak.Myriad: with MyriadInlineGeneration, code is generated to be appended to the file itself, e.g. an ad hoc environment in a `rec` test file. Detected automatically from Myriad 1.1; with Myriad 1.0, set `Inline = true` on `[<GenEffects>]` and `[<GenEnvironment>]`, see README
 
 ### Fixed
 Issue where bound effects could be not rerun properly
