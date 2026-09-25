@@ -49,7 +49,7 @@ type MessageScope(queue: QueueClient) =
 
                 if response.Value.Length = 0 then
                     //for extra credits, this could increase or shrink depending of prior history
-                    do! Task.Delay(TimeSpan.FromMilliseconds 10)
+                    do! Task.Delay(TimeSpan.FromMilliseconds 10.)
                 else
                     yield! response.Value
         }

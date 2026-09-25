@@ -56,3 +56,27 @@ module ResilienceTests =
         return ()
     }
 
+
+    /// A web endpoint without route parameters runs one shared effect value for every request, on many
+    /// threads at once, so parallel runs of the same value must not share state (e.g. a state machine).
+    let runInParallel (shared: Effect<unit, int, string>) = task {
+        // Each run starts on its own thread pool work item, so runs start on several threads at once.
+        // Shared state shows up as runs that never complete, so wait with a timeout rather than hang.
+        let! results =
+            Task
+                .WhenAll([| for _ in 1..5000 -> Task.Run<Result<int, string>>(fun () -> (Effect.run () shared).AsTask()) |])
+                .WaitAsync(System.TimeSpan.FromSeconds 10.)
+        Assert.All(results, fun r -> Assert.Equal(Ok 42, r))
+    }
+
+    [<Fact>]
+    let ``a single synchronous effect value can be run in parallel`` () = runInParallel (eff { return 42 })
+
+    [<Fact>]
+    let ``a single asynchronous effect value can be run in parallel`` () =
+        runInParallel (eff {
+            do! Task.Delay 1
+            let! a = eff { return 20 }
+            do! Task.Yield()
+            return a + 22
+        })

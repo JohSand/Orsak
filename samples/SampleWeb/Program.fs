@@ -4,13 +4,19 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Orsak
 open Orsak.AspNetCore
+open Orsak.AspNetCore.V2
+
+
 
 open Azure.Storage.Queues
 open SampleWeb
 open Orsak.Extensions.Message
 open FSharpPlus
 
-let mkBackgroundEnv queueCLient (ctx: System.IServiceProvider) _ =    
+
+
+
+let mkBackgroundEnv queueCLient (ctx: System.IServiceProvider) _ =
     {
             loggerFactory = ctx.GetRequiredService<_>()
             queueClient = MessageScope queueCLient
@@ -19,6 +25,7 @@ let mkBackgroundEnv queueCLient (ctx: System.IServiceProvider) _ =
 let test () = eff {
     return ()
 }
+
 
 [<EntryPoint>]
 let main args =
@@ -49,6 +56,8 @@ let main args =
                     r.RouteGet("/ping", Application.ping)
                     r.RouteGet("/ping/%i", Application.ping2).WithName("ping")
                     r.RouteGet("/pong/%s/%i", Application.post)
+                    r.RouteGet2("/ping", Application.ping)
+                    r.RouteGet2("/pong2/%s/%i", Application.post2)
                 ]
             ))
 
