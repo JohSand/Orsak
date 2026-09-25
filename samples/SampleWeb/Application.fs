@@ -14,7 +14,7 @@ type Message = {
     static member ToJson(x: Message) = jobj [ "message" .= x.message ]
 
 let ping () : Effect<_, _, _> = eff {
-    do! Log.getLogger() |>> _.LogInformation("")
+    do! Log.getLogger () |>> _.LogInformation("")
     let! batchId = GuidGenerator.newGuid ()
     let msg = { message = "hi"; batchId = batchId.ToString(); orderId = "2" }
     //do! Message.send msg
@@ -31,3 +31,14 @@ let ping2 (x: int) : Effect<_, _, string> = eff {
 }
 
 let post (target, _unused: int) = eff { return { message = target } }
+
+let post2 (target: string) (_unused: int) = eff { return { message = target } }
+
+open Orsak
+open Orsak.AspNetCore
+
+
+
+// let secret (): int*string -> unit =
+//     let f = fun (_i: int) (_s: string)   -> ()
+//     check "%i-%s" f

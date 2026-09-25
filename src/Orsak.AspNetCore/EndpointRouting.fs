@@ -1,6 +1,7 @@
 ﻿namespace Orsak.AspNetCore
 
 
+open FSharp.Core.OptimizedClosures
 open FSharp.Quotations
 open FSharp.Quotations.Patterns
 open Microsoft.AspNetCore.Http
@@ -12,6 +13,7 @@ open FastExpressionCompiler.LightExpression
 open System.Runtime.CompilerServices
 open System.ComponentModel
 open System.Reflection
+open FSharp.Reflection
 open System.Text
 open FSharp.Core.Operators.NonStructuralComparison
 
@@ -32,14 +34,17 @@ type Endpoint =
     member this.RequiresAuthorization() =
         this.AddConvention(fun a -> a.RequireAuthorization())
 
-    member this.AllowAnonymous() = this.AddConvention(fun a -> a.AllowAnonymous())
+    member this.AllowAnonymous() =
+        this.AddConvention(fun a -> a.AllowAnonymous())
 
-    member this.RequireCors(name: string) = this.AddConvention(fun a -> a.RequireCors(name))
+    member this.RequireCors(name: string) =
+        this.AddConvention(fun a -> a.RequireCors(name))
 
     member this.RequireCors(builder: Action<_>) =
         this.AddConvention(fun a -> a.RequireCors(builder))
 
-    member this.WithName(name) = this.AddConvention(fun a -> a.WithName(name))
+    member this.WithName(name) =
+        this.AddConvention(fun a -> a.WithName(name))
 
     member this.WithMetadata([<ParamArray>] items) =
         this.AddConvention(fun a -> a.WithMetadata(items))
@@ -59,27 +64,42 @@ type Endpoint =
             b)
 
 module Helpers =
-    let getConstraint name (ep: RouteEndpoint) =
-        let mutable policies = Unchecked.defaultof<_>
+    let private unEscape (s: string) =
+        s.Replace("%2F", "/").Replace("%2f", "/")
 
-        if ep.RoutePattern.ParameterPolicies.TryGetValue(name, &policies) then
-            policies[0].Content
-        else
-            ""
+    /// The parser for a route value, from its format character (%s, %i, ...). It matches the route
+    /// constraint AppendParameter gives the same character, and is chosen once per endpoint rather than
+    /// looked up from the route pattern for every value of every request.
+    let routeValueParser (c: char) : Func<string, obj> =
+        match c with
+        | 's' -> Func<_, _>(fun s -> box (unEscape s))
+        | 'b' -> Func<_, _>(fun s -> box (bool.Parse s))
+        | 'c' -> Func<_, _>(fun s -> box (char s))
+        | 'i' -> Func<_, _>(fun s -> box (int s))
+        | 'd' -> Func<_, _>(fun s -> box (int64 s))
+        | 'f' -> Func<_, _>(fun s -> box (float s))
+        | 'O' -> Func<_, _>(fun s -> box (Guid s))
+        | _ -> failwith $"%c{c} is not a supported route format character."
 
-    let parseRouteValue (name: string, ctx: HttpContext) =
-        let unEscape (s: string) =
-            s.Replace("%2F", "/").Replace("%2f", "/")
+    /// A parser for each placeholder of a route format such as "/items/%s/%i", in order. As in
+    /// AppendPath, %% is a literal %.
+    let routeValueParsers (format: string) =
+        let parsers = ResizeArray()
+        let mutable i = 0
 
-        match ctx.GetEndpoint() :?> RouteEndpoint |> getConstraint name with
-        | "" -> (ctx.GetRouteValue(name) :?> string |> unEscape |> box)
-        | "int" -> (ctx.GetRouteValue(name) :?> string |> int |> box)
-        | "bool" -> (ctx.GetRouteValue(name) :?> string |> bool.Parse |> box)
-        | "length(1)" -> (ctx.GetRouteValue(name) :?> string |> char |> box)
-        | "long" -> (ctx.GetRouteValue(name) :?> string |> int64 |> box)
-        | "double" -> (ctx.GetRouteValue(name) :?> string |> float |> box)
-        | "guid" -> (ctx.GetRouteValue(name) :?> string |> Guid |> box)
-        | _ -> ctx.GetRouteValue(name)
+        while i < format.Length - 1 do
+            if format[i] = '%' then
+                if format[i + 1] <> '%' then
+                    parsers.Add(routeValueParser format[i + 1])
+
+                i <- i + 2
+            else
+                i <- i + 1
+
+        parsers.ToArray()
+
+    let readRouteValue (parser: Func<string, obj>) (name: string) (ctx: HttpContext) =
+        parser.Invoke(ctx.GetRouteValue(name) :?> string)
 
 
     type StringBuilder with
@@ -102,10 +122,7 @@ module Helpers =
             if paramIndex = -1 then
                 sb.Append(chars).ToString()
             elif chars[paramIndex + 1] = '%' then
-                sb
-                    .Append(chars.Slice(0, paramIndex))
-                    .Append('%')
-                    .AppendPath(chars.Slice(paramIndex + 2), names)
+                sb.Append(chars.Slice(0, paramIndex)).Append('%').AppendPath(chars.Slice(paramIndex + 2), names)
             else
                 sb
                     .Append(chars.Slice(0, paramIndex))
@@ -135,9 +152,15 @@ module Helpers =
           |]
         | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, _))))
         | Lambda(TupledArg, Let(var, _, Let(var2, _, Lambda(var3, _)))) -> [| var.Name; var2.Name; var3.Name |]
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, _)))
-        | Lambda(var, Lambda(var2, _)) -> [| var.Name; var2.Name |]
-        | Lambda(var, _) -> [| var.Name |]
+        | Lambda(TupledArg, Let(var, _, Let(var2, _, _))) -> [| var.Name; var2.Name |]
+        // a curried handler, one lambda per parameter: fun a b c -> ... or a function taking a b c
+        | Lambda _ ->
+            let rec curried (e: Expr) =
+                match e with
+                | Lambda(var, body) -> var.Name :: curried body
+                | _ -> []
+
+            List.toArray (curried q)
         | _ -> [||]
 
     let getMethodInfo (q: Expr) =
@@ -148,9 +171,16 @@ module Helpers =
         | Lambda(TupledArg, Let(_, _, Let(_, _, Let(_, _, Lambda(_, Call(_, mi, _))))))
         | Lambda(TupledArg, Let(_, _, Let(_, _, Let(_, _, Call(_, mi, _)))))
         | Lambda(TupledArg, Let(_, _, Let(_, _, Lambda(_, Call(_, mi, _)))))
-        | Lambda(TupledArg, Let(_, _, Let(_, _, Call(_, mi, _))))
-        | Lambda(_, Lambda(_, Call(_, mi, _)))
-        | Lambda(_, Call(_, mi, _)) -> mi
+        | Lambda(TupledArg, Let(_, _, Let(_, _, Call(_, mi, _)))) -> mi
+        // a curried handler: the call is inside one lambda per parameter
+        | Lambda(_, body) ->
+            let rec innermost (e: Expr) =
+                match e with
+                | Lambda(_, body) -> innermost body
+                | Call(_, mi, _) -> mi
+                | _ -> Unchecked.defaultof<_>
+
+            innermost body
         | _ -> Unchecked.defaultof<_>
 
     let createCtorFunc<'T> () =
@@ -162,12 +192,10 @@ module Helpers =
             |> Array.mapi (fun i pinfo ->
                 Expression.Convert(Expression.ArrayIndex(args, Expression.Constant(i)), pinfo.ParameterType))
 
-        Expression
-            .Lambda(typeof<Func<obj array, 'T>>, Expression.New(ctorInfo, ctorArgs), args)
-            .CompileFast()
+        Expression.Lambda(typeof<Func<obj array, 'T>>, Expression.New(ctorInfo, ctorArgs), args).CompileFast()
         :?> Func<obj array, 'T>
 
-    let inline createEndpointDelegate (eff: 'T -> 'A) (names: string[]) this =
+    let inline createEndpointDelegate (eff: 'T -> 'A) (names: string[]) (parsers: Func<string, obj>[]) this =
         //type tests for all primitives we support
         if
             typeof<'T> = typeof<int>
@@ -179,22 +207,21 @@ module Helpers =
             || typeof<'T> = typeof<Guid>
         then
             RequestDelegate(fun ctx ->
-                let arg = parseRouteValue (names[0], ctx) :?> 'T
+                let arg = readRouteValue parsers[0] names[0] ctx :?> 'T
                 let (a: RequestDelegate) = eff arg *>> this in
                 a.Invoke(ctx))
         //if not a single value, it is a tuple
         else
             //tupled types
-            let activator = createCtorFunc<'T> ()
+            let activator = createCtorFunc<'T>()
             //we avoid paying the cost by creating this outside the request delegate
             RequestDelegate(fun ctx ->
                 let argArray = Array.zeroCreate names.Length
 
                 for i = 0 to names.Length - 1 do
-                    argArray[i] <- parseRouteValue (names[i], ctx)
+                    argArray[i] <- readRouteValue parsers[i] names[i] ctx
 
                 eff (activator.Invoke argArray) *>> this |> fun x -> x.Invoke(ctx))
-
 
 
 open Helpers
@@ -202,13 +229,10 @@ open Helpers
 [<Extension>]
 type EffectRunnerExtensions =
     [<EditorBrowsable(EditorBrowsableState.Never)>]
-    static member inline CreateEndpoint< 'H, 'Eff, 'Printer, 'T when ('Eff or 'H): (static member ( *>> ): 'Eff * 'H -> RequestDelegate)>
-        (
-            this: 'H,
-            path: PrintfFormat<'Printer, unit, unit, 'Eff,'T>,
-            verb: string,
-            handler: (Expr<'T -> 'Eff>)
-        ) =
+    static member inline CreateEndpoint<'H, 'Eff, 'Printer, 'T
+        when ('Eff or 'H): (static member ( *>> ): 'Eff * 'H -> RequestDelegate)>
+        (this: 'H, path: PrintfFormat<'Printer, unit, unit, 'Eff, 'T>, verb: string, handler: (Expr<'T -> 'Eff>))
+        =
         match handler with
         | WithValue(:? ('T -> 'Eff) as eff, _type, expr) ->
             if typeof<'T> = typeof<unit> then
@@ -224,18 +248,25 @@ type EffectRunnerExtensions =
                 Endpoint {|
                     verb = verb
                     path = StringBuilder().AppendPath(path.Value, names)
-                    requestDelegate = createEndpointDelegate eff names this
+                    requestDelegate = createEndpointDelegate eff names (routeValueParsers path.Value) this
                     conventions = id
                 |}
             |> fun x -> x.WithMetadata(HandlingMethod(getMethodInfo expr))
 
         | _ ->
-            Throwhelpers.argumentException "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
+            Throwhelpers.argumentException
+                "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
+
             Unchecked.defaultof<_>
 
     [<Extension>]
-    static member inline RouteGet(this: 'H, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
-        EffectRunnerExtensions.CreateEndpoint< 'H, 'Eff, 'Printer, 'T >(this, path, HttpMethods.Get, routeHandler)
+    static member inline RouteGet
+        (
+            this: 'H,
+            path: PrintfFormat<'Printer, unit, unit, ^Eff, 'T>,
+            [<ReflectedDefinition(includeValue = true)>] routeHandler
+        ) =
+        EffectRunnerExtensions.CreateEndpoint<'H, 'Eff, 'Printer, 'T>(this, path, HttpMethods.Get, routeHandler)
 
     [<Extension>]
     static member inline RoutePost(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
@@ -273,5 +304,5 @@ type EffectRunnerExtensions =
     static member inline MapEffectEndpoints(builder: IEndpointRouteBuilder, endpoints: Endpoint list) =
         endpoints
         |> List.iter (fun (Endpoint e) ->
-            let convBuilder = builder.MapMethods(e.path, [| e.verb |], e.requestDelegate)
+            let convBuilder = builder.MapMethods(e.path, [| e.verb |], EffectDiagnostics.instrument e.path e.verb e.requestDelegate)
             e.conventions convBuilder |> ignore)

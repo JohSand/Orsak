@@ -6,7 +6,9 @@
     <ItemGroup>
         <Compile Include="Throwhelpers.fs" />
         <Compile Include="BackgroundWorker.fs" />
+        <Compile Include="Diagnostics.fs" />
         <Compile Include="EndpointRouting.fs" />
+        <Compile Include="EndpointRoutingV2.fs" />
     </ItemGroup>
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />

@@ -3193,10 +3193,14 @@ type EffBuilder() =
                 ))
                 (SetStateMachineMethodImpl<_>(fun sm state -> sm.Data.MethodBuilder.SetStateMachine(state)))
                 (AfterCode<_, _>(fun sm ->
-                    let mutable sm = sm
+                    let initial = sm
 
                     Effect(
                         EffectDelegate(fun env ->
+                            // A copy of the state machine per run: a copy shared by every run of this
+                            // effect would be corrupted by runs in parallel, e.g. one shared effect
+                            // value serving concurrent requests.
+                            let mutable sm = initial
                             sm.ResumptionPoint <- -1
                             sm.Data.Environment <- env
                             sm.Data.MethodBuilder <- AsyncValueTaskMethodBuilder<Result<'T, 'Err>>.Create()
