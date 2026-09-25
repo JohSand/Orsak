@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="Handlers.fs" />
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
+        <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
+    </ItemGroup>
+    <ItemGroup>
+      <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
+      <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
+    </ItemGroup>
+</Project>

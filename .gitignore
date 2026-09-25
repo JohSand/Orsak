@@ -273,3 +273,6 @@ coverage.*.xml
 .fsdocs
 /experiments/Orsak.Benchmarks/BenchmarkDotNet.Artifacts/results
 /samples/SampleWeb/test.db
+
+# BenchmarkDotNet output (benchmarks/Orsak.Benchmarks)
+BenchmarkDotNet.Artifacts/
