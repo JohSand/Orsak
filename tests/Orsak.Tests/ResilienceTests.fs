@@ -37,16 +37,16 @@ module Dummy =
 
 module ResilienceTests =
 
-    [<Fact>]
-    let ``repeating effects work sequentially`` () = task {
+    [<Fact(Timeout = 10_000)>]
+    let repeatTimes_works_sequentially () = task {
         let e = Dummy.indirection () |> Effect.repeatTimes 1000
         do! Dummy.run e
         
         return ()
     }
 
-    [<Fact>]
-    let ``repeating effects works when running concurrently if effects are created`` () = task {
+    [<Fact(Timeout = 10_000)>]
+    let repeatTimes_works_concurrently_when_the_effects_are_created_separately () = task {
         do!
             Task.WhenAll(
                 Dummy.indirection () |> Effect.repeatTimes 1000 |> Dummy.run,
@@ -69,11 +69,11 @@ module ResilienceTests =
         Assert.All(results, fun r -> Assert.Equal(Ok 42, r))
     }
 
-    [<Fact>]
-    let ``a single synchronous effect value can be run in parallel`` () = runInParallel (eff { return 42 })
+    [<Fact(Timeout = 30_000)>]
+    let a_single_synchronous_effect_value_can_be_run_in_parallel () = runInParallel (eff { return 42 })
 
-    [<Fact>]
-    let ``a single asynchronous effect value can be run in parallel`` () =
+    [<Fact(Timeout = 30_000)>]
+    let a_single_asynchronous_effect_value_can_be_run_in_parallel () =
         runInParallel (eff {
             do! Task.Delay 1
             let! a = eff { return 20 }

@@ -59,7 +59,7 @@ type Runner(fakeTimeProvider: FakeTimeProvider) =
 type DelayTests() =
     let cache = Effect.cache
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let add_delay__adds_delay_on_false () = task {
         let provider = SteppingTimeProvider()
         let runner = Runner(provider)
@@ -91,7 +91,7 @@ type DelayTests() =
         return ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 30_000)>]
     let delay_is_cleaned_up_once_the_effect_is_gone () = task {
         do! add_delay__adds_delay_on_false ()
         // continue on another stack: the effect may have completed on this one, whose frames keep it reachable
@@ -108,7 +108,7 @@ type DelayTests() =
         test <@ cache.Count() = 0 @>
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let add_delayWithMax__adds_delay_on_false () = task {
         let provider = SteppingTimeProvider()
         let runner = Runner(provider)
@@ -139,7 +139,7 @@ type DelayTests() =
         return ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let add_delay__continues_on_true () = task {
         let provider = SteppingTimeProvider()
         let runner = Runner(provider)
@@ -166,7 +166,7 @@ type DelayTests() =
         return ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let addDelayOnError_adds_delay_on_error () = task {
         let provider = SteppingTimeProvider()
         let runner = Runner(provider)
@@ -195,7 +195,7 @@ type DelayTests() =
 
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let addDelayOnError_adds_delay_on_error_with_recovery () = task {
         let provider = SteppingTimeProvider()
         let runner = Runner(provider)
@@ -231,7 +231,7 @@ type DelayTests() =
         return ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let addDelayOnErrorWithMax_adds_delay_on_error_with_recovery () = task {
         let provider = SteppingTimeProvider()
         let runner = Runner(provider)
@@ -265,7 +265,7 @@ type DelayTests() =
         return ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let retryForever_retries_at_least_10_000_times () = task {
         let provider = SteppingTimeProvider()
         let runner = Runner(provider)
@@ -322,7 +322,7 @@ type ResilienceFunctionTests() =
             | false, _ -> return failwith "no more results"
         }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let addDelay_returns_the_result_and_delays_after_false () = task {
         let provider = SteppingTimeProvider()
         let effect = returning [ false; true; false ] |> Effect.addDelay 2.0<s>
@@ -340,7 +340,7 @@ type ResilienceFunctionTests() =
         2 =! provider.Delays.Length
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let addDelayWithMax_returns_the_result_and_caps_the_delay () = task {
         let provider = SteppingTimeProvider()
         let effect = returning (List.replicate 11 false) |> Effect.addDelayWithMax 2.0<s> 3.0<s>
@@ -362,7 +362,7 @@ type ResilienceFunctionTests() =
         test <@ provider.Delays |> List.forall (fun d -> d <= TimeSpan.FromSeconds 3.) @>
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let addDelayWithMax__resets_the_delay_after_true () = task {
         let provider = SteppingTimeProvider()
 
@@ -379,7 +379,7 @@ type ResilienceFunctionTests() =
         | delays -> failwith $"expected 4 delays, got %A{delays}"
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let retryTimes_succeeds_when_a_retry_does () = task {
         let mutable runs = 0
 
@@ -397,7 +397,7 @@ type ResilienceFunctionTests() =
         3 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let logError_logs_the_error_and_fails_with_it () = task {
         let env = LoggingEnv()
         let effect: Effect<LoggingEnv, unit, string> = eff { return! Error "boom" }
@@ -408,7 +408,7 @@ type ResilienceFunctionTests() =
         [ box env, "boom" ] =! env.Logged
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let logError_logs_nothing_when_the_effect_succeeds () = task {
         let env = LoggingEnv()
         let effect: Effect<LoggingEnv, int, string> = eff { return 42 }
@@ -426,7 +426,7 @@ type ResilienceFunctionTests() =
                 do! step
         }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let forever_fails_with_the_error_that_ends_its_loop () = task {
         let mutable runs = 0
 
@@ -443,7 +443,7 @@ type ResilienceFunctionTests() =
         3 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let repeatUntilCancellation_ends_with_Forever_when_cancelled () = task {
         use source = new CancellationTokenSource()
         let mutable runs = 0
@@ -465,7 +465,7 @@ type ResilienceFunctionTests() =
         | Forever -> 3 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let repeatUntilCancellation_fails_with_the_first_error () = task {
         use source = new CancellationTokenSource()
         let mutable runs = 0
@@ -482,7 +482,7 @@ type ResilienceFunctionTests() =
         2 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let a_delay_is_cancelled_through_the_environment () = task {
         // a clock that never moves on its own, so the delay would never end
         let clock = FakeTimeProvider()
@@ -500,7 +500,7 @@ type ResilienceFunctionTests() =
         ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let delays_use_the_system_clock_and_random_without_providers () = task {
         let clock = Diagnostics.Stopwatch.StartNew()
         let failing: Effect<unit, unit, string> = eff { return! Error "failed" }

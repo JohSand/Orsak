@@ -776,8 +776,8 @@ module BuilderTests =
             Assert.Equal(2, counter)
         }
 
-    [<Fact>]
-    let ``repeat 100_000 times`` () =
+    [<Fact(Timeout = 10_000)>]
+    let repeatWhileTrue_repeats_100_000_times () =
         let mutable itr = 0
 
         let inlineEffect () = eff {
@@ -1019,8 +1019,8 @@ module CombinatorTests =
         |> run
 
 #if NET8_0_OR_GREATER
-    [<Fact>]
-    let timeOutTests () =
+    [<Fact(Timeout = 10_000)>]
+    let timeout_fails_with_the_error_when_the_effect_is_too_slow () =
         eff {
             do! Task.Delay(TimeSpan.FromSeconds 10.)
             return ()
@@ -1030,8 +1030,8 @@ module CombinatorTests =
         |> run
 
 
-    [<Fact>]
-    let withCancellationTests () = task {
+    [<Fact(Timeout = 10_000)>]
+    let withCancellation_completes_when_the_token_is_cancelled () = task {
         use cts = new CancellationTokenSource(TimeSpan.FromMicroseconds 5.)
 
         do!
