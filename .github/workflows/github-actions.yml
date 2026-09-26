@@ -66,6 +66,20 @@ jobs:
         if: ${{ success() && github.event_name != 'pull_request' }}
         run: dotnet pack --configuration Release --output ./nupkg
 
+      # Downloads every source file the packed assemblies' PDBs refer to, from GitHub at this commit, and checks
+      # it against the PDB's checksum, so that a package whose Source Link doesn't resolve isn't published.
+      - name: Test Source Link
+        if: ${{ success() && github.event_name != 'pull_request' }}
+        run: |
+          for package in ./nupkg/*.nupkg; do
+            dir="./sourcelink-test/$(basename "$package" .nupkg)"
+            mkdir -p "$dir"
+            unzip -q -o "$package" -d "$dir"
+            for dll in "$dir"/lib/*/*.dll; do
+              dotnet sourcelink test "$dll"
+            done
+          done
+
       - name: Push generated package to GitHub registry
         if: ${{ success() && github.event_name != 'pull_request' }}
         run: dotnet nuget push "**/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
