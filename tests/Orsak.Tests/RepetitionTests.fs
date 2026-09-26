@@ -286,7 +286,98 @@ module RepetitionTests =
                     return! Error $"failed on {item}"
         }
 
-        // fewer items than a worker's channel holds (10), so the writer never waits for a failed worker
-        let! result = TaskSeq.ofList [ 1..8 ] |> Effect.fanOut 2 work |> Effect.run ()
+        // far more items than a worker's channel holds (10), which the failed worker never reads
+        let! result = TaskSeq.ofList [ 1..1000 ] |> Effect.fanOut 2 work |> Effect.run ()
         Error "failed on 2" =! result
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let fanOut_stops_the_other_workers_when_one_fails () = task {
+        let mutable processed = 0
+
+        let work (source: IAsyncEnumerable<int>) : Effect<unit, unit, string> = eff {
+            for item in source do
+                if item = 50 then
+                    return! Error "failed on 50"
+
+                Interlocked.Increment(&processed) |> ignore
+        }
+
+        // a source without end: only stopping the writer and the other workers ends the effect
+        let! result = TaskSeq.initInfinite id |> Effect.fanOut 3 work |> Effect.run ()
+
+        Error "failed on 50" =! result
+        // a bounded number: the writer gets at most a channel's capacity (10) plus one ahead of the failed worker, so
+        // no more than about 50 + 3 * 11 items are handed out before the workers are stopped
+        test <@ processed < 100 @>
+    }
+
+    /// A source that produces the given items, and then waits for more, until its enumeration is cancelled.
+    let itemsThenWaiting (items: int list) =
+        { new IAsyncEnumerable<int> with
+            member _.GetAsyncEnumerator(token) =
+                let remaining = Queue items
+                let mutable current = 0
+
+                { new IAsyncEnumerator<int> with
+                    member _.Current = current
+
+                    member _.MoveNextAsync() =
+                        if remaining.Count > 0 then
+                            current <- remaining.Dequeue()
+                            ValueTask<bool>(true)
+                        else
+                            ValueTask<bool>(task {
+                                do! Task.Delay(Timeout.Infinite, token)
+                                return false
+                            })
+
+                    member _.DisposeAsync() = ValueTask.CompletedTask
+                }
+        }
+
+    [<Fact(Timeout = 10_000)>]
+    let fanOut_stops_waiting_for_the_source_when_a_worker_fails () = task {
+        let work (source: IAsyncEnumerable<int>) : Effect<unit, unit, string> = eff {
+            for item in source do
+                if item = 2 then
+                    return! Error "failed on 2"
+        }
+
+        let! result = itemsThenWaiting [ 1; 2; 3 ] |> Effect.fanOut 2 work |> Effect.run ()
+        Error "failed on 2" =! result
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let fanOut_discards_the_items_of_workers_that_return_early () = task {
+        let mutable processed = 0
+
+        // takes its first item, and returns without reading the rest
+        let work (source: IAsyncEnumerable<int>) : Effect<unit, unit, string> = eff {
+            let items = source.GetAsyncEnumerator()
+            let! hasItem = items.MoveNextAsync()
+
+            if hasItem then
+                Interlocked.Increment(&processed) |> ignore
+        }
+
+        let! result = TaskSeq.ofList [ 1..1000 ] |> Effect.fanOut 2 work |> Effect.run ()
+
+        Ok() =! result
+        2 =! processed
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let fanOut_rethrows_the_exception_of_a_worker () = task {
+        let work (source: IAsyncEnumerable<int>) : Effect<unit, unit, string> = eff {
+            for item in source do
+                if item = 2 then
+                    raise (InvalidOperationException "worker 2 threw")
+        }
+
+        let! error =
+            Assert.ThrowsAnyAsync<InvalidOperationException>(fun () ->
+                TaskSeq.initInfinite id |> Effect.fanOut 2 work |> Effect.run () |> _.AsTask())
+
+        "worker 2 threw" =! error.Message
     }
