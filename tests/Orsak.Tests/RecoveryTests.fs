@@ -21,8 +21,8 @@ let createFailingEffect timesToFail =
             return! Error $"This is error nr {timesToFail - failureCount} out of {timesToFail}"
     }
 
-[<Fact>]
-let ``the effect is executed again on retry`` () = task {
+[<Fact(Timeout = 10_000)>]
+let retry_runs_the_effect_again () = task {
     let! result = createFailingEffect 1 |> Effect.retry |> Effect.run ()
 
     Ok() =! result
@@ -30,8 +30,8 @@ let ``the effect is executed again on retry`` () = task {
 
 let my_yield () = eff { do! Task.Yield() }
 
-[<Fact>]
-let ``effects can safely be run multiple times`` () = task {
+[<Fact(Timeout = 10_000)>]
+let effects_can_safely_be_run_multiple_times () = task {
     let mutable x = 0
 
     let theEffect = eff {
@@ -47,29 +47,29 @@ let ``effects can safely be run multiple times`` () = task {
     Ok 2 =! result
 }
 
-[<Fact>]
-let ``the effect is only executed once again on retry`` () = task {
+[<Fact(Timeout = 10_000)>]
+let retry_runs_the_effect_again_only_once () = task {
     let! result = createFailingEffect 2 |> Effect.retry |> Effect.run ()
 
     Error "This is error nr 2 out of 2" =! result
 }
 
-[<Fact>]
-let ``the effect is executed up to the requested time on retryTimes`` () = task {
+[<Fact(Timeout = 10_000)>]
+let retryTimes_runs_the_effect_up_to_the_requested_times () = task {
     let! result = createFailingEffect 2 |> Effect.retryTimes 3 |> Effect.run ()
 
     result =! Ok()
 }
 
-[<Fact>]
-let ``the effect is executed only up to the requested time on retryTimes`` () = task {
+[<Fact(Timeout = 10_000)>]
+let retryTimes_runs_the_effect_only_up_to_the_requested_times () = task {
     let! result = createFailingEffect 4 |> Effect.retryTimes 3 |> Effect.run ()
 
     result =! Error "This is error nr 4 out of 4"
 }
 
-[<Fact>]
-let ``the effect is executed again on if cond is matched on retryIf`` () =
+[<Fact(Timeout = 10_000)>]
+let retryIf_runs_the_effect_again_when_the_condition_matches () =
     let cond s = s = "This is error nr 1 out of 1"
 
     task {
@@ -78,8 +78,8 @@ let ``the effect is executed again on if cond is matched on retryIf`` () =
         result =! Ok()
     }
 
-[<Fact>]
-let ``the effect is not executed again on if cond is not matched on retryIf`` () = task {
+[<Fact(Timeout = 10_000)>]
+let retryIf_does_not_run_the_effect_again_when_the_condition_does_not_match () = task {
     let! result =
         createFailingEffect 2
         |> Effect.retryIf ((=) "This is error nr 1 out of 2")
@@ -88,8 +88,8 @@ let ``the effect is not executed again on if cond is not matched on retryIf`` ()
     result =! Error "This is error nr 2 out of 2"
 }
 
-[<Fact>]
-let ``recover is never run on success`` () = task {
+[<Fact(Timeout = 10_000)>]
+let recover_is_never_run_on_success () = task {
     let! result =
         eff { do! Task.Yield() }
         |> Effect.recover (fun _ -> failwith "Never run")
@@ -98,8 +98,8 @@ let ``recover is never run on success`` () = task {
     Ok() =! result
 }
 
-[<Fact>]
-let ``recover is run once on error`` () = task {
+[<Fact(Timeout = 10_000)>]
+let recover_is_run_once_on_error () = task {
     let mutable counter = 0
 
     let! result =
@@ -111,8 +111,8 @@ let ``recover is run once on error`` () = task {
     counter =! 1
 }
 
-[<Fact>]
-let ``tryRecovery is never run on success`` () = task {
+[<Fact(Timeout = 10_000)>]
+let tryRecover_is_never_run_on_success () = task {
     let! result =
         eff { do! Task.Yield() }
         |> Effect.tryRecover (fun _ -> failwith "Never run")
@@ -121,8 +121,8 @@ let ``tryRecovery is never run on success`` () = task {
     Ok() =! result
 }
 
-[<Fact>]
-let ``tryRecover is run once on error`` () = task {
+[<Fact(Timeout = 10_000)>]
+let tryRecover_is_run_once_on_error () = task {
     let mutable counter = 0
 
     let! result =
@@ -137,8 +137,8 @@ let ``tryRecover is run once on error`` () = task {
 }
 
 
-[<Fact>]
-let ``onError is never run on success`` () = task {
+[<Fact(Timeout = 10_000)>]
+let onError_is_never_run_on_success () = task {
     let! result =
         eff { do! Task.Yield() }
         |> Effect.onError (fun _ -> failwith "Never run")
@@ -147,8 +147,8 @@ let ``onError is never run on success`` () = task {
     Ok() =! result
 }
 
-[<Fact>]
-let ``onError is run once on error`` () = task {
+[<Fact(Timeout = 10_000)>]
+let onError_is_run_once_on_error () = task {
     let mutable counter = 0
 
     let! result =

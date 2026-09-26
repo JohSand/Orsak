@@ -28,7 +28,7 @@ module RepetitionTests =
 
         effect, (fun () -> runs.Value)
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let forever_runs_the_effect_again_until_it_succeeds () = task {
         let effect, runs = failingWith [ "a"; "b"; "c" ]
         let! result = effect |> Effect.forever |> Effect.run ()
@@ -36,7 +36,7 @@ module RepetitionTests =
         4 =! runs ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let retryWhile_retries_while_the_error_passes_the_test () = task {
         let effect, runs = failingWith [ "transient"; "transient" ]
         let! result = effect |> Effect.retryWhile (fun e -> e = "transient") |> Effect.run ()
@@ -44,7 +44,7 @@ module RepetitionTests =
         3 =! runs ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let retryWhile_fails_with_the_first_error_that_does_not_pass () = task {
         let effect, runs = failingWith [ "transient"; "fatal"; "transient" ]
         let! result = effect |> Effect.retryWhile (fun e -> e = "transient") |> Effect.run ()
@@ -52,7 +52,7 @@ module RepetitionTests =
         2 =! runs ()
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let race_returns_the_result_of_the_first_to_finish () = task {
         let slow = eff {
             do! Task.Delay(TimeSpan.FromSeconds 5.)
@@ -64,7 +64,7 @@ module RepetitionTests =
         Ok "fast" =! result
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let race_fails_when_the_first_to_finish_fails () = task {
         let slow = eff {
             do! Task.Delay(TimeSpan.FromSeconds 5.)
@@ -76,7 +76,7 @@ module RepetitionTests =
         Error "failed first" =! result
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let repeatUntil_checks_the_condition_before_every_run () = task {
         let mutable runs = 0
         let effect: Effect<unit, unit, string> = eff { runs <- runs + 1 }
@@ -85,7 +85,7 @@ module RepetitionTests =
         3 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let repeatUntil_does_not_run_the_effect_when_the_condition_holds_from_the_start () = task {
         let mutable runs = 0
         let effect: Effect<unit, unit, string> = eff { runs <- runs + 1 }
@@ -94,7 +94,7 @@ module RepetitionTests =
         0 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let repeatUntil_stops_at_the_first_failure () = task {
         let mutable runs = 0
 
@@ -110,7 +110,7 @@ module RepetitionTests =
         2 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let repeatUntilCancellation_repeats_until_the_token_is_cancelled () = task {
         use source = new CancellationTokenSource()
         let mutable runs = 0
@@ -127,7 +127,7 @@ module RepetitionTests =
         3 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let repeatForever_repeats_until_the_effect_fails () = task {
         let mutable runs = 0
 
@@ -143,7 +143,7 @@ module RepetitionTests =
         5 =! runs
     }
 
-    [<Fact>]
+    [<Fact(Timeout = 10_000)>]
     let fanOut_gives_every_item_to_one_worker_in_turn () = task {
         let processed = ConcurrentBag<int * int>()
         let mutable workers = 0
