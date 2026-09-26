@@ -95,6 +95,7 @@ The documentation is at https://johsand.github.io/Orsak/, with guides to
 [errors](https://johsand.github.io/Orsak/errors.html),
 [resilience](https://johsand.github.io/Orsak/resilience.html),
 [effect sequences](https://johsand.github.io/Orsak/effect-sequences.html),
+[web APIs](https://johsand.github.io/Orsak/web-apis.html),
 [testing](https://johsand.github.io/Orsak/testing.html) and
 [generating code](https://johsand.github.io/Orsak/myriad.html),
 and the [API reference](https://johsand.github.io/Orsak/reference/index.html).
