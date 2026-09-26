@@ -19,8 +19,8 @@ open System.Net.Http
 
 let inner =
     new SocketsHttpHandler(
-        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1),
-        PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1.),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(1.)
     )
 
 let clientFactory f handlers =
