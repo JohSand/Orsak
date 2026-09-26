@@ -8,7 +8,7 @@ Orsak.Myriad updated to Myriad 1.1.0, and now targets net8.0 (previously netstan
 
 ### Added
 Effect.whenAll, high performance alternative to Effect.par that returns an array
-Orsak.Myriad: `[<GenEnvironment>]` generates a `create` function for an interface that inherits provider interfaces, see README
+Orsak.Myriad: `[<GenEnvironment>]` generates a `create` function for an interface that inherits provider interfaces, and `run` and `runOrFail` functions that run an effect in the created environment, see README
 Orsak.Myriad: with MyriadInlineGeneration, code is generated to be appended to the file itself, e.g. an ad hoc environment in a `rec` test file. Detected automatically from Myriad 1.1; with Myriad 1.0, set `Inline = true` on `[<GenEffects>]` and `[<GenEnvironment>]`, see README
 
 ### Fixed

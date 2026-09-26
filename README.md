@@ -164,7 +164,14 @@ module AppEnvironment =
         interface IGuidGenProvider with
             member _.GuidGenerator = effects.GuidGenerator
     }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)
 ```
+`run` and `runOrFail` create the environment and run an effect in it, e.g.
+`AppEnvironment.run {| ButtonPusher = pusher; GuidGenerator = GuidGenerator.defaultGen () |} (pushButton ())`. Like
+`[<GenEffects>]`, they need the file to `open Orsak`.
+
 The generator only sees syntax, so it works by convention: `inherit IFooProvider` is taken to expose `Effect: IFoo`.
 Orsak's own providers (`IGuidGenProvider`, `ITimeProvider`, `ICacheProvider`, `ICancellationProvider`, `IRandomProvider`) are known.
 Other providers can be described in `myriad.toml`, in a section named after the provider:

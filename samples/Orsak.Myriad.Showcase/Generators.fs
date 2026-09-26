@@ -91,3 +91,6 @@ module AppEnvironment =
           interface IRandomProvider with
               member _.Effect = effects.RandomGenerator
         }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)

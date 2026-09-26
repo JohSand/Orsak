@@ -23,6 +23,7 @@ module EndpointRouting =
         writer.BytesCommitted
 
 
+
 type EffectRunner<'a> =
     | RunWith of (HttpContext -> 'a)
 
@@ -36,6 +37,17 @@ type EffectRunner<'a> =
     static member inline ( *>> )(effect: Effect<'a, 'b, string>, RunWith runEnv) : RequestDelegate =
         RequestDelegate(fun ctx -> task {
             match! Effect.run (runEnv ctx) (EndpointRouting.wrap effect) with
+            | Ok b ->
+                let written = b |> EndpointRouting.writeTo ctx.Response.BodyWriter
+                ctx.Response.Headers.ContentLength <- written
+                ctx.Response.Headers.ContentType <- "application/json; charset=UTF-8"
+                do! ctx.Response.CompleteAsync()
+            | Error e -> return ()
+        })
+
+    static member inline ( *>> )(effect: Auth -> Effect<'a, 'b, string>, RunWith runEnv) : RequestDelegate =
+        RequestDelegate(fun ctx -> task {
+            match! Effect.run (runEnv ctx) (EndpointRouting.wrap (effect Auth)) with
             | Ok b ->
                 let written = b |> EndpointRouting.writeTo ctx.Response.BodyWriter
                 ctx.Response.Headers.ContentLength <- written

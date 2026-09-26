@@ -43,3 +43,6 @@ module TestEffect =
           interface ITestEffect3Provider with
               member _.Effect = effects.TestEffect3
         }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)

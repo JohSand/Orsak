@@ -54,3 +54,6 @@ module InlineEnvironment =
           interface IGreeterProvider with
               member _.Effect = effects.Greeter
         }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)

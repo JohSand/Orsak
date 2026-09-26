@@ -42,3 +42,6 @@ module AppEnvironment =
           interface IBeanCounting with
               member _.Counter = effects.BeanCounter
         }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)
