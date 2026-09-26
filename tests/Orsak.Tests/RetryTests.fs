@@ -16,13 +16,27 @@ open Swensen.Unquote
 
 type internal DelayKey = Orsak.Resilience.Effect.DelayKey
 
-type DelayInspectingFakeTimeProvider() =
+/// A fake clock that records every delay requested of it, and completes each one by advancing its time by exactly
+/// that delay, right after the timer is created. Fake time then equals the total time waited, so tests can compare
+/// timestamps between attempts, and nothing waits in real time.
+type SteppingTimeProvider() =
     inherit FakeTimeProvider()
-    member val TotalObservedRequestedDelays = 0. with get, set
+    let delays = System.Collections.Concurrent.ConcurrentQueue<TimeSpan>()
+
+    /// The delays requested, in order.
+    member _.Delays = List.ofSeq delays
+
+    member _.TotalObservedRequestedDelays = delays |> Seq.sumBy _.TotalMilliseconds
 
     override this.CreateTimer(callback: TimerCallback, state: obj, dueTime: TimeSpan, period: TimeSpan) =
-        this.TotalObservedRequestedDelays <- this.TotalObservedRequestedDelays + dueTime.TotalMilliseconds
-        base.CreateTimer(callback, state, dueTime, period)
+        let timer = base.CreateTimer(callback, state, dueTime, period)
+
+        if dueTime > TimeSpan.Zero && dueTime <> Timeout.InfiniteTimeSpan then
+            delays.Enqueue dueTime
+            // after CreateTimer has returned, so the timer is registered when the time passes
+            ThreadPool.QueueUserWorkItem(fun _ -> this.Advance dueTime) |> ignore
+
+        timer
 
 type Runner(fakeTimeProvider: FakeTimeProvider) =
     let mutable key = Unchecked.defaultof<DelayKey>
@@ -42,31 +56,12 @@ type Runner(fakeTimeProvider: FakeTimeProvider) =
             with get () = key
             and set value = key <- value
 
-type TimeAdvance(fakeTimeProvider: FakeTimeProvider) =
-    let ctx = new CancellationTokenSource()
-
-    let backGround = backgroundTask {
-        do! Task.Yield()
-
-        while not ctx.Token.IsCancellationRequested do
-            fakeTimeProvider.Advance(TimeSpan.FromSeconds 10.)
-
-    }
-
-    interface IAsyncDisposable with
-        member this.DisposeAsync() = vtask {
-            ctx.Cancel()
-            do! backGround
-            ctx.Dispose()
-        }
-
 type DelayTests() =
     let cache = Effect.cache
 
     [<Fact>]
-    let ``add delay_ properly adds delay on false`` () = task {
-        let provider = DelayInspectingFakeTimeProvider()
-        use _t = TimeAdvance(provider)
+    let add_delay__adds_delay_on_false () = task {
+        let provider = SteppingTimeProvider()
         let runner = Runner(provider)
 
         let! e =
@@ -85,6 +80,10 @@ type DelayTests() =
         | _, _ -> Assert.Fail("Failed to get state.")
 
         1_835_902. =! provider.TotalObservedRequestedDelays
+        test <@ provider.Delays.Length = 11 @>
+        test <@ provider.Delays |> List.pairwise |> List.forall (fun (a, b) -> a < b) @>
+        // the clock advances by exactly the delays taken
+        test <@ provider.GetUtcNow() - provider.Start = TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays @>
 
         TimeSpan(days = 0, hours = 0, minutes = 30, seconds = 35, milliseconds = 902)
         =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
@@ -93,24 +92,25 @@ type DelayTests() =
     }
 
     [<Fact>]
-    let ``Delay is cleaned up once the effect is gone`` () = task {
-        do! ``add delay_ properly adds delay on false`` ()
-        //
+    let delay_is_cleaned_up_once_the_effect_is_gone () = task {
+        do! add_delay__adds_delay_on_false ()
+        // continue on another stack: the effect may have completed on this one, whose frames keep it reachable
+        do! Task.Yield()
 
+        let deadline = DateTime.UtcNow.AddSeconds 10.
 
-        while (cache.Count() > 0) do
+        while cache.Count() > 0 && DateTime.UtcNow < deadline do
             GC.Collect()
             GC.WaitForPendingFinalizers()
             GC.WaitForFullGCComplete() |> ignore
             GC.Collect()
 
-        return ()
+        test <@ cache.Count() = 0 @>
     }
 
     [<Fact>]
-    let ``add delayWithMax_ properly adds delay on false`` () = task {
-        let provider = DelayInspectingFakeTimeProvider()
-        use _t = TimeAdvance(provider)
+    let add_delayWithMax__adds_delay_on_false () = task {
+        let provider = SteppingTimeProvider()
         let runner = Runner(provider)
 
         let! e =
@@ -129,6 +129,8 @@ type DelayTests() =
         | _, _ -> Assert.Fail("Failed to get state.")
 
         21615. =! provider.TotalObservedRequestedDelays
+        test <@ provider.Delays.Length = 11 @>
+        test <@ provider.Delays |> List.forall (fun d -> d <= TimeSpan.FromSeconds 2.) @>
 
         TimeSpan(days = 0, hours = 0, minutes = 0, seconds = 21, milliseconds = 615)
         =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
@@ -138,9 +140,8 @@ type DelayTests() =
     }
 
     [<Fact>]
-    let ``add delay_ properly continues on true`` () = task {
-        let provider = DelayInspectingFakeTimeProvider()
-        use _t = TimeAdvance(provider)
+    let add_delay__continues_on_true () = task {
+        let provider = SteppingTimeProvider()
         let runner = Runner(provider)
 
         let! e =
@@ -159,15 +160,15 @@ type DelayTests() =
         | _, _ -> Assert.Fail("Failed to get state.")
 
         0. =! provider.TotalObservedRequestedDelays
+        test <@ provider.Delays.IsEmpty @>
         TimeSpan.Zero =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
 
         return ()
     }
 
     [<Fact>]
-    let ``add addDelayOnError properly adds delay on Error`` () = task {
-        let provider = DelayInspectingFakeTimeProvider()
-        use _t = TimeAdvance(provider)
+    let addDelayOnError_adds_delay_on_error () = task {
+        let provider = SteppingTimeProvider()
         let runner = Runner(provider)
 
         let! e =
@@ -186,6 +187,8 @@ type DelayTests() =
         | _, _ -> Assert.Fail("Failed to get state.")
 
         1_835_902. =! provider.TotalObservedRequestedDelays
+        test <@ provider.Delays.Length = 11 @>
+        test <@ provider.Delays |> List.pairwise |> List.forall (fun (a, b) -> a < b) @>
 
         TimeSpan(days = 0, hours = 0, minutes = 30, seconds = 35, milliseconds = 902)
         =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
@@ -193,9 +196,8 @@ type DelayTests() =
     }
 
     [<Fact>]
-    let ``add addDelayOnError properly adds delay on Error with recovery`` () = task {
-        let provider = DelayInspectingFakeTimeProvider()
-        use _t = TimeAdvance(provider)
+    let addDelayOnError_adds_delay_on_error_with_recovery () = task {
+        let provider = SteppingTimeProvider()
         let runner = Runner(provider)
         let mutable counter = 0
 
@@ -221,6 +223,7 @@ type DelayTests() =
         | _, _ -> Assert.Fail("Failed to get state.")
 
         1_060_354. =! provider.TotalObservedRequestedDelays
+        test <@ provider.Delays.Length = 10 @>
 
         TimeSpan(days = 0, hours = 0, minutes = 17, seconds = 40, milliseconds = 354)
         =! TimeSpan.FromMilliseconds provider.TotalObservedRequestedDelays
@@ -229,9 +232,8 @@ type DelayTests() =
     }
 
     [<Fact>]
-    let ``add addDelayOnErrorWithMax properly adds delay on Error with recovery`` () = task {
-        let provider = DelayInspectingFakeTimeProvider()
-        use _t = TimeAdvance(provider)
+    let addDelayOnErrorWithMax_adds_delay_on_error_with_recovery () = task {
+        let provider = SteppingTimeProvider()
         let runner = Runner(provider)
         let mutable counter = 0
 
@@ -257,13 +259,15 @@ type DelayTests() =
         | _, _ -> Assert.Fail("Failed to get state.")
 
         19_615. =! provider.TotalObservedRequestedDelays
+        test <@ provider.Delays.Length = 10 @>
+        test <@ provider.Delays |> List.forall (fun d -> d <= TimeSpan.FromSeconds 2.) @>
 
         return ()
     }
 
     [<Fact>]
-    let ``retryForever retries at least 10_000 times`` () = task {
-        let provider = DelayInspectingFakeTimeProvider()
+    let retryForever_retries_at_least_10_000_times () = task {
+        let provider = SteppingTimeProvider()
         let runner = Runner(provider)
         let mutable counter = 0L
 
