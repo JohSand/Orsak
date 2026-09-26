@@ -49,4 +49,16 @@
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
 		<Tailcalls>true</Tailcalls>
 	</PropertyGroup>
+	<!-- Source Link embeds generated sources that aren't in git in the PDB, but the TargetFramework attribute file
+	     is named after the moniker, e.g. ".NETCoreApp,Version=v8.0.AssemblyAttributes.fs", and the F# compiler
+	     splits its embed arguments on commas, so it isn't embedded and the PDB points to a URL that doesn't
+	     exist. Generate it under a name without a comma. -->
+	<Target Name="RenameTargetFrameworkMonikerAttributeFile" BeforeTargets="GenerateTargetFrameworkMonikerAttribute">
+		<PropertyGroup>
+			<TargetFrameworkMonikerAssemblyAttributesPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)', '$(TargetFramework).AssemblyAttributes$(DefaultLanguageSourceExtension)'))</TargetFrameworkMonikerAssemblyAttributesPath>
+		</PropertyGroup>
+		<ItemGroup>
+			<FileWrites Include="$(TargetFrameworkMonikerAssemblyAttributesPath)" />
+		</ItemGroup>
+	</Target>
 </Project>
