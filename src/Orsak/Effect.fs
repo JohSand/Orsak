@@ -7,6 +7,9 @@ open System
 open System.Collections.Generic
 open Microsoft.FSharp.Core
 
+/// <summary>
+/// Functions for running, combining, recovering and repeating effects.
+/// </summary>
 [<RequireQualifiedAccess>]
 module Effect =
 
@@ -18,8 +21,27 @@ module Effect =
     /// <typeparam name="'e" > The resulting type when the effect fails</typeparam>
     /// <param name="env">The environment needed to start the effect</param>
     /// <param name="e">The effect to run</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// task {
+    ///     match! placeOrder order |> Effect.run env with
+    ///     | Ok id -> printfn $"Placed {id}"
+    ///     | Error err -> printfn $"Failed: {err}"
+    /// }
+    /// </code>
+    /// </example>
     let inline run<'r, 'a, 'e> (env: 'r) (e: Effect<'r, 'a, 'e>) = e.Run env
 
+    /// <summary>
+    /// Starts the effect, and raises an exception if it fails, with the error's string representation as its
+    /// message. Prefer <c>Effect.run</c>, which returns the error as a value; this is meant for places where an
+    /// exception is the only option, such as tests or scripts.
+    /// </summary>
+    /// <typeparam name="'r" > The environment required to run the effect </typeparam>
+    /// <typeparam name="'a" > The resulting type when the effect runs successfully </typeparam>
+    /// <typeparam name="'e" > The resulting type when the effect fails</typeparam>
+    /// <param name="env">The environment needed to start the effect</param>
+    /// <param name="e">The effect to run</param>
     let inline runOrFail<'r, 'a, 'e> (env: 'r) (e: Effect<'r, 'a, 'e>) = e.RunOrFail env
 
     /// <summary>
@@ -97,19 +119,48 @@ module Effect =
     let inline asResult (e: Effect<'r, 'a, 'e>) : Effect<'r, Result<'a, 'e>, 'e> = e |> map Ok |> recover (Error)
 
 
+    /// <summary>
+    /// Runs the effect again every time it fails, until it succeeds. The resulting effect never fails.
+    /// </summary>
+    /// <param name="e">The effect</param>
     [<TailCall>]
     let rec forever (e: Effect<'r, 'a, 'e>) = onError (fun _err -> forever e) e
 
+    /// <summary>
+    /// Runs the effect repeatedly for as long as it returns <c>true</c>.
+    /// </summary>
+    /// <param name="e">The effect, returning whether to run it again</param>
     let rec repeatWhileTrue (e: Effect<'r, bool, 'e>) = eff {
         while e do
             ()
     }
 
+    /// <summary>
+    /// Runs the effect again, once, if it fails.
+    /// </summary>
+    /// <param name="e">The effect</param>
     let inline retry (e: Effect<'r, 'a, 'e>) = onError (fun _ -> e) e
 
+    /// <summary>
+    /// Runs the effect again, once, if it fails with an error for which <paramref name="cond"/> is true.
+    /// </summary>
+    /// <param name="cond">Whether to retry after a given error</param>
+    /// <param name="e">The effect</param>
     let inline retryIf ([<InlineIfLambda>] cond) (e: Effect<'r, 'a, 'e>) =
         onError (fun err -> if cond err then e else eff { return! Error err }) e
 
+    /// <summary>
+    /// Runs the effect again every time it fails with an error for which <paramref name="cond"/> is true. It fails
+    /// with the first error for which <paramref name="cond"/> is false.
+    /// </summary>
+    /// <param name="cond">Whether to retry after a given error</param>
+    /// <param name="e">The effect</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// fetchPrices ()
+    /// |> Effect.retryWhile (fun err -> err = Timeout)
+    /// </code>
+    /// </example>
     let rec retryWhile cond (e: Effect<'r, 'a, 'e>) =
         onError
             (fun err ->
@@ -119,6 +170,17 @@ module Effect =
                     eff { return! Error err })
             e
 
+    /// <summary>
+    /// Runs the effect again when it fails, up to <paramref name="times"/> times after the first attempt. It fails
+    /// with the last error if every attempt fails.
+    /// </summary>
+    /// <param name="times">How many times to retry</param>
+    /// <param name="e">The effect</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// sendEmail message |> Effect.retryTimes 3
+    /// </code>
+    /// </example>
     let inline retryTimes times (e: Effect<'r, 'a, 'e>) =
         let mutable count = times
 
@@ -225,6 +287,11 @@ module Effect =
         return ()
     }
 
+    /// <summary>
+    /// Executes effects in parallel if possible, and collects their results in a list. Like <c>Effect.whenAll</c>,
+    /// which returns an array and allocates less.
+    /// </summary>
+    /// <param name="s">The effects to run in parallel</param>
     let inline par (s: Effect<'r, 'a, 'e> seq) = eff {
         let! array = whenAll s
         return List.ofArray array
@@ -252,9 +319,15 @@ module Effect =
     /// Configures an effect to fail after a given amount of time, unless it has already succeeded.
     /// The original effect still executes.
     /// </summary>
-    /// <param name="ts"></param>
-    /// <param name="onTimeout"></param>
-    /// <param name="eff"></param>
+    /// <param name="ts">How long to wait for the effect</param>
+    /// <param name="onTimeout">The error to fail with when the effect doesn't finish in time</param>
+    /// <param name="eff">The effect</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// lookupAddress postcode
+    /// |> Effect.timeout (TimeSpan.FromSeconds 2.0) AddressLookupTimedOut
+    /// </code>
+    /// </example>
     let inline timeout (ts: TimeSpan) onTimeout (eff: Effect<_, _, _>) =
         mkEffect (fun rEnv -> vtask {
             try
@@ -264,6 +337,12 @@ module Effect =
         })
 
     //not cooperative, but could be useful for graceful shutdown maybe
+    /// <summary>
+    /// Completes successfully when <paramref name="ct"/> is cancelled, without waiting for the effect to finish. The
+    /// effect is not cancelled: it keeps running, and its result is ignored.
+    /// </summary>
+    /// <param name="ct">The token that ends the wait</param>
+    /// <param name="eff">The effect</param>
     let withCancellation (ct: CancellationToken) (eff: Effect<_, unit, _>) =
         mkEffect (fun rEnv -> vtask {
             try
@@ -275,8 +354,8 @@ module Effect =
     /// <summary>
     /// Races two effects against each other, returning the result of the winner.
     /// </summary>
-    /// <param name="eff1"></param>
-    /// <param name="eff2"></param>
+    /// <param name="eff1">The first effect</param>
+    /// <param name="eff2">The second effect</param>
     let inline race (eff1: Effect<_, _, _>) (eff2: Effect<_, _, _>) =
         mkEffect (fun rEnv -> vtask {
             let t1 = eff1.Run(rEnv).AsTask()
@@ -285,25 +364,69 @@ module Effect =
             return! winner
         })
 
+    /// <summary>
+    /// Runs the effect <paramref name="time"/> times, one after another. It stops at the first failure.
+    /// </summary>
+    /// <param name="time">How many times to run the effect</param>
+    /// <param name="e">The effect</param>
     let inline repeatTimes time (e: Effect<_, _, _>) = eff {
         for _ = 1 to time do
             do! e
     }
 
+    /// <summary>
+    /// Runs the effect repeatedly until <paramref name="fn"/> returns <c>true</c>, which is checked before every run.
+    /// It stops at the first failure.
+    /// </summary>
+    /// <param name="fn">Whether to stop</param>
+    /// <param name="e">The effect</param>
     let inline repeatUntil ([<InlineIfLambda>] fn: unit -> bool) (e: Effect<_, _, _>) = eff {
         while not (fn ()) do
             do! e
     }
 
+    /// <summary>
+    /// Runs the effect repeatedly until <paramref name="token"/> is cancelled, which is checked before every run.
+    /// It stops at the first failure.
+    /// </summary>
+    /// <param name="token">The token that stops the repetition</param>
+    /// <param name="e">The effect</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// processNextMessage ()
+    /// |> Effect.repeatUntilCancellation stoppingToken
+    /// </code>
+    /// </example>
     let inline repeatUntilCancellation (token: CancellationToken) (e: Effect<_, _, _>) =
         //avoid allocating lambda, maybe?
         repeatUntil (fun () -> token.IsCancellationRequested) e
 
+    /// <summary>
+    /// Runs the effect repeatedly, one run after another, until it fails.
+    /// </summary>
+    /// <param name="e">The effect</param>
     let repeatForever (e: Effect<_, _, _>) = eff {
         while true do
             do! e
     }
 
+    /// <summary>
+    /// Distributes the items of <paramref name="s"/> over <paramref name="size"/> workers, in turn, and runs the effect
+    /// created by <paramref name="f"/> for each worker, on the items it is given. The workers run concurrently, and the
+    /// effect completes when they all have.
+    /// </summary>
+    /// <param name="size">The number of workers</param>
+    /// <param name="f">Creates the effect that processes a worker's items</param>
+    /// <param name="s">The items to distribute</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// incomingOrders
+    /// |> Effect.fanOut 4 (fun orders -> eff {
+    ///     for order in orders do
+    ///         do! processOrder order
+    /// })
+    /// </code>
+    /// </example>
     let inline fanOut size (f: IAsyncEnumerable<'a> -> Effect<'r, unit, 'err>) (s: IAsyncEnumerable<'a>) =
         let write (workers: Channels.Channel<_> array) = eff {
             let mutable i = 0
@@ -337,6 +460,32 @@ module Effect =
         }
 
 
+/// <summary>
+/// Creates effects. <c>Effect.Create</c> turns a function of an environment into an effect, and is how effects are
+/// made from the interfaces that describe side effects. The function may return a plain value, a <c>Result</c>, a
+/// <c>Task</c>, a <c>ValueTask</c> or an <c>Async</c>, of a value or of a <c>Result</c>; returning a <c>Result</c>
+/// lets the effect fail.
+/// </summary>
+/// <example>
+/// The usual pattern: an interface describing the side effect, a provider interface exposing it, and a function
+/// creating the effect, which requires any environment that implements the provider (<c>#IConsoleProvider</c>).
+/// <code lang="fsharp">
+/// type IConsole =
+///     abstract ReadLine: unit -> string
+///     abstract WriteLine: string -> unit
+///
+/// type IConsoleProvider =
+///     abstract Console: IConsole
+///
+/// module Console =
+///     let readLine () =
+///         Effect.Create(fun (p: #IConsoleProvider) -> p.Console.ReadLine())
+///
+///     let writeLine line =
+///         Effect.Create(fun (p: #IConsoleProvider) -> p.Console.WriteLine line)
+/// </code>
+/// The Orsak.Myriad generators can write the functions of such a module from the interface.
+/// </example>
 type Effect =
 
     /// <summary>
@@ -365,7 +514,14 @@ type Effect =
     static member Create(f: 'a -> Async<Result<'b, 'e>>) =
         mkEffect (fun a -> ValueTask<_>(task = Async.StartAsTask(f a)))
 
+/// <summary>
+/// Creates effect sequences, <see cref="T:Orsak.EffSeq`3"/>.
+/// </summary>
 type EffSeq =
+    /// <summary>
+    /// Creates an effect sequence from a function of the environment to an async sequence of results.
+    /// </summary>
+    /// <param name="f">Creates the sequence from the environment</param>
     static member Create(f: 'r -> IAsyncEnumerable<Result<'a, 'e>>) =
         EffSeq.Effect(EffectSeqDelegate(fun r -> f r))
 

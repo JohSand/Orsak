@@ -161,12 +161,48 @@ namespace Orsak.Myriad
 
 open System
 
+/// <summary>
+/// Generates a runner for an interface that inherits <see cref="T:Orsak.IProvide`1"/> for each effect it provides: a
+/// record type implementing the provider interfaces of those effects, and a <c>runner</c> computation expression that
+/// assembles an environment from them.
+/// </summary>
+/// <example>
+/// <code lang="fsharp">
+/// [&lt;GenRunner(Name = "AppRunner")&gt;]
+/// type IAppRunner =
+///     inherit IProvide&lt;IGuidGenerator&gt;
+///     inherit IProvide&lt;TimeProvider&gt;
+/// </code>
+/// </example>
 [<AttributeUsage(AttributeTargets.Interface)>]
 type GenRunnerAttribute() =
     inherit Attribute()
+    /// <summary>The name of the generated runner type.</summary>
     member val Name = "" with get, set
+    /// <summary>
+    /// Names the generated runner type after the interface, without its leading <c>I</c>, instead of <c>Name</c>.
+    /// </summary>
     member val UserInterfaceName = false with get, set
 
+/// <summary>
+/// Generates the boilerplate for an interface that describes a side effect: its provider interface, and a module with
+/// a function creating an effect for each of its members, with <c>Effect.Create</c>.
+/// </summary>
+/// <example>
+/// <code lang="fsharp">
+/// [&lt;GenEffects&gt;]
+/// type IButtonPusher =
+///     abstract member PushButton: unit -> Task&lt;unit&gt;
+///
+/// // generated
+/// type IButtonPusherProvider =
+///     abstract Effect: IButtonPusher
+///
+/// module ButtonPusher =
+///     let pushButton () =
+///         Effect.Create(fun (er: #IButtonPusherProvider) -> er.Effect.PushButton())
+/// </code>
+/// </example>
 [<AttributeUsage(AttributeTargets.Interface)>]
 type GenEffectsAttribute() =
     inherit Attribute()
@@ -176,8 +212,23 @@ type GenEffectsAttribute() =
     /// a file is inline themselves, which then takes precedence.
     member val Inline = false with get, set
 
-/// Generates a `create` function for an interface that only inherits provider interfaces,
-/// implementing every provider from an anonymous record of effects.
+/// <summary>
+/// Generates a <c>create</c> function for an interface that only inherits provider interfaces,
+/// implementing every provider from an anonymous record of effects, and <c>run</c> and <c>runOrFail</c> functions
+/// that run an effect in the created environment.
+/// </summary>
+/// <example>
+/// <code lang="fsharp">
+/// [&lt;GenEnvironment&gt;]
+/// type IAppEnvironment =
+///     inherit IButtonPusherProvider
+///     inherit IGuidGenProvider
+///
+/// // using the generated module
+/// let env = AppEnvironment.create {| ButtonPusher = pusher; GuidGenerator = GuidGenerator.defaultGen () |}
+/// let! result = AppEnvironment.run {| ButtonPusher = pusher; GuidGenerator = GuidGenerator.defaultGen () |} (work ())
+/// </code>
+/// </example>
 [<AttributeUsage(AttributeTargets.Interface)>]
 type GenEnvironmentAttribute() =
     inherit Attribute()

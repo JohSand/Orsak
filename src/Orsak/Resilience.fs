@@ -5,14 +5,20 @@ open System.Threading.Tasks
 open FSharp.Control
 open Orsak
 
+/// <summary>
+/// A type without values, for effects that never complete successfully, such as those written with <c>forever</c>.
+/// </summary>
 type Never = internal Never of Never
 
+/// <summary>
+/// The <c>Forever</c> active pattern, for results of effects that never complete successfully.
+/// </summary>
 [<AutoOpen>]
 module BottomType =
     /// <summary>
     /// Active pattern for an effect that should run as long as the application is running.
     /// </summary>
-    /// <param name="_result"></param>
+    /// <param name="_result">The result, which can only be reached if the effect ended through an exception</param>
     let (|Forever|) (_result: Result<Never, Never>) = Forever
 
 #nowarn "3511"
@@ -24,26 +30,52 @@ type NonReturningEffectBuilder() =
     member _.Run code =
         eff.Run code |> Effect.map (fun _ -> Unchecked.defaultof<Never>)
 
+/// <summary>
+/// The <c>forever</c> computation expression.
+/// </summary>
 [<AutoOpen>]
 module Builder =
     /// <summary>
     /// An effect CE that can be used to signal that the effect is not expected to complete successfully through normal means, but instead run forever.
     /// An example would be an effect running a while true do -> loop. It does not indicate that the effect cannot fail, and thus it can return in case of an error.
     /// </summary>
+    /// <example>
+    /// <code lang="fsharp">
+    /// let pollQueue () = forever {
+    ///     while true do
+    ///         let! message = Queue.receive ()
+    ///         do! handle message
+    /// }
+    /// </code>
+    /// </example>
     let forever = NonReturningEffectBuilder()
 
+/// <summary>
+/// The backoff calculation used by the retrying effects in <c>Orsak.Resilience</c>: an exponentially growing delay,
+/// with random jitter, based on Polly's "decorrelated jitter backoff V2".
+/// </summary>
 module Delay =
     open Microsoft.FSharp.Linq
 
+    /// <summary>The base of the exponential growth of the delay.</summary>
     [<Literal>]
     let ExponentialFactor = 2.0
 
+    /// <summary>A factor that dampens the growth of the first few delays.</summary>
     [<Literal>]
     let Pfactor = 4.0
 
+    /// <summary>Scales the delay, so that the median of the first delay is the base delay.</summary>
     [<Literal>]
     let RpScalingFactor = 1. / 1.4
 
+    /// <summary>
+    /// The delay before retry <paramref name="attempt"/>, with jitter.
+    /// </summary>
+    /// <param name="attempt">The number of the attempt, from 0</param>
+    /// <param name="prev">The state of the calculation between attempts, updated by the call; start with 0</param>
+    /// <param name="baseDelay">The median of the first delay</param>
+    /// <param name="randomizer">The source of the jitter</param>
     let calculateDelayWithJitter
         (attempt: int64)
         (prev: byref<float>)
@@ -69,6 +101,14 @@ module Delay =
         else
             TimeSpan.FromTicks(int64 delayTicks)
 
+    /// <summary>
+    /// The delay before retry <paramref name="attempt"/>, with jitter, capped at <paramref name="maxDelay"/>.
+    /// </summary>
+    /// <param name="attempt">The number of the attempt, from 0</param>
+    /// <param name="prev">The state of the calculation between attempts, updated by the call; start with 0</param>
+    /// <param name="baseDelay">The median of the first delay</param>
+    /// <param name="maxDelay">The longest delay, or no limit</param>
+    /// <param name="randomizer">The source of the jitter</param>
     let getDelay
         (attempt: int64)
         (prev: byref<float>)
@@ -122,9 +162,13 @@ type EffectDelayState
 
         Task.Delay(delay, p, cancellationToken)
 
+/// <summary>Seconds, the unit of the delays taken by the functions in <c>Orsak.Resilience</c>.</summary>
 [<Measure>]
 type s = FSharp.Data.UnitSystems.SI.UnitSymbols.s
 
+/// <summary>
+/// Resilience functions for effects: retrying with backoff, logging errors, and running effects perpetually.
+/// </summary>
 module Effect =
     type internal DelayKey() = class end
     let internal cache = ConditionalWeakTable<DelayKey, EffectDelayState>()
@@ -309,6 +353,19 @@ module Effect =
                 return! Error err
         }
 
+    /// <summary>
+    /// Logs the error when the effect fails, with <paramref name="log"/>, and then fails with the same error. The
+    /// environment has to be an <see cref="T:Microsoft.Extensions.Logging.ILoggerFactory"/>.
+    /// </summary>
+    /// <param name="log">Logs an error, given the environment's logger factory</param>
+    /// <param name="effect">The effect</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// importPrices ()
+    /// |> Effect.logError (fun factory err ->
+    ///     factory.CreateLogger("Prices").LogError("Import failed: {Error}", err))
+    /// </code>
+    /// </example>
     let logError (log: ILoggerFactory -> 'e -> unit) (effect: Effect<'r, 'a, 'e>) =
         effect
         |> Effect.onError (fun e -> eff {
