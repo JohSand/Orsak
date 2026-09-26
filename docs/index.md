@@ -27,6 +27,7 @@ While the computation expression is the intended way of working with effects, th
 Where to go next:
 
 * [Introduction](1_Motivation.html) and [Composition](2_Motivation.html): creating effects from interfaces, and why they compose.
+* [Errors](errors.html): modelling errors as unions, combining and handling them, and where exceptions fit in.
 * [Resilience](resilience.html): retrying, backing off, timing out and keeping background work alive.
 * [Effect sequences](effect-sequences.html): streaming results, such as pages from an API, as effects.
 * The [API reference](reference/index.html).

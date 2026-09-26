@@ -3,7 +3,7 @@
 title: Resilience
 category: Guides
 categoryindex: 3
-index: 1
+index: 2
 ---
 *)
 (*** condition: prepare ***)

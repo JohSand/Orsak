@@ -3,7 +3,7 @@
 title: Effect sequences
 category: Guides
 categoryindex: 3
-index: 2
+index: 3
 ---
 *)
 (*** condition: prepare ***)
