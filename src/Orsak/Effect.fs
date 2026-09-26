@@ -437,6 +437,10 @@ module Effect =
                 for e in s do
                     do! workers[i].Writer.WriteAsync(e)
                     i <- (i + 1) % size
+
+                // no more items: lets the workers' loops end
+                for w in workers do
+                    w.Writer.Complete()
             with e ->
                 for w in workers do
                     w.Writer.Complete(e)
