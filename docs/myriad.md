@@ -1,0 +1,219 @@
+---
+title: Generating code
+category: Guides
+categoryindex: 3
+index: 5
+---
+
+# Generating code with Orsak.Myriad
+
+Each side effect in Orsak comes with the same boilerplate: a provider interface exposing the effect, and a module with a
+function per member, wrapping it with `Effect.Create`. Environments that implement several providers are boilerplate
+too. Orsak.Myriad is a [Myriad](https://github.com/MoiraeSoftware/myriad) plugin that generates both at build time,
+from attributes on your interfaces.
+
+The generated code shown on this page is from [the showcase sample](https://github.com/JohSand/Orsak/tree/main/samples/Orsak.Myriad.Showcase),
+where it can be seen in full.
+
+## Setting up
+
+Reference `Orsak.Myriad` and `Myriad.Sdk`, and add a file for the generated code after the file with your interfaces,
+naming the latter as its `MyriadFile`:
+
+```xml
+<ItemGroup>
+    <Compile Include="Library.fs" />
+    <Compile Include="Generated.fs">
+        <MyriadFile>Library.fs</MyriadFile>
+    </Compile>
+</ItemGroup>
+
+<ItemGroup>
+    <PackageReference Include="Orsak.Myriad" Version="..." />
+    <PackageReference Include="Myriad.Sdk" Version="1.1.0" />
+    <PackageDownload Include="Myriad" Version="[1.1.0]" />
+</ItemGroup>
+```
+
+The code is generated on each build. The generated file can be committed, so it can be read and reviewed like any
+other code.
+
+The `PackageDownload` is needed because `Myriad.Sdk` runs the Myriad tool from the NuGet cache, and the download it
+declares itself is in a props file, which NuGet doesn't import during restore. Without it, the build fails with
+`MSB3954: Failed to compute hash for file '...\myriad\1.1.0\tools\net8.0\any\Myriad.dll'`. Its version must match
+the version of `Myriad.Sdk` exactly. It can also go in a `Directory.Build.props`. Installing Myriad as a global tool
+doesn't help, as global tools aren't installed into the NuGet cache.
+
+Myriad 1.x requires FSharp.Core 9 or later.
+
+## Effects
+
+`[<GenEffects>]` on an interface describing a side effect generates its provider interface, and a module named after
+the interface without its leading `I`, with a function for each member. Given
+
+```fsharp
+[<GenEffects>]
+type IFace =
+    abstract CountBeans: int * string -> Result<int, string>
+    abstract PushButton: unit -> Task<unit>
+```
+
+the generated code is
+
+```fsharp
+type IFaceProvider =
+    abstract Effect: IFace
+
+module Face =
+    let countBeans a b =
+        Effect.Create(fun (er: #IFaceProvider) -> er.Effect.CountBeans(a, b))
+
+    let pushButton () =
+        Effect.Create(fun (er: #IFaceProvider) -> er.Effect.PushButton())
+```
+
+Tupled parameters become curried ones, and the functions are named in camel case. As with hand-written effects, a
+member returning a `Result` gives an effect failing with its error, and a member returning a `Task`, `ValueTask` or
+`Async` gives an effect awaiting it. The file must `open Orsak`, as some of the `Effect.Create` overloads come from
+it.
+
+## Environments
+
+An environment implements the provider interfaces of all the effects a program uses. Rather than writing a type for
+it, `[<GenEnvironment>]` on an interface that inherits the providers generates a module with a `create` function,
+taking an anonymous record with an effect for each provider. Given
+
+```fsharp
+type IBeanCounter =
+    abstract Count: unit -> int
+
+type IBeanCounterProvider =
+    abstract Effect: IBeanCounter
+
+[<GenEnvironment>]
+type IAppEnvironment =
+    inherit IBeanCounterProvider
+    inherit IGuidGenProvider
+    inherit IRandomProvider
+```
+
+the generated code is
+
+```fsharp
+module AppEnvironment =
+    let create
+        (effects:
+            {|
+                BeanCounter: IBeanCounter
+                GuidGenerator: Orsak.IGuidGenerator
+                RandomGenerator: Orsak.IRandomGenerator
+            |})
+        : IAppEnvironment =
+        { new IAppEnvironment
+
+          interface IBeanCounterProvider with
+              member _.Effect = effects.BeanCounter
+          interface IGuidGenProvider with
+              member _.GuidGenerator = effects.GuidGenerator
+          interface IRandomProvider with
+              member _.Effect = effects.RandomGenerator
+        }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)
+```
+
+`run` and `runOrFail` create the environment and run an effect in it:
+
+```fsharp
+let environment =
+    AppEnvironment.create {|
+        BeanCounter = { new IBeanCounter with member _.Count() = 3 }
+        GuidGenerator = GuidGenerator.defaultGen ()
+        RandomGenerator = DefaultRandom(System.Random 42)
+    |}
+
+let! result = workflow () |> Effect.run environment
+// or, in one go
+let! result =
+    workflow ()
+    |> AppEnvironment.run {| BeanCounter = counter; GuidGenerator = guids; RandomGenerator = random |}
+```
+
+This suits [tests](testing.html) well: each test builds the environment it needs in place, with the fakes it needs.
+
+The generator only sees the syntax of your code, not its types, so it works by convention: inheriting `IFooProvider`
+is taken to mean a property `Effect: IFoo`. Orsak's own providers (`IGuidGenProvider`, `ITimeProvider`,
+`ICacheProvider`, `ICancellationProvider` and `IRandomProvider`) are known. Other providers are described in
+`myriad.toml`, in a section named after the provider:
+
+```toml
+[IBeanCounting]
+EffectType = "Beans.IBeanCounter"
+ProviderPropertyName = "Counter"
+```
+
+The generator fails the build with a message when the interface declares members of its own, inherits a generic
+interface, inherits a provider whose effect it can't work out, or inherits two providers whose effects have the same
+name. Only providers inherited directly are considered, so environments can't be nested. A provider generated by
+`[<GenEffects>]` must be generated from an earlier file than the environment inheriting it, unless both are in a file
+using inline generation.
+
+## Inline generation
+
+With `<MyriadInlineGeneration>true</MyriadInlineGeneration>` on a file, the generated code is appended to the end of
+the file instead of going in a file of its own. That keeps an environment next to the code using it, such as a test
+environment in a test file:
+
+```fsharp
+module rec MyTests
+
+open Orsak
+open Orsak.Myriad
+
+[<GenEnvironment>]
+type ITestEnvironment =
+    inherit IButtonPusherProvider
+    inherit IGuidGenProvider
+
+let ``pushes the button`` () = task {
+    let env = TestEnvironment.create {| ButtonPusher = fakePusher; GuidGenerator = GuidGenerator.defaultGen () |}
+    let! result = pushButton () |> Effect.run env
+    ...
+}
+
+// TestEnvironment is appended here
+```
+
+* The generated code comes last, so the module or namespace must be `rec` to use it above. Generated types, and the
+  fully annotated `create`, can then be used anywhere in the file. The other generated functions, including `run`
+  and those generated by `[<GenEffects>]`, have inferred types, which F# can't use above their declaration, so use them
+  from later files.
+* The file must `open Orsak` itself, as a `rec` module doesn't allow `open` after other declarations.
+* The attributed interfaces must be in the last namespace or module of the file, where the code is appended.
+* Myriad 1.1 and later tell generators whether a file is inline. With Myriad 1.0, set `Inline = true` on the
+  attributes instead, as in `[<GenEnvironment(Inline = true)>]`.
+
+## Runners
+
+`[<GenRunner>]` is an alternative to `[<GenEnvironment>]` for effects given as `IProvide<'t>`. On an interface
+inheriting `IProvide<'t>` for each effect, it generates a record type implementing their providers, and a `mkRunner`
+computation expression that assembles one from the effects:
+
+```fsharp
+[<GenRunner(Name = "BasicRunner")>]
+type ITest =
+    inherit IProvide<IFace>
+    inherit IProvide<IRandomGenerator>
+
+// using the generated code
+let runner =
+    Runner.mkRunner {
+        fromEffect random
+        fromEffect face
+    }
+
+Face.countBeans 1 "" |> Effect.run runner
+```
+
+The effects can be given in any order.
