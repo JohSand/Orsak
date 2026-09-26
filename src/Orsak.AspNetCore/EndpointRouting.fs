@@ -17,8 +17,22 @@ open FSharp.Reflection
 open System.Text
 open FSharp.Core.Operators.NonStructuralComparison
 
+/// <summary>
+/// Endpoint metadata with the method that handles the endpoint's requests, read from the route handler.
+/// </summary>
 type HandlingMethod = HandlingMethod of MethodInfo
 
+/// <summary>
+/// An endpoint created by one of the <c>Route*</c> methods, such as <c>RouteGet</c>, to be mapped with
+/// <c>MapEffectEndpoints</c>. Its methods add conventions, as on ASP.NET Core's endpoint convention builders.
+/// </summary>
+/// <example>
+/// <code lang="fsharp">
+/// runner.RouteGet("/users/%i", getUser)
+///     .RequiresAuthorization()
+///     .WithName("GetUser")
+/// </code>
+/// </example>
 type Endpoint =
     | Endpoint of
         {|
@@ -28,36 +42,58 @@ type Endpoint =
             conventions: IEndpointConventionBuilder -> IEndpointConventionBuilder
         |}
 
+    /// <summary>
+    /// Adds a convention to apply to the endpoint when it is mapped.
+    /// </summary>
+    /// <param name="f">Applies the convention to the endpoint's convention builder</param>
     member inline this.AddConvention([<InlineIfLambda>] f: IEndpointConventionBuilder -> IEndpointConventionBuilder) =
         let (Endpoint this) = this in Endpoint {| this with conventions = fun b -> f (this.conventions b) |}
 
+    /// <summary>Requires authorization with the default policy, as <c>RequireAuthorization</c>.</summary>
     member this.RequiresAuthorization() =
         this.AddConvention(fun a -> a.RequireAuthorization())
 
+    /// <summary>Allows anonymous access, as <c>AllowAnonymous</c>.</summary>
     member this.AllowAnonymous() =
         this.AddConvention(fun a -> a.AllowAnonymous())
 
+    /// <summary>Applies a named CORS policy, as <c>RequireCors</c>.</summary>
+    /// <param name="name">The name of the policy</param>
     member this.RequireCors(name: string) =
         this.AddConvention(fun a -> a.RequireCors(name))
 
+    /// <summary>Applies a CORS policy built by <paramref name="builder"/>, as <c>RequireCors</c>.</summary>
+    /// <param name="builder">Builds the policy</param>
     member this.RequireCors(builder: Action<_>) =
         this.AddConvention(fun a -> a.RequireCors(builder))
 
+    /// <summary>Names the endpoint, e.g. for link generation, as <c>WithName</c>.</summary>
+    /// <param name="name">The name</param>
     member this.WithName(name) =
         this.AddConvention(fun a -> a.WithName(name))
 
+    /// <summary>Adds metadata to the endpoint, as <c>WithMetadata</c>.</summary>
+    /// <param name="items">The metadata</param>
     member this.WithMetadata([<ParamArray>] items) =
         this.AddConvention(fun a -> a.WithMetadata(items))
 
+    /// <summary>Sets the endpoint's display name, as <c>WithDisplayName</c>.</summary>
+    /// <param name="name">The display name</param>
     member this.WithDisplayName(name: string) =
         this.AddConvention(fun a -> a.WithDisplayName(name))
 
+    /// <summary>Sets the endpoint's display name with a function of its builder, as <c>WithDisplayName</c>.</summary>
+    /// <param name="f">Creates the display name</param>
     member this.WithDisplayName(f: Func<_, _>) =
         this.AddConvention(fun a -> a.WithDisplayName(f))
 
+    /// <summary>Sets the endpoint's group name, e.g. for OpenAPI, as <c>WithGroupName</c>.</summary>
+    /// <param name="name">The group name</param>
     member this.WithGroupName(name) =
         this.AddConvention(fun a -> a.WithGroupName(name))
 
+    /// <summary>Adds a convention that changes the endpoint builder, as <c>Add</c>.</summary>
+    /// <param name="f">Changes the endpoint builder</param>
     member this.Add(f) =
         this.AddConvention(fun b ->
             b.Add(f)
@@ -227,6 +263,39 @@ module Helpers =
 
 open Helpers
 
+/// <summary>
+/// Creates endpoints from effects, with a route format string whose values are parsed and passed to the handler, and
+/// maps them with <c>MapEffectEndpoints</c>.
+/// </summary>
+/// <remarks>
+/// The methods extend a "runner" of your own: any value whose type has a <c>*>></c> operator that turns a handler's
+/// effect into a <see cref="T:Microsoft.AspNetCore.Http.RequestDelegate"/>. The runner decides how the environment is
+/// created for each request, and how the effect's result and errors become a response.
+/// </remarks>
+/// <example>
+/// <code lang="fsharp">
+/// type Runner =
+///     | RunWith of (HttpContext -> AppEnv)
+///
+///     static member ( *>> )(effect: Effect&lt;AppEnv, IResult, AppError&gt;, RunWith createEnv) =
+///         RequestDelegate(fun ctx -> task {
+///             match! Effect.run (createEnv ctx) effect with
+///             | Ok result -> do! result.ExecuteAsync ctx
+///             | Error err -> ctx.Response.StatusCode &lt;- 500
+///         })
+///
+/// let getUser (id: int) = eff {
+///     let! user = Users.load id
+///     return Results.Ok user
+/// }
+///
+/// app.UseRouting().UseEndpoints(fun endpoints ->
+///     let runner = RunWith createEnv
+///     endpoints.MapEffectEndpoints [
+///         runner.RouteGet("/users/%i", getUser)
+///     ])
+/// </code>
+/// </example>
 [<Extension>]
 type EffectRunnerExtensions =
     /// <exclude/>
@@ -261,6 +330,27 @@ type EffectRunnerExtensions =
 
             Unchecked.defaultof<_>
 
+    /// <summary>
+    /// Creates a GET endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>.
+    /// </summary>
+    /// <remarks>
+    /// The route values are written as format specifiers, which also constrain the route: <c>%s</c> for a
+    /// <c>string</c>, <c>%i</c> for an <c>int</c>, <c>%d</c> for an <c>int64</c>, <c>%b</c> for a <c>bool</c>,
+    /// <c>%c</c> for a <c>char</c>, <c>%f</c> for a <c>float</c> and <c>%O</c> for a <c>Guid</c>; <c>%%</c> is a
+    /// literal <c>%</c>. The handler takes the values as a tuple, or a single value, or <c>unit</c> for a route without
+    /// values, and the names of its parameters name the route values, so pass a function or a lambda directly.
+    /// </remarks>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// let getOrderLine (orderId: int, line: int) = eff { ... }
+    ///
+    /// // maps GET /orders/{orderId:int}/lines/{line:int}
+    /// runner.RouteGet("/orders/%i/lines/%i", getOrderLine)
+    /// </code>
+    /// </example>
     [<Extension>]
     static member inline RouteGet
         (
@@ -270,38 +360,108 @@ type EffectRunnerExtensions =
         ) =
         EffectRunnerExtensions.CreateEndpoint<'H, 'Eff, 'Printer, 'T>(this, path, HttpMethods.Get, routeHandler)
 
+    /// <summary>
+    /// Creates a POST endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>. The route
+    /// values work as for <c>RouteGet</c>.
+    /// </summary>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
     [<Extension>]
     static member inline RoutePost(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Post, routeHandler)
 
+    /// <summary>
+    /// Creates a PUT endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>. The route
+    /// values work as for <c>RouteGet</c>.
+    /// </summary>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
     [<Extension>]
     static member inline RoutePut(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Put, routeHandler)
 
+    /// <summary>
+    /// Creates a PATCH endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>. The route
+    /// values work as for <c>RouteGet</c>.
+    /// </summary>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
     [<Extension>]
     static member inline RoutePatch(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Patch, routeHandler)
 
+    /// <summary>
+    /// Creates a DELETE endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>. The route
+    /// values work as for <c>RouteGet</c>.
+    /// </summary>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
     [<Extension>]
     static member inline RouteDelete(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Delete, routeHandler)
 
+    /// <summary>
+    /// Creates a HEAD endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>. The route
+    /// values work as for <c>RouteGet</c>.
+    /// </summary>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
     [<Extension>]
     static member inline RouteHead(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Head, routeHandler)
 
+    /// <summary>
+    /// Creates a TRACE endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>. The route
+    /// values work as for <c>RouteGet</c>.
+    /// </summary>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
     [<Extension>]
     static member inline RouteTrace(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Trace, routeHandler)
 
+    /// <summary>
+    /// Creates a CONNECT endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>. The route
+    /// values work as for <c>RouteGet</c>.
+    /// </summary>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
     [<Extension>]
     static member inline RouteConnect(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Connect, routeHandler)
 
+    /// <summary>
+    /// Creates a OPTIONS endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>. The route
+    /// values work as for <c>RouteGet</c>.
+    /// </summary>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
     [<Extension>]
     static member inline RouteOptions(this, path, [<ReflectedDefinition(includeValue = true)>] routeHandler) =
         EffectRunnerExtensions.CreateEndpoint(this, path, HttpMethods.Options, routeHandler)
 
+    /// <summary>
+    /// Maps the endpoints, with their conventions, and instruments each with <c>EffectDiagnostics</c>.
+    /// </summary>
+    /// <param name="builder">The endpoint route builder, e.g. in <c>UseEndpoints</c></param>
+    /// <param name="endpoints">The endpoints to map</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// app.UseRouting().UseEndpoints(fun endpoints ->
+    ///     endpoints.MapEffectEndpoints [
+    ///         runner.RouteGet("/users/%i", getUser)
+    ///         runner.RoutePost("/users", createUser)
+    ///     ])
+    /// </code>
+    /// </example>
     [<Extension>]
     static member inline MapEffectEndpoints(builder: IEndpointRouteBuilder, endpoints: Endpoint list) =
         endpoints

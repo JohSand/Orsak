@@ -11,6 +11,9 @@ open FSharp.Core.CompilerServices
 open FSharp.Core.CompilerServices.StateMachineHelpers
 open FSharp.Control
 
+/// <summary>
+/// The function an <see cref="T:Orsak.EffSeq`3"/> wraps: given an environment, it creates the sequence.
+/// </summary>
 type EffectSeqDelegate<'r, 'a, 'e> = delegate of 'r -> IAsyncEnumerable<Result<'a, 'e>>
 
 /// <exclude/>
@@ -83,12 +86,30 @@ type ResumableAsyncEnumerator<'T>() =
         }
 
 
+/// <summary>
+/// An effectful stream: like <see cref="T:Orsak.Effect`3"/>, it requires an environment <typeparamref name="'r"/> to
+/// start, but it produces a sequence of <typeparamref name="'a"/> over time, as an async enumerable, and can fail with
+/// <typeparamref name="'e"/>. Written with the <c>effSeq</c> computation expression.
+/// </summary>
+/// <typeparam name="'r" > The environment required to run the sequence </typeparam>
+/// <typeparam name="'a" > The type of the items </typeparam>
+/// <typeparam name="'e" > The type of the error the sequence can fail with </typeparam>
 [<Struct; NoComparison; NoEquality>]
 type EffSeq<'r, 'a, 'e> =
     | Effect of EffectSeqDelegate<'r, 'a, 'e>
 
+    /// <summary>
+    /// Starts the sequence with the environment: every item is either an <c>Ok</c> value, or an <c>Error</c>, which
+    /// ends the sequence.
+    /// </summary>
+    /// <param name="e">The environment needed to start the sequence</param>
     member this.Invoke(e: 'r) = let (Effect f) = this in f.Invoke e
 
+    /// <summary>
+    /// A sequence that is also cancelled by <paramref name="outerToken"/>, as well as by the token it is enumerated
+    /// with.
+    /// </summary>
+    /// <param name="outerToken">The additional token to cancel the enumeration with</param>
     member this.WithCancellation(outerToken) =
         let that = this
         //is this javascript?
@@ -774,6 +795,23 @@ module HighPrioritySeq =
                     )
                     .Invoke(&sm))
 
+/// <summary>
+/// The <c>effSeq</c> computation expression.
+/// </summary>
 [<AutoOpen>]
 module EffSeqBuilder =
+    /// <summary>
+    /// The computation expression for writing effect sequences, <see cref="T:Orsak.EffSeq`3"/>. Like <c>eff</c>, it
+    /// can bind effects, tasks and results; in addition, <c>yield</c> produces an item, and <c>yield!</c> the items of
+    /// another sequence.
+    /// </summary>
+    /// <example>
+    /// <code lang="fsharp">
+    /// let orderLines (orderIds: int list) = effSeq {
+    ///     for id in orderIds do
+    ///         let! order = Orders.load id
+    ///         yield! order.Lines
+    /// }
+    /// </code>
+    /// </example>
     let effSeq = EffSeqBuilder()

@@ -2,6 +2,9 @@
 
 //todo
 
+/// <summary>
+/// An effect that produces a list, as built by the <c>effList</c> computation expression.
+/// </summary>
 type EffectList<'r, 'a, 'e> = Effect<'r, 'a list, 'e>
 
 /// <exclude/>
@@ -23,6 +26,23 @@ type EffectListBuilder() =
     member this.For(s: seq<'a>, f: 'a -> EffectList<'r, 'b, 'e>) : EffectList<'r, 'b, 'e> =
         s |> Seq.map f |> Seq.fold (fun a b -> this.Combine(a, b)) (Effect.ret [])
 
+/// <summary>
+/// The <c>effList</c> computation expression.
+/// </summary>
 [<AutoOpen>]
 module EffectListBuilder =
+    /// <summary>
+    /// A computation expression that builds a list with effects: <c>yield</c> adds an item, <c>yield!</c> adds a
+    /// list, or the list produced by another <c>effList</c>, and <c>let!</c> binds effects and results.
+    /// </summary>
+    /// <example>
+    /// <code lang="fsharp">
+    /// let recipients (order: Order) = effList {
+    ///     let! customer = Customers.load order.CustomerId
+    ///     yield customer.Email
+    ///     for contact in customer.Contacts do
+    ///         yield contact.Email
+    /// }
+    /// </code>
+    /// </example>
     let effList = EffectListBuilder()

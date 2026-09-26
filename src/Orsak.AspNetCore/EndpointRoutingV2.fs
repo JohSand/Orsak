@@ -65,6 +65,10 @@ type RouteHandler =
     static member inline Invoke(handler: ^handler, tuple: ^tuple, values: obj array, witness: ^w) : ^r =
         ((^w or ^tuple): (static member Apply: ^handler * ^tuple * obj array * ^w -> ^r) (handler, tuple, values, witness))
 
+/// <summary>
+/// Creates endpoints from effects with curried route handlers, which are checked against the route format's values
+/// when compiling. It works with the same runners and <c>MapEffectEndpoints</c> as <c>Orsak.AspNetCore</c>.
+/// </summary>
 [<Extension>]
 type EffectRunnerExtensions =
     /// <exclude/>
@@ -139,6 +143,29 @@ type EffectRunnerExtensions =
 
             Unchecked.defaultof<_>
 
+    /// <summary>
+    /// Creates a GET endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>, a curried
+    /// function of the route values: <c>string -> int -> 'Eff</c> for <c>"/items/%s/%i"</c>, or <c>unit -> 'Eff</c>
+    /// for a route without values, which is called for every request. A handler that doesn't match the route's
+    /// values doesn't compile.
+    /// </summary>
+    /// <remarks>
+    /// The format specifiers are the same as for <c>RouteGet</c>, and the names of the handler's parameters name the
+    /// route values, so pass a function or a lambda directly.
+    /// </remarks>
+    /// <param name="this">The runner, which turns the handler's effect into a request delegate</param>
+    /// <param name="path">The route, with format specifiers for the route values</param>
+    /// <param name="routeHandler">Creates the effect that handles a request, from the route values</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// open Orsak.AspNetCore.V2
+    ///
+    /// let getOrderLine (orderId: int) (line: int) = eff { ... }
+    ///
+    /// // maps GET /orders/{orderId:int}/lines/{line:int}
+    /// runner.RouteGet2("/orders/%i/lines/%i", getOrderLine)
+    /// </code>
+    /// </example>
     [<Extension>]
     static member inline RouteGet2
         (

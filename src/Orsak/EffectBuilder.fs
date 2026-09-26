@@ -25,18 +25,40 @@ type TaskHelper =
         | Ok _ -> err
         | Error e -> err + e
 
+/// <summary>
+/// The result of running an effect: a <see cref="T:System.Threading.Tasks.ValueTask`1"/> of a
+/// <see cref="T:Microsoft.FSharp.Core.FSharpResult`2"/>.
+/// </summary>
 type AsyncResult<'a, 'e> = ValueTask<Result<'a, 'e>>
 
+/// <summary>
+/// The function an <see cref="T:Orsak.Effect`3"/> wraps: given an environment, it starts the effect.
+/// </summary>
 type EffectDelegate<'r, 'a, 'e> = delegate of 'r -> AsyncResult<'a, 'e>
 
 /// <summary>
-/// Describes an effect that can either succeed with <typeparamref name="'r"/>, or fails with <typeparamref name="'e"/>.
-/// The effect is is 'cold', and only starts when run with an <typeparamref name="'r"/>.
+/// Describes an effect that can either succeed with <typeparamref name="'a"/>, or fail with <typeparamref name="'e"/>.
+/// The effect is 'cold', and only starts when run with an <typeparamref name="'r"/>.
 /// </summary>
+/// <remarks>
+/// Effects are usually written with the <c>eff</c> computation expression, and created from interfaces that describe
+/// side effects with <c>Effect.Create</c>. The environment <typeparamref name="'r"/> is inferred from what the effect
+/// uses, and supplied when the effect is run.
+/// </remarks>
+/// <example>
+/// <code lang="fsharp">
+/// let greet () = eff {
+///     let! name = Console.readLine ()
+///     do! Console.writeLine $"Hello {name}"
+/// }
+///
+/// // at the composition root, with an environment providing the console effects:
+/// let! result = greet () |> Effect.run env
+/// </code>
+/// </example>
 /// <typeparam name="'r" > The environment required to run the effect </typeparam>
 /// <typeparam name="'a" > The resulting type when the effect runs successfully </typeparam>
 /// <typeparam name="'e" > The resulting type when the effect fails</typeparam>
-/// <returns></returns>
 [<Struct; NoComparison; NoEquality>]
 type Effect<'r, 'a, 'e> =
     | Effect of EffectDelegate<'r, 'a, 'e>
@@ -3238,10 +3260,36 @@ type EffBuilder() =
                 sm.ResumptionDynamicInfo.ResumptionFunc <- cont
                 false
 
-/// <exclude/>
+/// <summary>
+/// The <c>eff</c> computation expression, and <c>mkEffect</c>.
+/// </summary>
 [<AutoOpen>]
 module Builder =
+    /// <summary>
+    /// Creates an effect from a function that, given an environment, starts it. Prefer <c>Effect.Create</c> or the
+    /// <c>eff</c> computation expression; this is the lowest-level way to create an effect.
+    /// </summary>
+    /// <param name="d">The function that starts the effect.</param>
     let inline mkEffect d = Effect(EffectDelegate d)
+
+    /// <summary>
+    /// The computation expression for writing effects. Binding (<c>let!</c>, <c>do!</c>, <c>return!</c>) works with
+    /// other effects, and with <c>Task</c>, <c>ValueTask</c>, <c>Async</c> and <c>Result</c>, so .NET APIs can be used
+    /// directly. It supports <c>for</c>, <c>while</c>, <c>use</c>, <c>try/with</c> and <c>try/finally</c>, and
+    /// <c>and!</c> runs effects concurrently. A failed effect stops the rest of the expression, with its error.
+    /// </summary>
+    /// <example>
+    /// <code lang="fsharp">
+    /// let placeOrder (order: Order) = eff {
+    ///     let! id = GuidGenerator.genGuid ()
+    ///     let! now = Time.utcNow ()
+    ///     do! Orders.save { order with Id = id; Placed = now }
+    ///     let! customer = Customers.load order.CustomerId
+    ///     and! stock = Stock.reserve order.Lines
+    ///     return id
+    /// }
+    /// </code>
+    /// </example>
     let eff = EffBuilder()
 
 
