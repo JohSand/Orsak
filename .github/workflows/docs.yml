@@ -1,0 +1,78 @@
+name: Docs
+
+# Builds the documentation site with fsdocs and deploys it to GitHub Pages (Settings > Pages > Source: GitHub Actions).
+# It runs when the docs or the source change: the API reference is generated from the libraries' XML docs. Changes to
+# the docs alone don't trigger a NuGet release, as github-actions.yml ignores docs/** and this file.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'global.json'
+      - '.config/dotnet-tools.json'
+      - '.github/workflows/docs.yml'
+  # pull requests only build the docs, with --strict, so that a change that breaks them fails before it is merged
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'global.json'
+      - '.config/dotnet-tools.json'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# one deployment at a time, and a running one is finished rather than cancelled
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # the same version as the NuGet packages, which the site shows
+      - name: Set version
+        run: dotnet gitversion /updateprojectfiles
+
+      - name: Build docs
+        run: dotnet fsdocs build --properties Configuration=Release --strict --clean --output output
+
+      - name: Upload site
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: output
+
+  deploy:
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

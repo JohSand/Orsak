@@ -10,6 +10,7 @@ on:
       - 'experiments/**'
       - 'README.md'
       - 'CHANGELOG.md'
+      - '.github/workflows/docs.yml'
 
   push:
     tags:
@@ -22,6 +23,7 @@ on:
       - 'experiments/**'
       - 'README.md'
       - 'CHANGELOG.md'
+      - '.github/workflows/docs.yml'
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
