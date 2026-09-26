@@ -660,10 +660,34 @@ type ResilienceFunctionTests() =
         let! _ = wrapped |> Effect.run (Runner provider)
         let! _ = wrapped |> Effect.run (Runner provider)
 
-        // the state belongs to the wrapped effect, not to a run, so the second run continues the backoff
+        // intended: the delay state belongs to the configured effect, not to a run, so that an effect with a
+        // configured delay can be repeated, or run again, and keeps backing off
         match provider.Delays with
         | [ firstRun; secondRun ] -> test <@ secondRun > firstRun @>
         | delays -> failwith $"expected 2 delays, got %A{delays}"
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let a_delayed_effect_keeps_backing_off_when_repeated_until_done () = task {
+        let provider = SteppingTimeProvider()
+        let mutable polls = 0
+
+        // polls a queue that is empty the first four times
+        let poll: Effect<Runner, bool, string> = eff {
+            polls <- polls + 1
+            return polls > 4
+        }
+
+        let! result =
+            poll
+            |> Effect.addDelay_ 2.0<s>
+            |> Effect.repeatUntil (fun () -> polls = 5)
+            |> Effect.run (Runner provider)
+
+        Ok() =! result
+        // a delay after each empty poll, each longer than the one before, and none after the fifth
+        test <@ provider.Delays.Length = 4 @>
+        test <@ provider.Delays |> List.pairwise |> List.forall (fun (a, b) -> a < b) @>
     }
 
     [<Fact(Timeout = 10_000)>]
