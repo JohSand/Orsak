@@ -30,4 +30,6 @@ Where to go next:
 * [Errors](errors.html): modelling errors as unions, combining and handling them, and where exceptions fit in.
 * [Resilience](resilience.html): retrying, backing off, timing out and keeping background work alive.
 * [Effect sequences](effect-sequences.html): streaming results, such as pages from an API, as effects.
+* [Testing](testing.html): running effects with environments of fakes, including the clock.
+* [Generating code](myriad.html): generating effects and environments from interfaces with Orsak.Myriad.
 * The [API reference](reference/index.html).
