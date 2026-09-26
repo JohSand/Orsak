@@ -8,6 +8,7 @@ open Fantomas.FCS.Xml
 open Fantomas.FCS.Text.Range
 open Orsak.Myriad.Syntax
 
+/// [omit]
 /// Builds the syntax tree for [<GenEffects>] interfaces:
 ///
 /// type IFooProvider =
@@ -120,6 +121,7 @@ module EffectSyntax =
                 ]
     ]
 
+/// <exclude/>
 [<MyriadGenerator("EffectGen")>]
 type EffectGen() =
     interface IMyriadGenerator with

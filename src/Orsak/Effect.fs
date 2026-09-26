@@ -369,6 +369,7 @@ type EffSeq =
     static member Create(f: 'r -> IAsyncEnumerable<Result<'a, 'e>>) =
         EffSeq.Effect(EffectSeqDelegate(fun r -> f r))
 
+/// <exclude/>
 [<AutoOpen>]
 module WrapTwice =
     //extensions for Effect for things weed need to wrap twice. lowest prio
@@ -389,6 +390,7 @@ module WrapTwice =
             yield! s
         }
 
+/// <exclude/>
 [<AutoOpen>]
 module WrapOnce =
     //extensions for Effect for things weed need to wrap once, or which wraps once

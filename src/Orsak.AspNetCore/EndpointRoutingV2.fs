@@ -11,6 +11,7 @@ open System.Text
 open Orsak.AspNetCore
 open Orsak.AspNetCore.Helpers
 
+/// <exclude/>
 /// Applies a curried route handler to the route values a format string produces: `int -> string -> 'Eff`
 /// for the 'Tuple type `int * string`, `int -> 'Eff` for `int`, and `unit -> 'Eff` for `unit`, a route
 /// without values. The tuple only picks the overload, at the call site, where the handler's and the
@@ -66,6 +67,7 @@ type RouteHandler =
 
 [<Extension>]
 type EffectRunnerExtensions =
+    /// <exclude/>
     /// Like CreateEndpoint, for a curried handler matching the format's route values: `string -> int -> 'Eff`
     /// for "/pong/%s/%i", or `unit -> 'Eff` for a route without values. RouteHandler.Apply checks the handler
     /// against the format's tuple of values at the call site, and calls it with the parsed values.

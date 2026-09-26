@@ -17,6 +17,7 @@ module BottomType =
 
 #nowarn "3511"
 
+/// <exclude/>
 type NonReturningEffectBuilder() =
     inherit EffBuilderBase()
 
@@ -90,6 +91,7 @@ module Delay =
 open System.Threading
 open Microsoft.Extensions.Logging
 
+/// <exclude/>
 type EffectDelayState
     (
         p: TimeProvider,

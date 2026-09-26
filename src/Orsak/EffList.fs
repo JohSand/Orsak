@@ -4,6 +4,7 @@
 
 type EffectList<'r, 'a, 'e> = Effect<'r, 'a list, 'e>
 
+/// <exclude/>
 type EffectListBuilder() =
     member inline _.Bind(res: Result<_, _>, [<InlineIfLambda>] f) : EffectList<_, _, _> =
         Result.map f res |> Effect.resultJoin

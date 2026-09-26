@@ -7,17 +7,20 @@ open System
 open Microsoft.FSharp.Core.CompilerServices
 open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 
+/// <exclude/>
 type ScopedEffectCode<'Scope, 'Env, 'TOverall, 'T, 'Err> = EffectCode<'Env * 'Scope, 'TOverall, 'T, 'Err>
 
 #nowarn "57"
 #nowarn "3511"
 #nowarn "3559"
 
+/// <exclude/>
 [<AbstractClass>]
 type ScopedEffectBuilder() =
     inherit EffBuilderBase()
 
 //shenanigans to make overload resolution work nicely.
+/// <exclude/>
 [<AutoOpen>]
 module Extension =
     type ScopedEffectBuilder with
@@ -85,11 +88,14 @@ module Extension =
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation))                    
 
+/// <exclude/>
 type Scoped = IAsyncDisposable
 
+/// <exclude/>
 type ScopeProvider<'Scope when 'Scope :> Scoped> =
     abstract member BeginScope: unit -> ValueTask<'Scope>
 
+/// <exclude/>
 ///A computation expression that knows how to start a scope local to the effect, and bind effects in that scope
 [<ExperimentalAttribute("")>]
 type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
@@ -142,15 +148,19 @@ type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
             | Error e -> return Error e
         })
 
+/// <exclude/>
 type ExceptionHandler<'err> =
     abstract member Handle: exn -> 'err
 
+/// <exclude/>
 type CompletableScope =
     abstract member Complete: unit -> ValueTask
     inherit Scoped
 
+/// <exclude/>
 type CompletableScopeProvider<'Scope when 'Scope :> CompletableScope> = ScopeProvider<'Scope>
 
+/// <exclude/>
 ///A computation expression that knows how to start a completable scope local to the effect, and bind effects in that scope
 [<ExperimentalAttribute("")>]
 type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScope>() =
@@ -249,6 +259,7 @@ open Microsoft.FSharp.Core.CompilerServices
 open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 
 
+/// <exclude/>
 /// <summary>
 /// Allows for binding effects in a scope, but does not allow for starting a new scope.
 /// Typically would be run by binding them in a scoped effect. Not expected to be run by themselves, since the

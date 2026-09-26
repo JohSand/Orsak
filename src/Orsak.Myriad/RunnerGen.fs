@@ -4,6 +4,7 @@ open Myriad.Core
 open Orsak.Myriad
 open System.Text
 
+/// <exclude/>
 [<MyriadGenerator("EffectRunnerGen")>]
 type EffectRunnerGen() =
     interface IMyriadGenerator with

@@ -1,5 +1,6 @@
 ﻿namespace Orsak.Myriad.Gen
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k, 'l>
     (a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f: 'f, g: 'g, h: 'h, i: 'i, j: 'j, k: 'k, l: 'l) =
     member _.A = a
@@ -17,6 +18,7 @@ type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k, 'l>
 
     member this.Create _ = this
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k>
     (a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f: 'f, g: 'g, h: 'h, i: 'i, j: 'j, k: 'k) =
     member _.A = a
@@ -34,6 +36,7 @@ type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k>
     member this.Create<'l>(l) =
         EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k, 'l>(a, b, c, d, e, f, g, h, i, j, k, l)
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j>
     (a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f: 'f, g: 'g, h: 'h, i: 'i, j: 'j) =
     member _.A = a
@@ -50,6 +53,7 @@ type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j>
     member this.Create<'k>(k) =
         EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k>(a, b, c, d, e, f, g, h, i, j, k)
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i>(a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f: 'f, g: 'g, h: 'h, i: 'i) =
     member _.A = a
     member _.B = b
@@ -64,6 +68,7 @@ type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i>(a: 'a, b: 'b, c: 'c, d: '
     member this.Create<'j>(j) =
         EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j>(a, b, c, d, e, f, g, h, i, j)
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h>(a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f: 'f, g: 'g, h: 'h) =
     member _.A = a
     member _.B = b
@@ -77,6 +82,7 @@ type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h>(a: 'a, b: 'b, c: 'c, d: 'd, e
     member this.Create<'i>(i) =
         EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i>(a, b, c, d, e, f, g, h, i)
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g>(a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f: 'f, g: 'g) =
     member _.A = a
     member _.B = b
@@ -89,6 +95,7 @@ type EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g>(a: 'a, b: 'b, c: 'c, d: 'd, e: 'e
     member this.Create<'h>(h) =
         EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h>(a, b, c, d, e, f, g, h)
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd, 'e, 'f>(a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f: 'f) =
     member _.A = a
     member _.B = b
@@ -100,6 +107,7 @@ type EffectContext<'a, 'b, 'c, 'd, 'e, 'f>(a: 'a, b: 'b, c: 'c, d: 'd, e: 'e, f:
     member this.Create<'g>(g) =
         EffectContext<'a, 'b, 'c, 'd, 'e, 'f, 'g>(a, b, c, d, e, f, g)
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd, 'e>(a: 'a, b: 'b, c: 'c, d: 'd, e: 'e) =
     member _.A = a
     member _.B = b
@@ -110,6 +118,7 @@ type EffectContext<'a, 'b, 'c, 'd, 'e>(a: 'a, b: 'b, c: 'c, d: 'd, e: 'e) =
     member this.Create<'f>(f) =
         EffectContext<'a, 'b, 'c, 'd, 'e, 'f>(a, b, c, d, e, f)
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c, 'd>(a: 'a, b: 'b, c: 'c, d: 'd) =
     member _.A = a
     member _.B = b
@@ -119,6 +128,7 @@ type EffectContext<'a, 'b, 'c, 'd>(a: 'a, b: 'b, c: 'c, d: 'd) =
     member this.Create<'e>(e) =
         EffectContext<'a, 'b, 'c, 'd, 'e>(a, b, c, d, e)
 
+/// <exclude/>
 type EffectContext<'a, 'b, 'c>(a: 'a, b: 'b, c: 'c) =
     member _.A = a
     member _.B = b
@@ -127,19 +137,23 @@ type EffectContext<'a, 'b, 'c>(a: 'a, b: 'b, c: 'c) =
     member this.Create<'d>(d) =
         EffectContext<'a, 'b, 'c, 'd>(a, b, c, d)
 
+/// <exclude/>
 type EffectContext<'a, 'b>(a: 'a, b: 'b) =
     member _.A = a
     member _.B = b
     member this.Create<'c>(c) = EffectContext<'a, 'b, 'c>(a, b, c)
 
+/// <exclude/>
 type EffectContext<'a>(a: 'a) =
     member _.A = a
     member this.Create<'b>(b) = EffectContext<'a, 'b>(a, b)
 
+/// <exclude/>
 [<Struct>]
 type EffectContext =
     member this.Create<'b>(b) = EffectContext<'b>(b)
 
+/// <exclude/>
 type GenContext<'a, 'b, 'c when 'a: (member Create: 'b -> 'c)> = 'a
 
 
