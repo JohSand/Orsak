@@ -7,9 +7,8 @@ index: 1
 ---
 *)
 (*** condition: prepare ***)
-#r "nuget: Microsoft.Extensions.Logging.Abstractions, 7.0.0"
-#I "../src/Orsak/bin/Release/net6.0"
-#r "../src/Orsak/bin/Release/net6.0/Orsak.dll"
+#r "nuget: Microsoft.Extensions.Logging.Abstractions, 8.0.0"
+#r "../src/Orsak/bin/Release/net8.0/Orsak.dll"
 
 open System.Threading.Tasks
 open Microsoft.Extensions.Logging
@@ -17,8 +16,8 @@ open Microsoft.Extensions.Logging.Abstractions
 (**
 ### Basic usage
 
-
-This is a library intended to make effectful code easier to manage. It allows the user to easily create and consume side-effects modelled as interfaces, by making use of computation expressions.
+This is a library intended to make effectful code easier to manage. It allows the user to easily create and consume
+side-effects modelled as interfaces, by making use of computation expressions.
 
 Imagine having the interface
 *)
@@ -39,7 +38,7 @@ module ButtonPusher =
         Effect.Create(fun (provider: #IButtonPusherProvider) -> provider.ButtonPusher.PushButton())
 
 (**
-Then, we can the write code like
+Then, we can write code like
 *)
 
 let work () : Effect<#IButtonPusherProvider, unit, _> = eff {
@@ -52,13 +51,13 @@ let work () : Effect<#IButtonPusherProvider, unit, _> = eff {
 Which can be run with some type which implements ``IButtonPusherProvider``.
 
 The big win with effects is that they compose. By using a flexible constraint in the effect creation function, we can
-simply add effects, which will constrain the effect runner type to implement both ``IButtonPusherProvider`` and ``ILoggerFactory``
+simply add effects, which will constrain the effect runner type to implement both ``IButtonPusherProvider`` and ``ILogProvider``
 *)
-type ILoggerProvider =
+type ILogProvider =
     abstract member Logger: ILogger
 
-let logInformation a =
-    Effect.Create(fun (provider: #ILoggerProvider) -> provider.Logger.Log(LogLevel.Information, a))
+let logInformation (message: string) =
+    Effect.Create(fun (provider: #ILogProvider) -> provider.Logger.LogInformation(message))
 
 let workThenLog () = eff {
     do! work ()
@@ -67,17 +66,22 @@ let workThenLog () = eff {
 
 (** Then, in the composition root of the program, one could define: *)
 type EffectRunner(buttonPusher: IButtonPusher) =
-    interface ILoggerProvider with
+    interface ILogProvider with
         member _.Logger = NullLogger.Instance
 
     interface IButtonPusherProvider with
         member _.ButtonPusher = buttonPusher
 (** And then run the effects: *)
-let runner: EffectRunner =
+let runner =
     EffectRunner(
         { new IButtonPusher with
             member this.PushButton() = Task.FromResult()
         }
     )
 
-workThenLog().Run(runner)
+let result: ValueTask<Result<unit, string>> = workThenLog () |> Effect.run runner
+(**
+Running an effect returns a `ValueTask` of a `Result`, whose error type is left open by `work` and chosen here.
+Nothing happens until then, so the same effect can be run again, with the same runner or with another one, such as
+one with fakes in a test.
+*)
