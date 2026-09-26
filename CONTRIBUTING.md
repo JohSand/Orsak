@@ -34,8 +34,13 @@ is kept short, and links to the documentation for the details.
 
 ```bash
 dotnet build -c Release
+dotnet fsi docs/.tools/aspnetcore-references.fsx
 dotnet fsdocs watch --properties Configuration=Release
 ```
+
+The second step is needed once, and again after changing the .NET SDK. Scripts can't reference the ASP.NET Core shared
+framework as a package, so it writes `docs/.generated/aspnetcore.fsx`, referencing the ASP.NET Core installed with
+.NET by path, for the web APIs page to load. The file is specific to the machine, and ignored by git.
 
 This serves the site at http://localhost:8901, and rebuilds and reloads a page when it changes. The API reference is
 read from the built assemblies, so after changing doc comments, build again, and restart the watch if the change

@@ -59,6 +59,11 @@ jobs:
       - name: Build the project
         run: dotnet build --configuration Release -p:ContinuousIntegrationBuild=false
 
+      # scripts can't reference the ASP.NET Core shared framework as a package, so the web APIs page loads a script
+      # referencing it by path, written for the runtime installed here
+      - name: Reference ASP.NET Core from the docs' scripts
+        run: dotnet fsi docs/.tools/aspnetcore-references.fsx
+
       - name: Build docs
         run: dotnet fsdocs build --properties Configuration=Release ContinuousIntegrationBuild=false --strict --clean --output output
 
