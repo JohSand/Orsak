@@ -165,3 +165,128 @@ module RepetitionTests =
         // in turn, so each worker gets a quarter
         test <@ processed |> Seq.countBy fst |> Seq.forall (fun (_, count) -> count = 25) @>
     }
+
+    [<Fact(Timeout = 10_000)>]
+    let retry_does_not_run_a_successful_effect_again () = task {
+        let effect, runs = failingWith []
+        let! result = effect |> Effect.retry |> Effect.run ()
+        Ok 1 =! result
+        1 =! runs ()
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let timeout_returns_the_result_when_the_effect_is_fast_enough () = task {
+        let fast: Effect<unit, int, string> = eff { return 42 }
+        let! result = fast |> Effect.timeout (TimeSpan.FromSeconds 5.) "timed out" |> Effect.run ()
+        Ok 42 =! result
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let timeout_fails_with_the_effects_own_error_when_it_fails_in_time () = task {
+        let failing: Effect<unit, int, string> = eff { return! Error "own error" }
+        let! result = failing |> Effect.timeout (TimeSpan.FromSeconds 5.) "timed out" |> Effect.run ()
+        Error "own error" =! result
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let withCancellation_returns_when_the_effect_completes_first () = task {
+        use source = new CancellationTokenSource()
+        let mutable ran = false
+        let effect: Effect<unit, unit, string> = eff { ran <- true }
+        let! result = effect |> Effect.withCancellation source.Token |> Effect.run ()
+        Ok() =! result
+        true =! ran
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let withCancellation_fails_with_the_effects_error_when_it_fails_first () = task {
+        use source = new CancellationTokenSource()
+        let failing: Effect<unit, unit, string> = eff { return! Error "failed first" }
+        let! result = failing |> Effect.withCancellation source.Token |> Effect.run ()
+        Error "failed first" =! result
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let repeatTimes_zero_does_not_run_the_effect () = task {
+        let mutable runs = 0
+        let effect: Effect<unit, unit, string> = eff { runs <- runs + 1 }
+        let! result = effect |> Effect.repeatTimes 0 |> Effect.run ()
+        Ok() =! result
+        0 =! runs
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let repeatTimes_stops_at_the_first_failure () = task {
+        let mutable runs = 0
+
+        let effect: Effect<unit, unit, string> = eff {
+            runs <- runs + 1
+
+            if runs = 2 then
+                return! Error "second run failed"
+        }
+
+        let! result = effect |> Effect.repeatTimes 5 |> Effect.run ()
+        Error "second run failed" =! result
+        2 =! runs
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let repeatWhileTrue_runs_once_when_the_effect_returns_false () = task {
+        let mutable runs = 0
+
+        let effect: Effect<unit, bool, string> = eff {
+            runs <- runs + 1
+            return false
+        }
+
+        let! result = effect |> Effect.repeatWhileTrue |> Effect.run ()
+        Ok() =! result
+        1 =! runs
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let repeatWhileTrue_stops_at_the_first_failure () = task {
+        let mutable runs = 0
+
+        let effect: Effect<unit, bool, string> = eff {
+            runs <- runs + 1
+
+            if runs = 3 then
+                return! Error "third run failed"
+            else
+                return true
+        }
+
+        let! result = effect |> Effect.repeatWhileTrue |> Effect.run ()
+        Error "third run failed" =! result
+        3 =! runs
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let fanOut_completes_for_an_empty_source () = task {
+        let mutable items = 0
+
+        let work (source: IAsyncEnumerable<int>) : Effect<unit, unit, string> = eff {
+            for _ in source do
+                Interlocked.Increment(&items) |> ignore
+        }
+
+        let! result = TaskSeq.empty<int> |> Effect.fanOut 3 work |> Effect.run ()
+        Ok() =! result
+        0 =! items
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let fanOut_fails_with_the_error_of_a_worker () = task {
+        // which worker gets which items depends on the order the workers start in, so fail on an item instead
+        let work (source: IAsyncEnumerable<int>) : Effect<unit, unit, string> = eff {
+            for item in source do
+                if item = 2 then
+                    return! Error $"failed on {item}"
+        }
+
+        // fewer items than a worker's channel holds (10), so the writer never waits for a failed worker
+        let! result = TaskSeq.ofList [ 1..8 ] |> Effect.fanOut 2 work |> Effect.run ()
+        Error "failed on 2" =! result
+    }
