@@ -27,3 +27,6 @@ module ClockEnvironment =
           interface IClockProvider with
               member _.Effect = effects.Clock
         }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)

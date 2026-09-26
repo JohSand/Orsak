@@ -19,7 +19,13 @@ open Orsak.Myriad.Syntax
 ///             member _.Effect = effects.Bar
 ///     }
 ///
-/// Every provider is implemented explicitly, so it does not matter that they share member names.
+///     let run effects = Effect.run (create effects)
+///
+///     let runOrFail effects = Effect.runOrFail (create effects)
+///
+/// Every provider is implemented explicitly, so it does not matter that they share member names. Like
+/// EffectGen's Effect.Create, run and runOrFail need the input to open Orsak: fully qualified,
+/// Orsak.Effect.run would resolve to the type Effect<'r, 'a, 'e> rather than the Effect module.
 module EnvironmentSyntax =
     let private parameterName = "effects"
 
@@ -71,12 +77,21 @@ module EnvironmentSyntax =
             range0
         )
 
+    /// `let run effects = Effect.run (create effects)`
+    let private runner (name: string) =
+        let body =
+            app (longExpr [ "Effect"; name ]) (paren (app (longExpr [ "create" ]) (longExpr [ parameterName ])))
+
+        letDecl name [ namedPat parameterName, Some parameterName ] None body
+
     let private environmentModule (environment: EnvironmentCfg) =
         let parameter =
             SynPat.Paren(SynPat.Typed(namedPat parameterName, effectsRecordType environment.providers, range0), range0)
 
         moduleDecl (Writer.trimI environment.name) [
             letDecl "create" [ parameter, Some parameterName ] (Some(longType [ environment.name ])) (objectExpression environment)
+            runner "run"
+            runner "runOrFail"
         ]
 
     /// Output for each input namespace or module that has [<GenEnvironment>] interfaces,

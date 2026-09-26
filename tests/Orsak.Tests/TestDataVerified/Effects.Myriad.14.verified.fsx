@@ -24,3 +24,6 @@ module Environment =
           interface IFooProvider with
               member _.Effect = effects.Foo
         }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)

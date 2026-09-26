@@ -33,3 +33,6 @@ module TestEnvironment =
           interface IGuidGenProvider with
               member _.GuidGenerator = effects.GuidGenerator
         }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)

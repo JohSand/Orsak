@@ -58,6 +58,7 @@ let main args =
                     r.RouteGet("/pong/%s/%i", Application.post)
                     r.RouteGet2("/ping", Application.ping)
                     r.RouteGet2("/pong2/%s/%i", Application.post2)
+                    r.RouteGet2("/pong3/%s/%i", Application.post3)
                 ]
             ))
 

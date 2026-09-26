@@ -18,6 +18,10 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="FSharp.Core" Version="8.0.300" />
-        <PackageReference Include="FastExpressionCompiler.LightExpression" Version="5.1.1" />
+        <PackageReference Include="FastExpressionCompiler.LightExpression" Version="5.4.1" />
+        <PackageReference Update="DotNet.ReproducibleBuilds" Version="2.0.5">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
     </ItemGroup>
 </Project>

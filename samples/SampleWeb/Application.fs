@@ -1,5 +1,6 @@
 ﻿module SampleWeb.Application
 
+open Microsoft.AspNetCore.Mvc
 open Orsak
 open Orsak.Extensions
 open Fleece
@@ -12,6 +13,9 @@ type Message = {
 } with
 
     static member ToJson(x: Message) = jobj [ "message" .= x.message ]
+
+
+type Auth = Auth
 
 let ping () : Effect<_, _, _> = eff {
     do! Log.getLogger () |>> _.LogInformation("")
@@ -33,6 +37,14 @@ let ping2 (x: int) : Effect<_, _, string> = eff {
 let post (target, _unused: int) = eff { return { message = target } }
 
 let post2 (target: string) (_unused: int) = eff { return { message = target } }
+
+/// <summary>
+/// This is text
+/// </summary>
+/// <param name="target"></param>
+/// <param name="_unused"></param>
+/// <param name="_auth"></param>
+let post3 (target: string) (_unused: int) (_auth: Auth) = eff { return { message = target } }
 
 open Orsak
 open Orsak.AspNetCore
