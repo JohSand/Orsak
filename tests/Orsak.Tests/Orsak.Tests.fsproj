@@ -27,6 +27,7 @@
         <Compile Include="EffSeqTests.fs"/>
         <Compile Include="RecoveryTests.fs"/>
         <Compile Include="Tests.fs"/>
+        <Compile Include="RepetitionTests.fs"/>
         <Compile Include="TailCallTests.fs"/>
         <Compile Include="ForLoopTests.fs"/>
         <Compile Include="WhenAllTests.fs"/>
