@@ -53,6 +53,10 @@ jobs:
       - name: Set version
         run: dotnet gitversion /updateprojectfiles
 
+      # fsdocs reads the restored projects and their built assemblies, and the docs' scripts reference them too
+      - name: Build the project
+        run: dotnet build --configuration Release
+
       - name: Build docs
         run: dotnet fsdocs build --properties Configuration=Release --strict --clean --output output
 
