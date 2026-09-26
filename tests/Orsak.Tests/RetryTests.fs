@@ -91,21 +91,37 @@ type DelayTests() =
         return ()
     }
 
+    /// Runs a delayed effect to completion, and returns a weak reference to the key of its delay state, which is
+    /// otherwise unreachable once this returns. Not inlined, so that its locals are gone by then.
+    [<System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)>]
+    let runAndForget () =
+        let runner = Runner(SteppingTimeProvider())
+
+        (eff { return false } |> Effect.addDelay_ 2.0<s> |> Effect.repeatTimes 3 |> Effect.run runner)
+            .AsTask()
+            .Wait()
+
+        let found, _ = cache.TryGetValue(runner.Key)
+        Assert.True(found, "the effect's delay state should be in the cache")
+        WeakReference(runner.Key)
+
     [<Fact(Timeout = 30_000)>]
     let delay_is_cleaned_up_once_the_effect_is_gone () = task {
-        do! add_delay__adds_delay_on_false ()
+        // only this effect's state: tests in other classes use the shared cache at the same time
+        let key = runAndForget ()
         // continue on another stack: the effect may have completed on this one, whose frames keep it reachable
         do! Task.Yield()
 
         let deadline = DateTime.UtcNow.AddSeconds 10.
 
-        while cache.Count() > 0 && DateTime.UtcNow < deadline do
+        while key.IsAlive && DateTime.UtcNow < deadline do
             GC.Collect()
             GC.WaitForPendingFinalizers()
             GC.WaitForFullGCComplete() |> ignore
             GC.Collect()
 
-        test <@ cache.Count() = 0 @>
+        // the cache holds its keys weakly, so a collected key means the state is gone
+        test <@ not key.IsAlive @>
     }
 
     [<Fact(Timeout = 10_000)>]
@@ -399,7 +415,7 @@ type ResilienceFunctionTests() =
 
     [<Fact(Timeout = 10_000)>]
     let logError_logs_the_error_and_fails_with_it () = task {
-        let env = LoggingEnv()
+        let env = new LoggingEnv()
         let effect: Effect<LoggingEnv, unit, string> = eff { return! Error "boom" }
 
         let! result = effect |> Effect.logError env.Log |> Effect.run env
@@ -410,7 +426,7 @@ type ResilienceFunctionTests() =
 
     [<Fact(Timeout = 10_000)>]
     let logError_logs_nothing_when_the_effect_succeeds () = task {
-        let env = LoggingEnv()
+        let env = new LoggingEnv()
         let effect: Effect<LoggingEnv, int, string> = eff { return 42 }
 
         let! result = effect |> Effect.logError env.Log |> Effect.run env
@@ -536,3 +552,190 @@ type ResilienceFunctionTests() =
         for attempt in 0L .. 200L do
             let delay = Delay.getDelay attempt &prev (TimeSpan.FromSeconds 1.) (Nullable()) random
             test <@ delay >= TimeSpan.Zero && delay <= cap @>
+
+    /// Runs a loop that ends after the given number of rounds, which a forever loop isn't expected to do.
+    let loopFor (rounds: int) =
+        forever {
+            let mutable round = 0
+
+            while round < rounds do
+                round <- round + 1
+        }
+
+    [<Fact(Timeout = 10_000)>]
+    let forever_succeeds_when_its_loop_ends () = task {
+        let! result = loopFor 3 |> Effect.run ()
+        test <@ Result.isOk result @>
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let addDelay_resets_the_delay_after_true () = task {
+        let provider = SteppingTimeProvider()
+        let effect = returning [ false; false; true; false ] |> Effect.addDelay 2.0<s>
+
+        let! results =
+            eff {
+                let! a = effect
+                let! b = effect
+                let! c = effect
+                let! d = effect
+                return [ a; b; c; d ]
+            }
+            |> Effect.run (Runner provider)
+
+        Ok [ false; false; true; false ] =! results
+
+        match provider.Delays with
+        | [ _; second; afterReset ] -> test <@ afterReset < second @>
+        | delays -> failwith $"expected 3 delays, got %A{delays}"
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let addDelayWithMax_resets_the_delay_after_true () = task {
+        let provider = SteppingTimeProvider()
+        let effect = returning [ false; false; true; false ] |> Effect.addDelayWithMax 2.0<s> 60.0<s>
+
+        let! results =
+            eff {
+                let! a = effect
+                let! b = effect
+                let! c = effect
+                let! d = effect
+                return [ a; b; c; d ]
+            }
+            |> Effect.run (Runner provider)
+
+        Ok [ false; false; true; false ] =! results
+
+        match provider.Delays with
+        | [ _; second; afterReset ] -> test <@ afterReset < second @>
+        | delays -> failwith $"expected 3 delays, got %A{delays}"
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let addDelayOnError_retries_only_after_its_delay () = task {
+        let provider = SteppingTimeProvider()
+        let attempts = System.Collections.Concurrent.ConcurrentQueue<DateTimeOffset>()
+
+        let failing = eff {
+            let! now = Time.utcNow ()
+            attempts.Enqueue now
+            return! Error "failed"
+        }
+
+        let! result =
+            failing
+            |> Effect.addDelayOnError 2.0<s>
+            |> Effect.retryTimes 3L
+            |> Effect.run (Runner provider)
+
+        Error "failed" =! result
+        let gaps = attempts |> Seq.pairwise |> Seq.map (fun (a, b) -> b - a) |> List.ofSeq
+        // four attempts, each after the delay that followed the one before
+        test <@ gaps.Length = 3 @>
+        test <@ gaps = List.take 3 provider.Delays @>
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let separately_wrapped_effects_back_off_independently () = task {
+        let provider = SteppingTimeProvider()
+        let failing: Effect<Runner, unit, string> = eff { return! Error "failed" }
+        let first = failing |> Effect.addDelayOnError 2.0<s>
+        let second = failing |> Effect.addDelayOnError 2.0<s>
+
+        let! _ = first |> Effect.retryTimes 2L |> Effect.run (Runner provider)
+        let! _ = second |> Effect.run (Runner provider)
+
+        match provider.Delays with
+        | [ firstOfFirst; _; _; firstOfSecond ] -> test <@ firstOfSecond = firstOfFirst @>
+        | delays -> failwith $"expected 4 delays, got %A{delays}"
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let a_wrapped_effect_keeps_its_delay_between_runs () = task {
+        let provider = SteppingTimeProvider()
+        let failing: Effect<Runner, unit, string> = eff { return! Error "failed" }
+        let wrapped = failing |> Effect.addDelayOnError 2.0<s>
+
+        let! _ = wrapped |> Effect.run (Runner provider)
+        let! _ = wrapped |> Effect.run (Runner provider)
+
+        // the state belongs to the wrapped effect, not to a run, so the second run continues the backoff
+        match provider.Delays with
+        | [ firstRun; secondRun ] -> test <@ secondRun > firstRun @>
+        | delays -> failwith $"expected 2 delays, got %A{delays}"
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let retryTimes_zero_does_not_retry () = task {
+        let mutable runs = 0
+
+        let failing: Effect<unit, unit, string> = eff {
+            runs <- runs + 1
+            return! Error "failed"
+        }
+
+        let! result = failing |> Effect.retryTimes 0L |> Effect.run ()
+        Error "failed" =! result
+        1 =! runs
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let logError_logs_every_failed_attempt_when_retried () = task {
+        let env = new LoggingEnv()
+        let mutable runs = 0
+
+        let effect: Effect<LoggingEnv, int, string> = eff {
+            runs <- runs + 1
+
+            if runs < 3 then
+                return! Error $"attempt {runs} failed"
+            else
+                return runs
+        }
+
+        let! result = effect |> Effect.logError env.Log |> Effect.retryTimes 5L |> Effect.run env
+
+        Ok 3 =! result
+        [ "attempt 1 failed"; "attempt 2 failed" ] =! (env.Logged |> List.map snd)
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let repeatUntilCancellation_does_not_run_the_effect_when_already_cancelled () = task {
+        use source = new CancellationTokenSource()
+        source.Cancel()
+        let mutable runs = 0
+        let step: Effect<unit, unit, string> = eff { runs <- runs + 1 }
+
+        let! result = step |> Effect.repeatUntilCancellation source.Token |> Effect.run ()
+        test <@ Result.isOk result @>
+        0 =! runs
+    }
+
+    [<Fact>]
+    let calculateDelayWithJitter_first_delay_has_a_median_near_the_base_delay () =
+        let baseDelay = TimeSpan.FromSeconds 1.
+
+        let delays = [
+            for seed in 0..1000 ->
+                let mutable prev = 0.
+                Delay.calculateDelayWithJitter 0L &prev baseDelay (DefaultRandom(Random seed))
+        ]
+
+        let median = (List.sort delays)[delays.Length / 2]
+        test <@ median > TimeSpan.FromSeconds 0.8 && median < TimeSpan.FromSeconds 1.0 @>
+        // jitter: the delays differ
+        test <@ (List.distinct delays).Length > 900 @>
+
+    [<Fact>]
+    let calculateDelayWithJitter_is_deterministic_for_a_seed () =
+        let delaysFor (seed: int) =
+            let random = DefaultRandom(Random seed)
+            let mutable prev = 0.
+
+            [
+                for attempt in 0L .. 10L ->
+                    Delay.calculateDelayWithJitter attempt &prev (TimeSpan.FromSeconds 1.) random
+            ]
+
+        delaysFor 42 =! delaysFor 42
