@@ -332,8 +332,10 @@ module Effect =
         mkEffect (fun rEnv -> vtask {
             try
                 return! eff.Run(rEnv).AsTask().WaitAsync(ts)
-            with :? TaskCanceledException ->
-                return Error onTimeout
+            with
+            // WaitAsync(TimeSpan) signals the timeout with a TimeoutException
+            | :? TimeoutException
+            | :? TaskCanceledException -> return Error onTimeout
         })
 
     //not cooperative, but could be useful for graceful shutdown maybe

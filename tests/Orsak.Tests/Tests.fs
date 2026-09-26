@@ -1027,6 +1027,7 @@ module CombinatorTests =
         }
         |> Effect.timeout (TimeSpan.FromMicroseconds 5.) "timeout"
         |> expectError "timeout"
+        |> run
 
 
     [<Fact>]
