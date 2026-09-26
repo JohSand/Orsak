@@ -7,14 +7,13 @@ index: 2
 ---
 *)
 (*** condition: prepare ***)
-#I "../src/Orsak/bin/Release/net6.0"
-#r "Orsak.dll"
+#r "../src/Orsak/bin/Release/net8.0/Orsak.dll"
 
 open Orsak
 open System.Threading.Tasks
 (**
 
-###In the beginning, there was OOP
+### In the beginning, there was OOP
 
 Let's say you have an application that is architected according to [Functional Core, imperative shell](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell). And all the functional code is easy to test and easy to reuse.
 But in the imperative shell, how do we compose the side-effectful code?
@@ -24,10 +23,10 @@ and all that jazz. And inevitably I ended up with too many constructor-parameter
 
 In the end, I believe that while this is the least bad way of doing oo-programming, it is not enough.
 
-###Putting the 'fun' in programming
+### Putting the 'fun' in programming
 
 If the I in solid is taken to its natural conclusion, your interfaces end up with a single member. Now, this is not an [original](https://blog.ploeh.dk/2014/03/10/solid-the-next-step-is-functional/) observation, but one I believe merits repeating.
-But in OO the object is the natural method of composition, and even with dependency injection creating SRP-conforming objects quickly becomes tedious. But give that [objects are merely a poor man's
+But in OO the object is the natural method of composition, and even with dependency injection creating SRP-conforming objects quickly becomes tedious. But given that [objects are merely a poor man's
 closures](http://people.csail.mit.edu/gregs/ll1-discuss-archive-html/msg03277.html), maybe we can unlock reuse and composability some other way?
 *)
 
