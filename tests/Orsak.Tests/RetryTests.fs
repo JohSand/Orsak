@@ -286,3 +286,253 @@ type DelayTests() =
 
         Ok() =! e
     }
+
+/// An environment whose logger factory records what Effect.logError is given.
+type LoggingEnv() =
+    let logged = System.Collections.Concurrent.ConcurrentQueue<obj * string>()
+    member _.Logged = List.ofSeq logged
+    member this.Log (factory: Microsoft.Extensions.Logging.ILoggerFactory) (error: string) = logged.Enqueue(box factory, error)
+
+    interface Microsoft.Extensions.Logging.ILoggerFactory with
+        member _.CreateLogger(_) = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance
+        member _.AddProvider(_) = ()
+        member _.Dispose() = ()
+
+/// An environment with a clock that only moves when told to, and a cancellation source for the delays.
+type CancellableEnv(clock: FakeTimeProvider, source: CancellationTokenSource) =
+    interface ITimeProvider with
+        member _.Clock = clock
+
+    interface IRandomProvider with
+        member _.Effect = DefaultRandom(Random(11_000))
+
+    interface ICancellationProvider with
+        member _.Source = source
+
+/// The functions of Orsak.Resilience that had no tests.
+type ResilienceFunctionTests() =
+
+    /// An effect that returns each of the results in turn.
+    let returning (results: bool list) =
+        let remaining = System.Collections.Concurrent.ConcurrentQueue results
+
+        eff {
+            match remaining.TryDequeue() with
+            | true, result -> return result
+            | false, _ -> return failwith "no more results"
+        }
+
+    [<Fact>]
+    let addDelay_returns_the_result_and_delays_after_false () = task {
+        let provider = SteppingTimeProvider()
+        let effect = returning [ false; true; false ] |> Effect.addDelay 2.0<s>
+
+        let! results =
+            eff {
+                let! a = effect
+                let! b = effect
+                let! c = effect
+                return [ a; b; c ]
+            }
+            |> Effect.run (Runner provider)
+
+        Ok [ false; true; false ] =! results
+        2 =! provider.Delays.Length
+    }
+
+    [<Fact>]
+    let addDelayWithMax_returns_the_result_and_caps_the_delay () = task {
+        let provider = SteppingTimeProvider()
+        let effect = returning (List.replicate 11 false) |> Effect.addDelayWithMax 2.0<s> 3.0<s>
+
+        let! results =
+            eff {
+                let results = ResizeArray()
+
+                for _ in 1..11 do
+                    let! result = effect
+                    results.Add result
+
+                return List.ofSeq results
+            }
+            |> Effect.run (Runner provider)
+
+        Ok(List.replicate 11 false) =! results
+        test <@ provider.Delays.Length = 11 @>
+        test <@ provider.Delays |> List.forall (fun d -> d <= TimeSpan.FromSeconds 3.) @>
+    }
+
+    [<Fact>]
+    let addDelayWithMax__resets_the_delay_after_true () = task {
+        let provider = SteppingTimeProvider()
+
+        let! result =
+            returning [ false; false; false; true; false ]
+            |> Effect.addDelayWithMax_ 2.0<s> 60.0<s>
+            |> Effect.repeatTimes 5
+            |> Effect.run (Runner provider)
+
+        Ok() =! result
+
+        match provider.Delays with
+        | [ _; _; third; afterReset ] -> test <@ afterReset < third @>
+        | delays -> failwith $"expected 4 delays, got %A{delays}"
+    }
+
+    [<Fact>]
+    let retryTimes_succeeds_when_a_retry_does () = task {
+        let mutable runs = 0
+
+        let effect: Effect<unit, int, string> = eff {
+            runs <- runs + 1
+
+            if runs < 3 then
+                return! Error "not yet"
+            else
+                return runs
+        }
+
+        let! result = effect |> Effect.retryTimes 5L |> Effect.run ()
+        Ok 3 =! result
+        3 =! runs
+    }
+
+    [<Fact>]
+    let logError_logs_the_error_and_fails_with_it () = task {
+        let env = LoggingEnv()
+        let effect: Effect<LoggingEnv, unit, string> = eff { return! Error "boom" }
+
+        let! result = effect |> Effect.logError env.Log |> Effect.run env
+
+        Error "boom" =! result
+        [ box env, "boom" ] =! env.Logged
+    }
+
+    [<Fact>]
+    let logError_logs_nothing_when_the_effect_succeeds () = task {
+        let env = LoggingEnv()
+        let effect: Effect<LoggingEnv, int, string> = eff { return 42 }
+
+        let! result = effect |> Effect.logError env.Log |> Effect.run env
+
+        Ok 42 =! result
+        test <@ env.Logged.IsEmpty @>
+    }
+
+    /// Runs the effect in a loop that never ends by itself.
+    let loopForever (step: Effect<unit, unit, string>) =
+        forever {
+            while true do
+                do! step
+        }
+
+    [<Fact>]
+    let forever_fails_with_the_error_that_ends_its_loop () = task {
+        let mutable runs = 0
+
+        let step: Effect<unit, unit, string> = eff {
+            runs <- runs + 1
+
+            if runs = 3 then
+                return! Error "third run failed"
+        }
+
+        let! result = loopForever step |> Effect.run ()
+
+        test <@ result = Error "third run failed" @>
+        3 =! runs
+    }
+
+    [<Fact>]
+    let repeatUntilCancellation_ends_with_Forever_when_cancelled () = task {
+        use source = new CancellationTokenSource()
+        let mutable runs = 0
+
+        let step: Effect<unit, unit, string> = eff {
+            runs <- runs + 1
+
+            if runs = 3 then
+                source.Cancel()
+        }
+
+        let! result =
+            step
+            |> Effect.retryForever
+            |> Effect.repeatUntilCancellation source.Token
+            |> Effect.run ()
+
+        match result with
+        | Forever -> 3 =! runs
+    }
+
+    [<Fact>]
+    let repeatUntilCancellation_fails_with_the_first_error () = task {
+        use source = new CancellationTokenSource()
+        let mutable runs = 0
+
+        let step: Effect<unit, unit, string> = eff {
+            runs <- runs + 1
+
+            if runs = 2 then
+                return! Error "second run failed"
+        }
+
+        let! result = step |> Effect.repeatUntilCancellation source.Token |> Effect.run ()
+        test <@ result = Error "second run failed" @>
+        2 =! runs
+    }
+
+    [<Fact>]
+    let a_delay_is_cancelled_through_the_environment () = task {
+        // a clock that never moves on its own, so the delay would never end
+        let clock = FakeTimeProvider()
+        use source = new CancellationTokenSource()
+        let failing: Effect<CancellableEnv, unit, string> = eff { return! Error "failed" }
+
+        let running =
+            (failing |> Effect.addDelayOnError 10.0<s> |> Effect.run (CancellableEnv(clock, source))).AsTask()
+
+        source.Cancel()
+
+        let! _ =
+            Assert.ThrowsAnyAsync<OperationCanceledException>(fun () -> running.WaitAsync(TimeSpan.FromSeconds 10.))
+
+        ()
+    }
+
+    [<Fact>]
+    let delays_use_the_system_clock_and_random_without_providers () = task {
+        let clock = Diagnostics.Stopwatch.StartNew()
+        let failing: Effect<unit, unit, string> = eff { return! Error "failed" }
+
+        let! result =
+            failing
+            |> Effect.addDelayOnError 0.001<s>
+            |> Effect.retryTimes 3L
+            |> Effect.run ()
+
+        Error "failed" =! result
+        test <@ clock.Elapsed < TimeSpan.FromSeconds 5. @>
+    }
+
+    [<Fact>]
+    let getDelay_is_capped_at_maxDelay () =
+        let mutable prev = 0.
+        let delay = Delay.getDelay 5000L &prev (TimeSpan.FromSeconds 1.) (Nullable(TimeSpan.FromSeconds 10.)) (DefaultRandom(Random 1))
+        TimeSpan.FromSeconds 10. =! delay
+
+    [<Fact>]
+    let getDelay_without_maxDelay_is_capped_at_about_50_days () =
+        let mutable prev = 0.
+        let delay = Delay.getDelay 5000L &prev (TimeSpan.FromSeconds 1.) (Nullable()) (DefaultRandom(Random 1))
+        TimeSpan.FromTicks 42949672940000L =! delay
+
+    [<Fact>]
+    let getDelay_is_never_negative_nor_above_the_cap () =
+        let mutable prev = 0.
+        let random = DefaultRandom(Random 1)
+        let cap = TimeSpan.FromTicks 42949672940000L
+
+        for attempt in 0L .. 200L do
+            let delay = Delay.getDelay attempt &prev (TimeSpan.FromSeconds 1.) (Nullable()) random
+            test <@ delay >= TimeSpan.Zero && delay <= cap @>
