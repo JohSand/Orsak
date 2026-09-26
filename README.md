@@ -98,3 +98,5 @@ The documentation is at https://johsand.github.io/Orsak/, with guides to
 [testing](https://johsand.github.io/Orsak/testing.html) and
 [generating code](https://johsand.github.io/Orsak/myriad.html),
 and the [API reference](https://johsand.github.io/Orsak/reference/index.html).
+
+To build, test, or work on the documentation, see [CONTRIBUTING.md](https://github.com/JohSand/Orsak/blob/main/CONTRIBUTING.md).
