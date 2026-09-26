@@ -53,12 +53,14 @@ jobs:
       - name: Set version
         run: dotnet gitversion /updateprojectfiles
 
-      # fsdocs reads the restored projects and their built assemblies, and the docs' scripts reference them too
+      # fsdocs reads the restored projects and their built assemblies, and the docs' scripts reference them too.
+      # ContinuousIntegrationBuild=false: on GitHub Actions, DotNet.ReproducibleBuilds maps source paths to /_/, which
+      # fsdocs can't place in the checkout, so the API docs' links to the source on GitHub would be empty.
       - name: Build the project
-        run: dotnet build --configuration Release
+        run: dotnet build --configuration Release -p:ContinuousIntegrationBuild=false
 
       - name: Build docs
-        run: dotnet fsdocs build --properties Configuration=Release --strict --clean --output output
+        run: dotnet fsdocs build --properties Configuration=Release ContinuousIntegrationBuild=false --strict --clean --output output
 
       - name: Upload site
         if: ${{ github.event_name != 'pull_request' }}
