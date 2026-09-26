@@ -158,11 +158,65 @@ Each version responds the same way: `NotFound` becomes a 404, and `Invalid` a 40
 
 ## Minimal APIs
 
-A minimal API handler takes the route values, the body and the `HttpContext` as parameters, and returns an `IResult`.
-The handler creates the environment, runs the effect, and turns its result into an `IResult`, with a function mapping
-the errors:
+A minimal API handler takes the route values and the body as parameters, and returns an `IResult`. Any other parameter
+is a service, which ASP.NET Core resolves from its dependency injection container. The usual way to write the API is a
+service class, with the store injected through its constructor, and the service injected into the handlers:
 *)
-module MinimalApi =
+module WithServices =
+    type OrderService(store: IOrderStore) =
+        member _.Get(id: int) = store.Get id
+
+        member _.Create(order: NewOrder) : Task<Result<Order, OrderError>> = task {
+            if order.Quantity <= 0 then
+                return Error(Invalid "the quantity must be positive")
+            else
+                let! created = store.Add order
+                return Ok created
+        }
+
+    let mapOrders (app: WebApplication) =
+        app.MapGet(
+            "/orders/{id:int}",
+            Func<int, OrderService, Task<IResult>>(fun id orders -> task {
+                match! orders.Get id with
+                | Some order -> return Results.Ok order
+                | None -> return Results.NotFound()
+            })
+        )
+        |> ignore
+
+        app.MapPost(
+            "/orders",
+            Func<NewOrder, OrderService, Task<IResult>>(fun order orders -> task {
+                match! orders.Create order with
+                | Ok created -> return Results.Created($"/orders/{created.Id}", created)
+                | Error(Invalid reason) -> return Results.BadRequest reason
+                | Error(NotFound _) -> return Results.NotFound()
+            })
+        )
+        |> ignore
+
+    let addServices (services: IServiceCollection) =
+        services.AddScoped<OrderService>() |> ignore
+
+(**
+F# lambdas aren't converted to `Delegate` on their own, so each handler is given as a `Func`, whose parameter types
+tell ASP.NET Core where to bind each value from:
+*)
+tryApi WithServices.addServices WithServices.mapOrders
+(**
+```text
+GET /orders/1                                      -> 404
+POST /orders {"product":"mug","quantity":2}        -> 201 {"id":1,"product":"mug","quantity":2}
+GET /orders/1                                      -> 200 {"id":1,"product":"mug","quantity":2}
+POST /orders {"product":"mug","quantity":0}        -> 400 "the quantity must be positive"
+```
+
+Effects work much like this. A handler asks for what it needs, and gets it from outside, so it can be given something
+else in a test. The difference is in how the asking is done. With effects, the handler creates the environment, runs
+the effect, and turns its result into an `IResult`, with a function mapping the errors:
+*)
+module WithEffects =
     let toResult ok (result: Result<'a, OrderError>) =
         match result with
         | Ok value -> ok value
@@ -189,10 +243,9 @@ module MinimalApi =
         |> ignore
 
 (**
-F# lambdas aren't converted to `Delegate` on their own, so each handler is given as a `Func`, whose parameter types
-tell ASP.NET Core where to bind each value from. Minimal APIs need no services of their own:
+The responses are the same, and it needs no services of its own:
 *)
-tryApi ignore MinimalApi.mapOrders
+tryApi ignore WithEffects.mapOrders
 (**
 ```text
 GET /orders/1                                      -> 404
@@ -200,6 +253,35 @@ POST /orders {"product":"mug","quantity":2}        -> 201 {"id":1,"product":"mug
 GET /orders/1                                      -> 200 {"id":1,"product":"mug","quantity":2}
 POST /orders {"product":"mug","quantity":0}        -> 400 "the quantity must be positive"
 ```
+
+What differs is what the types say, and when a mistake is found.
+
+**The whole chain of dependencies is in the types.** The handler taking an `OrderService` says that it needs one, but
+not what `OrderService` needs in turn: that is in its constructor, and what those services need is in theirs. The
+full chain only comes together when the container resolves it. The type of an effect, on the other hand, includes
+what every effect it binds needs. `getOrder` is an `int -> Effect<#IOrderStoreProvider, Order, OrderError>`, and if
+it also read the time with `Time.utcNow`, its type would become
+`int -> Effect<#IOrderStoreProvider & #ITimeProvider, Order, OrderError>`, as would the type of every effect binding
+it, up to the handler. Nothing is injected out of sight.
+
+**A missing dependency is a compile error.** If `IOrderStore` isn't registered, the version with services still
+compiles and starts. In the Development environment, ASP.NET Core checks the registrations when the application is
+built, and fails with:
+
+```text
+Error while validating the service descriptor 'ServiceType: OrderService Lifetime: Scoped ImplementationType:
+OrderService': Unable to resolve service for type 'IOrderStore' while attempting to activate 'OrderService'.
+```
+
+In other environments, the first request needing an `OrderService` fails, with the second half of that message. If
+`AppEnv` doesn't implement `IOrderStoreProvider`, the version with effects doesn't compile:
+
+```text
+error FS0001: The type 'AppEnv' is not compatible with the type 'IOrderStoreProvider'
+```
+
+The two work together, too. `createEnv` gets the store from the container, which still decides lifetimes and
+configuration, while the effects make it explicit which of those services each part of the application uses.
 
 ## Giraffe
 
