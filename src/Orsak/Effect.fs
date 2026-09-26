@@ -417,6 +417,12 @@ module Effect =
     /// created by <paramref name="f"/> for each worker, on the items it is given. The workers run concurrently, and the
     /// effect completes when they all have.
     /// </summary>
+    /// <remarks>
+    /// When a worker fails, no more items are taken from <paramref name="s"/>, the other workers are stopped where they
+    /// are, and the effect fails with that worker's error (or exception). A worker that returns before its items end
+    /// doesn't hold up the others: the items it would have been given are discarded. Each worker is given at most 10
+    /// items ahead of processing them.
+    /// </remarks>
     /// <param name="size">The number of workers</param>
     /// <param name="f">Creates the effect that processes a worker's items</param>
     /// <param name="s">The items to distribute</param>
@@ -430,37 +436,59 @@ module Effect =
     /// </code>
     /// </example>
     let inline fanOut size (f: IAsyncEnumerable<'a> -> Effect<'r, unit, 'err>) (s: IAsyncEnumerable<'a>) =
-        let write (workers: Channels.Channel<_> array) = eff {
+        let write (workers: Channels.Channel<'a> array) (stop: CancellationTokenSource) = eff {
             let mutable i = 0
 
             try
-                for e in s do
-                    do! workers[i].Writer.WriteAsync(e)
+                for e in s.WithCancellation(stop.Token) do
+                    do! workers[i].Writer.WriteAsync(e, stop.Token)
                     i <- (i + 1) % size
 
                 // no more items: lets the workers' loops end
                 for w in workers do
-                    w.Writer.Complete()
-            with e ->
+                    w.Writer.TryComplete() |> ignore
+            with
+            // a worker failed: no more items for anyone
+            | :? OperationCanceledException when stop.IsCancellationRequested ->
                 for w in workers do
-                    w.Writer.Complete(e)
+                    w.Writer.TryComplete() |> ignore
+            | e ->
+                for w in workers do
+                    w.Writer.TryComplete(e) |> ignore
+        }
+
+        let work (worker: Channels.Channel<'a>) (stop: CancellationTokenSource) = eff {
+            do! Task.Yield()
+
+            try
+                match! worker.Reader.ReadAllAsync(stop.Token) |> f |> asResult with
+                | Ok() ->
+                    // the worker returned before its items ended: discard the rest, so the writer isn't kept waiting
+                    for _ in worker.Reader.ReadAllAsync(stop.Token) do
+                        ()
+                | Error err ->
+                    // stops the writer and the other workers
+                    stop.Cancel()
+                    return! Error err
+            with
+            // stopped because another worker failed
+            | :? OperationCanceledException when stop.IsCancellationRequested -> ()
+            | e ->
+                stop.Cancel()
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e).Throw()
         }
 
         eff {
+            // per run, as the effect can be run more than once
+            use stop = new CancellationTokenSource()
+
             let workers = [|
                 for _ = 1 to size do
-                    Channels.Channel.CreateBounded(10)
+                    Channels.Channel.CreateBounded<'a>(10)
             |]
 
-            let readers =
-                workers
-                |> Array.map (fun e -> eff {
-                    do! Task.Yield()
-                    do! e.Reader.ReadAllAsync() |> f
-                })
-
-            let! () = par_ readers
-            and! () = write workers
+            let! () = par_ [| for worker in workers -> work worker stop |]
+            and! () = write workers stop
 
             return ()
         }
