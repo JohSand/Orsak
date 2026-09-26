@@ -3,6 +3,7 @@
 open System
 open System.Text
 
+/// <exclude/>
 type IndentingStringBuilder(sb: StringBuilder) =
     let mutable prepend = true
     member val IndentationLevel = 0 with get, set
@@ -24,12 +25,14 @@ type IndentingStringBuilder(sb: StringBuilder) =
 
     override this.ToString() : string = sb.ToString()
 
+/// <exclude/>
 [<AutoOpen>]
 module StringBuilderExtensions =
     type StringBuilder with
 
         member this.ToIndentingBuilder() = IndentingStringBuilder(this)
 
+/// <exclude/>
 type EffectCfg = {
     name: string
     providerName: string
@@ -37,8 +40,10 @@ type EffectCfg = {
     providerPropertyName: string
 }
 
+/// <exclude/>
 type EffectAttributeMatches = { effects: EffectCfg array; nameOverride: string }
 
+/// <exclude/>
 type EffectMemberCfg = {
     memberName: string
     argumentCount: int
@@ -46,6 +51,7 @@ type EffectMemberCfg = {
     isUnit: bool
 }
 
+/// <exclude/>
 type EffectProviderCfg = {
     providerPropertyName: string
     effectName: string
@@ -53,10 +59,13 @@ type EffectProviderCfg = {
     members: EffectMemberCfg list
 }
 
+/// <exclude/>
 type RunnerCfg = { effects: EffectProviderCfg array; name: string }
 
+/// <exclude/>
 type ContextWriterScope = { ns: string; openStatements: string list; effects: EffectAttributeMatches list }
 
+/// <exclude/>
 /// Where code generated from one namespace or module of the input file is placed.
 type Placement =
     /// In `namespace ns`, opening what is needed to see the input's declarations,
@@ -66,8 +75,10 @@ type Placement =
     /// which would start a new scope, or be rejected in a `rec` module or namespace.
     | Appended
 
+/// <exclude/>
 type ContextEffectScope = { placement: Placement; effects: EffectProviderCfg list }
 
+/// [omit]
 /// A provider inherited by a [<GenEnvironment>] interface, e.g. `inherit IFooProvider`,
 /// together with the effect type and property it is resolved to by convention or config.
 type EnvironmentProviderCfg = {
@@ -77,8 +88,10 @@ type EnvironmentProviderCfg = {
     fieldName: string
 }
 
+/// <exclude/>
 type EnvironmentCfg = { name: string; providers: EnvironmentProviderCfg list }
 
+/// <exclude/>
 /// The input's own opens are repeated when the code is placed in a namespace.
 type ContextEnvironmentScope = {
     placement: Placement
@@ -86,11 +99,13 @@ type ContextEnvironmentScope = {
     environments: EnvironmentCfg list
 }
 
+/// <exclude/>
 /// <summary>
 /// All runners in the runners-array must have effects-arrays of equal length, that is the arity
 /// </summary>
 type RunnerArityCfg = { runners: RunnerCfg array; requiredTieBreakers: int; arity: int }
 
+/// <exclude/>
 module Writer =
     let trimI (s: string) = if s.StartsWith("I") then s[1..] else s
 

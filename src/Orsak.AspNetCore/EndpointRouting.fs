@@ -63,6 +63,7 @@ type Endpoint =
             b.Add(f)
             b)
 
+/// <exclude/>
 module Helpers =
     let private unEscape (s: string) =
         s.Replace("%2F", "/").Replace("%2f", "/")
@@ -228,6 +229,7 @@ open Helpers
 
 [<Extension>]
 type EffectRunnerExtensions =
+    /// <exclude/>
     [<EditorBrowsable(EditorBrowsableState.Never)>]
     static member inline CreateEndpoint<'H, 'Eff, 'Printer, 'T
         when ('Eff or 'H): (static member ( *>> ): 'Eff * 'H -> RequestDelegate)>

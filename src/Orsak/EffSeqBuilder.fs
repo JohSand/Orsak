@@ -13,6 +13,7 @@ open FSharp.Control
 
 type EffectSeqDelegate<'r, 'a, 'e> = delegate of 'r -> IAsyncEnumerable<Result<'a, 'e>>
 
+/// <exclude/>
 [<AbstractClass; NoComparison; NoEquality>]
 type ResumableAsyncEnumerator<'T>() =
     abstract member MoveNext: unit -> unit
@@ -111,6 +112,7 @@ type EffSeq<'r, 'a, 'e> =
                 })
         )
 
+/// <exclude/>
 [<Struct; NoComparison; NoEquality>]
 type EffSeqStateMachineData<'Env, 'T, 'Err> =
     //Environment of the effect
@@ -123,6 +125,7 @@ type EffSeqStateMachineData<'Env, 'T, 'Err> =
     [<DefaultValue(false)>]
     val mutable Enumerator: ResumableAsyncEnumerator<Result<'T, 'Err>>
 
+/// <exclude/>
 and [<NoComparison; NoEquality>] EffectEnumerable<'Env, 'Machine, 'T, 'Err
     when 'Machine :> IAsyncStateMachine
     and 'Machine :> IResumableStateMachine<EffSeqStateMachineData<'Env, 'T, 'Err>>
@@ -157,9 +160,13 @@ and [<NoComparison; NoEquality>] EffectEnumerable<'Env, 'Machine, 'T, 'Err
 
             enumerator
 
+/// <exclude/>
 and EffSeqCode<'Env, 'T, 'Err> = ResumableCode<EffSeqStateMachineData<'Env, 'T, 'Err>, unit>
+/// <exclude/>
 and EffSeqStateMachine<'Env, 'T, 'Err> = ResumableStateMachine<EffSeqStateMachineData<'Env, 'T, 'Err>>
+/// <exclude/>
 and EffSeqResumptionFunc<'Env, 'T, 'Err> = ResumptionFunc<EffSeqStateMachineData<'Env, 'T, 'Err>>
+/// <exclude/>
 and EffSeqResumptionDynamicInfo<'Env, 'T, 'Err> = ResumptionDynamicInfo<EffSeqStateMachineData<'Env, 'T, 'Err>>
 
 // <exclude/>
@@ -238,6 +245,7 @@ type internal DynamicEffSeqEnumerable<'Env, 'T, 'Err>(code: EffSeqCode<'Env, 'T,
 
             enumerator :> IAsyncEnumerator<Result<'T, 'Err>>
 
+/// <exclude/>
 type EffSeqBuilder() =
 
     /// Dynamic (non-statically-reduced) implementation of Run, used automatically whenever the
@@ -366,6 +374,7 @@ type EffSeqBuilder() =
         )
 
 
+/// <exclude/>
 [<AutoOpen>]
 module LowPrioritySeq =
     type EffSeqBuilder with
@@ -554,6 +563,7 @@ module LowPrioritySeq =
                     .Invoke(&sm))
 
 
+/// <exclude/>
 [<AutoOpen>]
 module MediumPriority =
     type EffSeqBuilder with
@@ -666,6 +676,7 @@ module MediumPriority =
         member inline this.YieldFrom(eff: Effect<'Env, 'T, 'Err>) : EffSeqCode<'Env, 'T, 'Err> =
             this.Bind<'Env, 'T, 'T, 'Err>(eff, this.Yield)
 
+/// <exclude/>
 [<AutoOpen>]
 module HighPrioritySeq =
     type EffSeqBuilder with

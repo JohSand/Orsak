@@ -1,4 +1,5 @@
-﻿module Orsak.Myriad.Ast
+﻿/// <exclude/>
+module Orsak.Myriad.Ast
 
 open Myriad.Core
 open System

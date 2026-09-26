@@ -1,4 +1,5 @@
-﻿module Orsak.AspNetCore.Throwhelpers
+﻿/// <exclude/>
+module Orsak.AspNetCore.Throwhelpers
 
 open System
 

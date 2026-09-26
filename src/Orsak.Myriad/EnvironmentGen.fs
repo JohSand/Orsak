@@ -8,6 +8,7 @@ open Fantomas.FCS.Xml
 open Fantomas.FCS.Text.Range
 open Orsak.Myriad.Syntax
 
+/// [omit]
 /// Builds the syntax tree for [<GenEnvironment>] interfaces:
 ///
 /// module Environment =
@@ -102,6 +103,7 @@ module EnvironmentSyntax =
                 place scope.placement scope.openStatements [ for e in scope.environments -> environmentModule e ]
     ]
 
+/// <exclude/>
 [<MyriadGenerator("EnvironmentGen")>]
 type EnvironmentGen() =
     interface IMyriadGenerator with

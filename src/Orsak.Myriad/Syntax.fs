@@ -1,3 +1,4 @@
+/// <exclude/>
 /// Small constructors for the Fantomas syntax nodes the generators emit,
 /// filling in the ranges and trivia that do not matter for generated code.
 module Orsak.Myriad.Syntax

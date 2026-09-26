@@ -9,6 +9,7 @@ open Orsak
 open Orsak.Scoped
 open FSharp.Control
 
+/// <exclude/>
 [<Experimental("Experimental feature, API not stable")>]
 type DbTransactional(tran: DbTransaction) =
     member val Connection = tran.Connection
@@ -21,11 +22,13 @@ type DbTransactional(tran: DbTransaction) =
             do! this.Connection.DisposeAsync()
         }
 
+/// <exclude/>
 /// <summary>
 /// Pure transaction effect.
 /// </summary>
 type Transaction<'a, 'err> = Effect<DbTransactional, 'a, 'err>
 
+/// <exclude/>
 /// <summary>
 /// Effects created by trxAware have this type.
 /// </summary>
@@ -38,6 +41,7 @@ open Orsak.Effects
 open System.Threading
 open System.Threading.Tasks
 
+/// <exclude/>
 [<AutoOpen>]
 module Builder =
     let commitEff = Orsak.Scoped.CompletableScopeCreatingEffectBuilder<DbTransactional>()
@@ -49,6 +53,7 @@ module Builder =
 *)
 
 //define some kind of Effect that should be scoped
+/// <exclude/>
 [<Interface>]
 type IProgressScope =
     abstract member Progress: System.IProgress<float>
@@ -56,6 +61,7 @@ type IProgressScope =
 
 
 //builder for your scope
+/// <exclude/>
 module Builder2 =
     //using this to create an effect, will create an IProgressScope at the start of the effect, and it will be available
     //throught the effect, and disposed at the end of the effect
@@ -69,8 +75,10 @@ module Builder2 =
 
 open Builder2
 
+/// <exclude/>
 module Progress =
     //Pure progress effect, no other effects allowed.
+    /// <exclude/>
     type Progress<'err> = Effect<IProgressScope, unit, 'err>
 
     //Function for calling our scoped effect
@@ -118,6 +126,7 @@ module Progress =
     }
 
 //Implementation of the Scoped Effect
+/// <exclude/>
 type ProgressScope() =
     let mutable Calls = 0.
     //unique progress per scope.
@@ -132,19 +141,24 @@ type ProgressScope() =
         member this.DisposeAsync() = ValueTask()
 
 (* Mixing in other effects *)
+/// <exclude/>
 type GuidGenerator =
     abstract member NewGuid: unit -> System.Guid
 
+/// <exclude/>
 type GuidProvider =
     abstract member Gen: GuidGenerator
 
+/// <exclude/>
 module GuidGenerator =
     let newGuid () =
         Effect.Create(fun (p: #GuidProvider) -> p.Gen.NewGuid())
 
 //type alias for convini
+/// <exclude/>
 type IProgressScopeProvider = ScopeProvider<IProgressScope>
 
+/// <exclude/>
 type Runner() =
     interface IProgressScopeProvider with
         member this.BeginScope() = ValueTask<IProgressScope>(ProgressScope())
@@ -152,6 +166,7 @@ type Runner() =
     interface GuidProvider with
         member this.Gen = raise (System.NotImplementedException())
 
+/// <exclude/>
 module Test =
     let test2() = eff {
         return!
