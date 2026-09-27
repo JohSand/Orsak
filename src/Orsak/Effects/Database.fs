@@ -32,7 +32,7 @@ type Transaction<'a, 'err> = Effect<DbTransactional, 'a, 'err>
 /// <summary>
 /// Effects created by trxAware have this type.
 /// </summary>
-type EnlistedTransaction<'r, 'a, 'err> = Effect<'r * DbTransactional, 'a, 'err>
+type EnlistedTransaction<'r, 'a, 'err> = Effect<ScopedEnvironment<'r, DbTransactional>, 'a, 'err>
 
 namespace Orsak.Scoped
 

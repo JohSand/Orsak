@@ -7,8 +7,16 @@ open System
 open Microsoft.FSharp.Core.CompilerServices
 open Microsoft.FSharp.Core.CompilerServices.StateMachineHelpers
 
+/// <summary>
+/// The environment of an effect running in a scope: the environment the scoped effect was run with, and the scope
+/// it created.
+/// </summary>
 /// <exclude/>
-type ScopedEffectCode<'Scope, 'Env, 'TOverall, 'T, 'Err> = EffectCode<'Env * 'Scope, 'TOverall, 'T, 'Err>
+[<Struct; NoComparison; NoEquality>]
+type ScopedEnvironment<'Env, 'Scope> = { Env: 'Env; Scope: 'Scope }
+
+/// <exclude/>
+type ScopedEffectCode<'Scope, 'Env, 'TOverall, 'T, 'Err> = EffectCode<ScopedEnvironment<'Env, 'Scope>, 'TOverall, 'T, 'Err>
 
 #nowarn "57"
 #nowarn "3511"
@@ -28,7 +36,7 @@ module Extension =
             (eff: Effect<'Env, 'TOverall, 'Err>)
             : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
             ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
-                let env, _ = sm.Data.Environment
+                let env = sm.Data.Environment.Env
                 let task = eff.Run env
 
                 if __useResumableCode<obj> then
@@ -62,7 +70,7 @@ module Extension =
                 continuation: 'TResult1 -> ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>
             ) : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err> =
             ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
-                let env, _ = sm.Data.Environment
+                let env = sm.Data.Environment.Env
                 let task = eff.Run env
 
                 if __useResumableCode<obj> then
@@ -101,7 +109,7 @@ type ScopeProvider<'Scope when 'Scope :> Scoped> =
 type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
     inherit ScopedEffectBuilder()
 
-    member inline this.Bind(ex: Effect<'Env * 'Scope, 'a, 'err>, cont) = eff.Bind(ex, cont)
+    member inline this.Bind(ex: Effect<ScopedEnvironment<'Env, 'Scope>, 'a, 'err>, cont) = eff.Bind(ex, cont)
 
     [<NoEagerConstraintApplication>]
     member inline _.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
@@ -111,7 +119,7 @@ type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
 
         ) : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err> =
         ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
-            let _, scope = sm.Data.Environment
+            let scope = sm.Data.Environment.Scope
             let task = eff.Run scope
 
             if __useResumableCode<obj> then
@@ -143,7 +151,7 @@ type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
         mkEffect (fun env -> vtask {
             use! scope = (env :> ScopeProvider<'Scope>).BeginScope()
 
-            match! eff.Run(effect).Run((env, scope)) with
+            match! eff.Run(effect).Run({ Env = env; Scope = scope }) with
             | Ok a -> return Ok a
             | Error e -> return Error e
         })
@@ -166,13 +174,13 @@ type CompletableScopeProvider<'Scope when 'Scope :> CompletableScope> = ScopePro
 type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScope>() =
     inherit ScopedEffectBuilder()
 
-    member inline this.Bind(ex: Effect<'Env * 'Scope, 'a, 'err>, cont) = eff.Bind(ex, cont)
+    member inline this.Bind(ex: Effect<ScopedEnvironment<'Env, 'Scope>, 'a, 'err>, cont) = eff.Bind(ex, cont)
 
     member inline this.ReturnFrom<'Scope, 'Env, 'TOverall, 'Err>
         (eff: Effect<'Scope, 'TOverall, 'Err>)
         : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
         ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
-            let _, scope = sm.Data.Environment
+            let scope = sm.Data.Environment.Scope
             let task = eff.Run scope
 
             if __useResumableCode<obj> then
@@ -208,7 +216,7 @@ type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScop
 
         ) : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err> =
         ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
-            let _, scope = sm.Data.Environment
+            let scope = sm.Data.Environment.Scope
             let task = scopedEff.Run scope
 
             if __useResumableCode<obj> then
@@ -241,7 +249,7 @@ type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScop
             try
                 use! scope = (env :> CompletableScopeProvider<'Scope>).BeginScope()
 
-                match! eff.Run(effect).Run((env, scope)) with
+                match! eff.Run(effect).Run({ Env = env; Scope = scope }) with
                 | Ok a ->
                     do! scope.Complete()
                     return Ok a
@@ -273,7 +281,7 @@ type ScopeAwareEffectBuilder<'Scope>() =
         (eff: Effect<'Scope, 'TOverall, 'Err>)
         : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err> =
         ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TOverall, 'Err>(fun sm ->
-            let _, scope = sm.Data.Environment
+            let scope = sm.Data.Environment.Scope
             let task = eff.Run scope
 
             if __useResumableCode<obj> then
@@ -314,7 +322,7 @@ type ScopeAwareEffectBuilder<'Scope>() =
 
         ) : ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err> =
         ScopedEffectCode<'Scope, 'Env, 'TOverall, 'TResult2, 'Err>(fun sm ->
-            let _, scope = sm.Data.Environment
+            let scope = sm.Data.Environment.Scope
             let task = eff.Run scope
 
             if __useResumableCode<obj> then
@@ -340,4 +348,4 @@ type ScopeAwareEffectBuilder<'Scope>() =
             else
                 EffBuilder.BindDynamic(&sm, task, continuation))
 
-    member _.Run(effect: ScopedEffectCode<'Scope, 'r, 'a, 'a, 'err>) : Effect<'r * 'Scope, 'a, 'err> = eff.Run(effect)
+    member _.Run(effect: ScopedEffectCode<'Scope, 'r, 'a, 'a, 'err>) : Effect<ScopedEnvironment<'r, 'Scope>, 'a, 'err> = eff.Run(effect)
