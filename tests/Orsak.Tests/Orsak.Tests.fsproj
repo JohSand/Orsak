@@ -32,6 +32,7 @@
         <Compile Include="ForLoopTests.fs"/>
         <Compile Include="WhenAllTests.fs"/>
         <Compile Include="ScopedTests.fs"/>
+        <Compile Include="GrowingScopeTests.fs"/>
         <Compile Include="MyriadTests.fs"/>
         <Compile Include="EndpointRoutingTests.fs"/>
     </ItemGroup>
