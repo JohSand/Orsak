@@ -46,7 +46,6 @@ module EnvironmentSyntax =
     let private serviceType =
         function
         | BeginsScope(interfaceType, scope, _) -> genericType interfaceType [ scope ]
-        | HandlesExceptions(interfaceType, error, _) -> genericType interfaceType [ error ]
         | GrowsInto(interfaceType, scope, inner, _, _) -> genericType interfaceType [ scope; [ inner ] ]
 
     /// The record of effects: a field for each provider, and for each service implemented by one.
@@ -55,8 +54,7 @@ module EnvironmentSyntax =
             for p in providers -> ident p.fieldName, longType p.effectType
             for s in services do
                 match s with
-                | BeginsScope(fieldName = field)
-                | HandlesExceptions(fieldName = field) -> yield ident field, serviceType s
+                | BeginsScope(fieldName = field) -> yield ident field, serviceType s
                 | GrowsInto _ -> ()
         ]
 
@@ -128,8 +126,6 @@ module EnvironmentSyntax =
             match service with
             | BeginsScope(fieldName = field) ->
                 memberDefn "_" "BeginScope" [ unitPat ] (appAtomic (memberOf field "BeginScope") unitExpr)
-            | HandlesExceptions(fieldName = field) ->
-                memberDefn "_" "Handle" [ namedPat "e" ] (app (memberOf field "Handle") (longExpr [ "e" ]))
             | GrowsInto(inner = inner; innerBase = innerBase; innerField = innerField) ->
                 match source with
                 | FromEffects ->

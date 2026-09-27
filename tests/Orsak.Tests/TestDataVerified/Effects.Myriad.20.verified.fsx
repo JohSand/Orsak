@@ -19,7 +19,6 @@ type ITransactionProvider =
 type IAppEnvironment =
     inherit ITestEffect1Provider
     inherit CompletableScopeProvider<ITransaction>
-    inherit ExceptionHandler<string>
     inherit IGrowsInto<ITransaction, IScopedEnvironment>
 
 // the environment in the scope: the application's, and the transaction
@@ -44,9 +43,6 @@ module ScopedEnvironment =
           interface CompletableScopeProvider<ITransaction> with
               member _.BeginScope() =
                   (outer :> CompletableScopeProvider<ITransaction>).BeginScope()
-          interface ExceptionHandler<string> with
-              member _.Handle e =
-                  (outer :> ExceptionHandler<string>).Handle e
           interface IGrowsInto<ITransaction, IScopedEnvironment> with
               member _.Grow scope =
                   (outer :> IGrowsInto<ITransaction, IScopedEnvironment>).Grow scope
@@ -58,7 +54,6 @@ module ScopedEnvironment =
                 TestEffect1: ITestEffect1
                 Transaction: ITransaction
                 TransactionScope: CompletableScopeProvider<ITransaction>
-                ExceptionHandler: ExceptionHandler<string>
             |})
         : IScopedEnvironment =
         { new IScopedEnvironment
@@ -69,8 +64,6 @@ module ScopedEnvironment =
               member _.Effect = effects.Transaction
           interface CompletableScopeProvider<ITransaction> with
               member _.BeginScope() = effects.TransactionScope.BeginScope()
-          interface ExceptionHandler<string> with
-              member _.Handle e = effects.ExceptionHandler.Handle e
           interface IGrowsInto<ITransaction, IScopedEnvironment> with
               member this.Grow scope =
                   ScopedEnvironment.extend (this :?> IAppEnvironment) {| Transaction = scope |}
@@ -81,12 +74,7 @@ module ScopedEnvironment =
 
 module AppEnvironment =
     let create
-        (effects:
-            {|
-                TestEffect1: ITestEffect1
-                TransactionScope: CompletableScopeProvider<ITransaction>
-                ExceptionHandler: ExceptionHandler<string>
-            |})
+        (effects: {| TestEffect1: ITestEffect1; TransactionScope: CompletableScopeProvider<ITransaction> |})
         : IAppEnvironment =
         { new IAppEnvironment
 
@@ -94,8 +82,6 @@ module AppEnvironment =
               member _.Effect = effects.TestEffect1
           interface CompletableScopeProvider<ITransaction> with
               member _.BeginScope() = effects.TransactionScope.BeginScope()
-          interface ExceptionHandler<string> with
-              member _.Handle e = effects.ExceptionHandler.Handle e
           interface IGrowsInto<ITransaction, IScopedEnvironment> with
               member this.Grow scope =
                   ScopedEnvironment.extend (this :?> IAppEnvironment) {| Transaction = scope |}
