@@ -49,6 +49,17 @@ module AppEnvironment =
     let runOrFail effects = Effect.runOrFail (create effects)
 
 module ScopedEnvironment =
+    let extend (outer: IAppEnvironment) (effects: {| TestEffect2: ITestEffect2 |}) : IScopedEnvironment =
+        { new IScopedEnvironment
+
+          interface ITestEffect1Provider with
+              member _.Effect = (outer :> ITestEffect1Provider).Effect
+          interface IGuidGenProvider with
+              member _.GuidGenerator = (outer :> IGuidGenProvider).GuidGenerator
+          interface ITestEffect2Provider with
+              member _.Effect = effects.TestEffect2
+        }
+
     let create
         (effects: {| TestEffect1: ITestEffect1; GuidGenerator: Orsak.IGuidGenerator; TestEffect2: ITestEffect2 |})
         : IScopedEnvironment =
@@ -64,17 +75,6 @@ module ScopedEnvironment =
 
     let run effects = Effect.run (create effects)
     let runOrFail effects = Effect.runOrFail (create effects)
-
-    let extend (outer: IAppEnvironment) (effects: {| TestEffect2: ITestEffect2 |}) : IScopedEnvironment =
-        { new IScopedEnvironment
-
-          interface ITestEffect1Provider with
-              member _.Effect = (outer :> ITestEffect1Provider).Effect
-          interface IGuidGenProvider with
-              member _.GuidGenerator = (outer :> IGuidGenProvider).GuidGenerator
-          interface ITestEffect2Provider with
-              member _.Effect = effects.TestEffect2
-        }
 
 module AliasEnvironment =
     let create (effects: {| TestEffect1: ITestEffect1; GuidGenerator: Orsak.IGuidGenerator |}) : IAliasEnvironment =

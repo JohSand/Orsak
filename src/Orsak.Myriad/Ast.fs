@@ -308,10 +308,40 @@ let environmentProviderCfg (context: GeneratorContext) (environmentName: string)
         fieldName = Writer.trimI (List.last effectType)
     }
 
-/// An inherited interface is either a provider, or another [<GenEnvironment>] interface from the same file.
+/// An inherited interface is a provider, one of the generic interfaces of Orsak's scopes, or another
+/// [<GenEnvironment>] interface from the same file.
 type private Inherited =
     | InheritedProvider of EnvironmentProviderCfg
+    | InheritedService of EnvironmentServiceCfg
     | InheritedEnvironment of baseType: string list * EnvironmentCfg
+
+let private serviceFieldName =
+    function
+    | BeginsScope(fieldName = field)
+    | HandlesExceptions(fieldName = field) -> Some field
+    | GrowsInto _ -> None
+
+/// The generic interfaces a [<GenEnvironment>] interface may inherit: those of Orsak's scopes.
+let private serviceCfg (fail: string -> EnvironmentServiceCfg) (ids: LongIdent) (typeArgs: SynType list) =
+    let name = ids |> List.last |> _.idText
+
+    let args = [
+        for arg in typeArgs do
+            match arg with
+            | SynType.LongIdent(SynLongIdent(argIds, _, _)) -> argIds |> List.map _.idText
+            | _ -> ()
+    ]
+
+    match name, args with
+    | _ when args.Length <> typeArgs.Length -> fail $"can only inherit '%s{name}' with named types as type arguments."
+    | ("ScopeProvider" | "CompletableScopeProvider"), [ scope ] ->
+        BeginsScope(ids |> List.map _.idText, scope, Writer.trimI (List.last scope) + "Scope")
+    | "ExceptionHandler", [ error ] -> HandlesExceptions(ids |> List.map _.idText, error, "ExceptionHandler")
+    | "IGrowsInto", [ scope; [ inner ] ] -> GrowsInto(ids |> List.map _.idText, scope, inner, [], "")
+    | "IGrowsInto", [ _; _ ] -> fail "can only grow into a [<GenEnvironment>] interface of the same file, named without qualification."
+    | _ ->
+        fail
+            "can only inherit non-generic provider interfaces, ScopeProvider<'Scope>, CompletableScopeProvider<'Scope>, ExceptionHandler<'err> and IGrowsInto<'Scope, 'Inner>."
 
 /// `declared` holds the file's [<GenEnvironment>] interfaces by name, so an inherited one is resolved to its providers.
 let rec private resolveEnvironment
@@ -343,7 +373,9 @@ let rec private resolveEnvironment
                 | Some _ ->
                     fail $"inherits '%s{List.last path}', and more than one [<GenEnvironment>] interface in the file has that name."
                 | None -> InheritedProvider(environmentProviderCfg context name path)
-            | SynMemberDefn.Inherit _ -> fail "can only inherit non-generic provider interfaces."
+            | SynMemberDefn.Inherit(SynType.App(typeName = SynType.LongIdent(SynLongIdent(ids, _, _)); typeArgs = args), _, _) ->
+                InheritedService(serviceCfg fail ids args)
+            | SynMemberDefn.Inherit _ -> fail "can only inherit provider interfaces, and the generic interfaces of scopes."
             | _ -> fail "can only inherit provider interfaces, and cannot declare members of its own."
     ]
 
@@ -351,19 +383,33 @@ let rec private resolveEnvironment
         inherited
         |> List.collect (function
             | InheritedProvider provider -> [ provider ]
+            | InheritedService _ -> []
             | InheritedEnvironment(_, environment) -> environment.providers)
         |> List.distinctBy _.providerType
+
+    let ownServices =
+        inherited |> List.choose (function InheritedService s -> Some s | _ -> None)
+
+    let services =
+        inherited
+        |> List.collect (function
+            | InheritedProvider _ -> []
+            | InheritedService service -> [ service ]
+            | InheritedEnvironment(_, environment) -> environment.services)
+        |> List.distinct
 
     if providers.IsEmpty then
         fail "must inherit at least one provider interface."
 
-    match providers |> List.countBy _.fieldName |> List.tryFind (fun (_, count) -> count > 1) with
+    let fields = (providers |> List.map _.fieldName) @ (services |> List.choose serviceFieldName)
+
+    match fields |> List.countBy id |> List.tryFind (fun (_, count) -> count > 1) with
     | Some(field, _) -> fail $"inherits more than one provider whose effect is named '%s{field}'."
     | None -> ()
 
     let extends =
-        match inherited |> List.choose (function InheritedEnvironment(path, e) -> Some(path, e) | InheritedProvider _ -> None) with
-        | [ baseType, environment ] ->
+        match inherited |> List.choose (function InheritedEnvironment(path, e) -> Some(path, e) | _ -> None) with
+        | [ baseType, environment ] when ownServices.IsEmpty ->
             let own =
                 providers
                 |> List.filter (fun p -> not (environment.providers |> List.exists (fun i -> i.providerType = p.providerType)))
@@ -374,7 +420,61 @@ let rec private resolveEnvironment
                 Some { baseType = baseType; inherited = environment.providers; own = own }
         | _ -> None
 
-    { name = name; providers = providers; extends = extends }
+    { name = name; providers = providers; services = services; extends = extends }
+
+/// Fills in how each IGrowsInto<'Scope, 'Inner> is implemented, once all the environments of the file are known:
+/// 'Inner must extend the environment declaring it, adding exactly one provider, of 'Scope.
+let private completeGrowth (environments: EnvironmentCfg list) (environment: EnvironmentCfg) =
+    let services =
+        environment.services
+        |> List.map (function
+            | GrowsInto(interfaceType, scope, innerName, _, _) ->
+                let fail reason =
+                    failwith $"GenEnvironment: '%s{environment.name}' grows into '%s{innerName}', which %s{reason}"
+
+                let inner =
+                    match environments |> List.filter (fun e -> e.name = innerName) with
+                    | [ inner ] -> inner
+                    | [] -> fail "isn't a [<GenEnvironment>] interface of the same namespace or module."
+                    | _ -> fail "is the name of more than one [<GenEnvironment>] interface."
+
+                match inner.extends with
+                | Some extends ->
+                    match extends.own with
+                    | [ provider ] when List.last provider.effectType = List.last scope ->
+                        GrowsInto(interfaceType, scope, innerName, extends.baseType, provider.fieldName)
+                    | own ->
+                        let added = own |> List.map (fun p -> $"'%s{List.last p.effectType}'") |> String.concat ", "
+
+                        fail
+                            $"must add exactly one provider to the environment it inherits, whose effect is '%s{List.last scope}', but adds providers of %s{added}."
+                | None ->
+                    fail
+                        $"must inherit exactly one other [<GenEnvironment>] interface, and add exactly one provider, whose effect is '%s{List.last scope}'."
+            | service -> service)
+
+    { environment with services = services }
+
+/// Orders environments so each comes after those it grows into, whose extend function it uses.
+let private growthOrder (environments: EnvironmentCfg list) =
+    let growsInto (e: EnvironmentCfg) =
+        e.services |> List.choose (function GrowsInto(inner = inner) when inner <> e.name -> Some inner | _ -> None)
+
+    let rec order (placed: EnvironmentCfg list) (remaining: EnvironmentCfg list) =
+        match remaining with
+        | [] -> List.rev placed
+        | _ ->
+            let ready, waiting =
+                remaining
+                |> List.partition (fun e ->
+                    growsInto e
+                    |> List.forall (fun inner -> placed |> List.exists (fun p -> p.name = inner) || not (remaining |> List.exists (fun r -> r.name = inner))))
+
+            match ready with
+            | [] -> failwith $"GenEnvironment: '%s{remaining.Head.name}' grows into an environment that grows back into it."
+            | _ -> order (List.rev ready @ placed) waiting
+
+    order [] environments
 
 let environmentCfg (context: GeneratorContext) (declared: Map<string, SynTypeDefn list>) (typeDefn: SynTypeDefn) =
     resolveEnvironment context declared [] typeDefn
@@ -407,7 +507,9 @@ let parseEnvironments (context: GeneratorContext) (ast: ParsedInput) : ContextEn
             let scope = {
                 placement = placement isInline kind id
                 openStatements = opensOf decls
-                environments = types |> List.map (environmentCfg context declared)
+                environments =
+                    let environments = types |> List.map (environmentCfg context declared)
+                    environments |> List.map (completeGrowth environments) |> growthOrder
             }
 
             // In a separate file the generated module sits next to the input module, so it cannot share its name.
