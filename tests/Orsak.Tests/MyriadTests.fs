@@ -193,6 +193,7 @@ module MyriadTests =
     [<InlineData(13)>]
     [<InlineData(14)>]
     [<InlineData(19)>]
+    [<InlineData(20)>]
     let ``EnvironmentGen creates the expected output`` (i: int) = task {
         let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
 
@@ -244,6 +245,19 @@ module MyriadTests =
 
         let error = Assert.Throws<exn>(fun () -> Ast.generateEnvironment source |> ignore)
         Assert.Contains("inherits itself", error.Message)
+
+    [<Theory>]
+    [<InlineData("[<GenEnvironment>]\ntype IApp =\n    inherit IFooProvider\n    inherit IGrowsInto<ITx, IMissing>\n",
+                 "grows into 'IMissing', which isn't a [<GenEnvironment>] interface")>]
+    [<InlineData("[<GenEnvironment>]\ntype IApp =\n    inherit IFooProvider\n    inherit IGrowsInto<ITx, IScoped>\n\nand [<GenEnvironment>] IScoped =\n    inherit IApp\n    inherit IBarProvider\n",
+                 "whose effect is 'ITx', but adds providers of 'IBar'")>]
+    [<InlineData("[<GenEnvironment>]\ntype IApp =\n    inherit IFooProvider\n    inherit IGrowsInto<ITx, IScoped>\n\nand [<GenEnvironment>] IScoped =\n    inherit IBarProvider\n    inherit ITxProvider\n",
+                 "must inherit exactly one other [<GenEnvironment>] interface")>]
+    [<InlineData("[<GenEnvironment>]\ntype IApp =\n    inherit IFooProvider\n    inherit IGrowsInto<ITx, Other.IScoped>\n",
+                 "can only grow into a [<GenEnvironment>] interface of the same file")>]
+    let EnvironmentGen_rejects_growing_into_an_environment_it_cannot_extend (source: string, expected: string) =
+        let error = Assert.Throws<exn>(fun () -> Ast.generateEnvironment source |> ignore)
+        Assert.Contains(expected, error.Message)
 
     [<Fact>]
     let ``EffectGen rejects a qualified ProviderName, since it declares the provider`` () =

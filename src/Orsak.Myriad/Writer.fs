@@ -97,11 +97,26 @@ type EnvironmentBaseCfg = {
     own: EnvironmentProviderCfg list
 }
 
+/// [omit]
+/// A generic interface of Orsak's scopes, which a [<GenEnvironment>] interface may inherit besides providers. Types
+/// are the names as written.
+type EnvironmentServiceCfg =
+    /// ScopeProvider<'Scope> or CompletableScopeProvider<'Scope>, implemented by a field of the same type.
+    | BeginsScope of interfaceType: string list * scopeType: string list * fieldName: string
+    /// ExceptionHandler<'err>, implemented by a field of the same type.
+    | HandlesExceptions of interfaceType: string list * errorType: string list * fieldName: string
+    /// IGrowsInto<'Scope, 'Inner>, where 'Inner is a [<GenEnvironment>] interface of the same file extending the
+    /// environment with a provider of 'Scope: implemented with the extend function of 'Inner. `innerBase` is the
+    /// environment 'Inner extends, and `innerField` the field of its provider of 'Scope, both filled in once all the
+    /// environments of the file are known.
+    | GrowsInto of interfaceType: string list * scopeType: string list * inner: string * innerBase: string list * innerField: string
+
 /// <exclude/>
-// `providers` includes those of any inherited [<GenEnvironment>] interfaces.
+// `providers` and `services` include those of any inherited [<GenEnvironment>] interfaces.
 type EnvironmentCfg = {
     name: string
     providers: EnvironmentProviderCfg list
+    services: EnvironmentServiceCfg list
     extends: EnvironmentBaseCfg option
 }
 

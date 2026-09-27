@@ -50,3 +50,17 @@ let localizedWorkflow () : Effect<_, string, string> = eff {
 }
 
 printfn "%s" ((localizedWorkflow () |> Effect.runOrFail (Inline.localized ())).Result)
+
+#nowarn "57"
+
+let workLog = ResizeArray<string>()
+
+let inUnitOfWork () : Effect<_, string, string> =
+    eff {
+        let! greeting = Inline.greet "unit of work"
+        do! Effect.Create(fun (provider: #Inline.IUnitOfWorkProvider) -> provider.Effect.Record greeting)
+        return greeting
+    }
+    |> Orsak.Scoped.CompletingScope<Inline.IUnitOfWork>.Within
+
+printfn "%s: %A" ((inUnitOfWork () |> Effect.runOrFail (Inline.environmentWithWork workLog)).Result) (List.ofSeq workLog)
