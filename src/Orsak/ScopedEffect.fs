@@ -303,27 +303,22 @@ type CompletingScope<'Scope when 'Scope :> CompletableScope> =
     /// <summary>
     /// Runs <paramref name="body"/> in a new scope, and completes the scope if <paramref name="body"/> succeeds. The
     /// scope is begun by the environment, which grows into the environment of <paramref name="body"/>, and disposed
-    /// when <paramref name="body"/> ends. An exception is turned into an error by the environment.
+    /// when <paramref name="body"/> ends, without being completed if it failed or threw. An exception is not caught:
+    /// it propagates once the scope is disposed.
     /// </summary>
     static member Within<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> ExceptionHandler<'err>
-        and 'Outer :> CompletableScopeProvider<'Scope>
-        and 'Outer :> IGrowsInto<'Scope, 'Inner>>
+        when 'Outer :> CompletableScopeProvider<'Scope> and 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (body: Effect<'Inner, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         mkEffect (fun (outer: 'Outer) -> vtask {
-            try
-                use! scope = (outer :> CompletableScopeProvider<'Scope>).BeginScope()
-                let inner = (outer :> IGrowsInto<'Scope, 'Inner>).Grow scope
+            use! scope = (outer :> CompletableScopeProvider<'Scope>).BeginScope()
+            let inner = (outer :> IGrowsInto<'Scope, 'Inner>).Grow scope
 
-                match! body.Run inner with
-                | Ok a ->
-                    do! scope.Complete()
-                    return Ok a
-                | Error e -> return Error e
-            with e ->
-                let (err: 'err) = (outer :> ExceptionHandler<'err>).Handle e
-                return Error err
+            match! body.Run inner with
+            | Ok a ->
+                do! scope.Complete()
+                return Ok a
+            | Error e -> return Error e
         })
 
 namespace Orsak.ScopeAware

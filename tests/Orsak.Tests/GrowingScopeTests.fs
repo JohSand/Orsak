@@ -50,9 +50,6 @@ module GrowingTransaction =
 
 /// The environment of the tests.
 type GrowingTestEnv() =
-    interface ExceptionHandler<string> with
-        member _.Handle e = e.Message
-
     interface IClockProvider with
         member _.Clock =
             { new IClock with
@@ -161,9 +158,6 @@ type IRecordingScopeProvider =
 type RecordingEnv(log: ResizeArray<string>) =
     let mutable begun = 0
 
-    interface ExceptionHandler<string> with
-        member _.Handle e = e.Message
-
     interface CompletableScopeProvider<RecordingScope> with
         member _.BeginScope() =
             begun <- begun + 1
@@ -174,9 +168,6 @@ type RecordingEnv(log: ResizeArray<string>) =
         member this.Grow scope = RecordingScopeEnv(this, scope)
 
 and RecordingScopeEnv(outer: RecordingEnv, scope: RecordingScope) =
-    interface ExceptionHandler<string> with
-        member _.Handle e = (outer :> ExceptionHandler<string>).Handle e
-
     interface CompletableScopeProvider<RecordingScope> with
         member _.BeginScope() = (outer :> CompletableScopeProvider<RecordingScope>).BeginScope()
 
@@ -248,17 +239,15 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_rolls_back_and_fails_with_the_handled_error_when_its_effect_throws () = task {
-        let! failed =
-            eff {
-                do! GrowingTransaction.insert "a"
-                failwith "thrown"
-            }
-            |> transaction
-            |> run
+    let transaction_rolls_back_and_rethrows_when_its_effect_throws () = task {
+        let throwing: Effect<GrowingTransactionEnv, unit, string> = eff {
+            do! GrowingTransaction.insert "a"
+            failwith "thrown"
+        }
 
+        let! thrown = Assert.ThrowsAnyAsync<exn>(fun () -> throwing |> transaction |> run :> Task)
         let! result = committed () |> run
-        failed =! Error "thrown"
+        thrown.Message =! "thrown"
         result =! Ok []
     }
 
@@ -410,6 +399,23 @@ type GrowingScopeTests() =
 
         result =! Error "outer 1 failed after inner 2"
         List.ofSeq log =! [ "begin 1"; "begin 2"; "complete 2"; "dispose 2"; "dispose 1" ]
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let a_completing_scope_is_disposed_without_completing_when_its_effect_throws () = task {
+        let log = ResizeArray()
+        let throwing: Effect<RecordingScopeEnv, unit, string> = eff { failwith "thrown" }
+
+        let! thrown =
+            Assert.ThrowsAnyAsync<exn>(fun () ->
+                throwing
+                |> CompletingScope<RecordingScope>.Within
+                |> Effect.run (RecordingEnv log)
+                |> _.AsTask()
+                :> Task)
+
+        thrown.Message =! "thrown"
+        List.ofSeq log =! [ "begin 1"; "dispose 1" ]
     }
 
     [<Fact(Timeout = 10_000)>]
