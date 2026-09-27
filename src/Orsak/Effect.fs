@@ -223,6 +223,22 @@ module Effect =
     }
 
     /// <summary>
+    /// Runs the effect with an environment derived by <paramref name="f"/> from the one the resulting effect is run
+    /// with. Such as an effect needing a particular environment type, run in the environment of a scope, which
+    /// inherits that type.
+    /// </summary>
+    /// <param name="f">Derives the environment of <paramref name="e"/></param>
+    /// <param name="e">The effect</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// // report: Effect&lt;AppEnvironment, Report, AppError&gt;, run in a transaction, whose environment inherits AppEnvironment
+    /// let! report = report |> Effect.withEnvironment (fun env -> upcast env)
+    /// </code>
+    /// </example>
+    let withEnvironment (f: 'r2 -> 'r1) (e: Effect<'r1, 'a, 'e>) : Effect<'r2, 'a, 'e> =
+        mkEffect (fun (env: 'r2) -> e.Run(f env))
+
+    /// <summary>
     /// Zips two effects together, the resulting effect will fail if either of the effects failed. In case both failed,
     /// the error is combined. The effects will execute in parallel if possible.
     /// </summary>
