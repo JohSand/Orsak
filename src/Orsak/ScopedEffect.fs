@@ -259,6 +259,73 @@ type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScop
                 return Error err
         })
 
+/// <summary>
+/// Implemented by an environment that can grow into <typeparamref name="'Inner"/>, the environment of effects running
+/// in a scope of type <typeparamref name="'Scope"/>. The inner environment usually inherits the outer one, adding a
+/// provider of the scope.
+/// </summary>
+/// <exclude/>
+type IGrowsInto<'Scope, 'Inner> =
+    /// <summary>Creates the environment of effects running in <paramref name="scope"/>.</summary>
+    abstract member Grow: scope: 'Scope -> 'Inner
+
+/// <summary>
+/// Opens scopes of type <typeparamref name="'Scope"/>, for effects needing an environment grown from the one the
+/// scoped effect is run with.
+/// </summary>
+/// <exclude/>
+[<ExperimentalAttribute(""); AbstractClass; Sealed>]
+type Scope<'Scope when 'Scope :> Scoped> =
+    /// <summary>
+    /// Runs <paramref name="body"/> in a new scope: the scope is begun by the environment, which grows into the
+    /// environment of <paramref name="body"/>, and disposed when <paramref name="body"/> ends.
+    /// </summary>
+    static member Within<'Outer, 'Inner, 'a, 'err
+        when 'Outer :> ScopeProvider<'Scope> and 'Outer :> IGrowsInto<'Scope, 'Inner>>
+        (body: Effect<'Inner, 'a, 'err>)
+        : Effect<'Outer, 'a, 'err> =
+        mkEffect (fun (outer: 'Outer) -> vtask {
+            use! scope = (outer :> ScopeProvider<'Scope>).BeginScope()
+            let inner = (outer :> IGrowsInto<'Scope, 'Inner>).Grow scope
+
+            match! body.Run inner with
+            | Ok a -> return Ok a
+            | Error e -> return Error e
+        })
+
+/// <summary>
+/// Opens scopes of type <typeparamref name="'Scope"/> that are completed when their effect succeeds, such as
+/// transactions, for effects needing an environment grown from the one the scoped effect is run with.
+/// </summary>
+/// <exclude/>
+[<ExperimentalAttribute(""); AbstractClass; Sealed>]
+type CompletingScope<'Scope when 'Scope :> CompletableScope> =
+    /// <summary>
+    /// Runs <paramref name="body"/> in a new scope, and completes the scope if <paramref name="body"/> succeeds. The
+    /// scope is begun by the environment, which grows into the environment of <paramref name="body"/>, and disposed
+    /// when <paramref name="body"/> ends. An exception is turned into an error by the environment.
+    /// </summary>
+    static member Within<'Outer, 'Inner, 'a, 'err
+        when 'Outer :> ExceptionHandler<'err>
+        and 'Outer :> CompletableScopeProvider<'Scope>
+        and 'Outer :> IGrowsInto<'Scope, 'Inner>>
+        (body: Effect<'Inner, 'a, 'err>)
+        : Effect<'Outer, 'a, 'err> =
+        mkEffect (fun (outer: 'Outer) -> vtask {
+            try
+                use! scope = (outer :> CompletableScopeProvider<'Scope>).BeginScope()
+                let inner = (outer :> IGrowsInto<'Scope, 'Inner>).Grow scope
+
+                match! body.Run inner with
+                | Ok a ->
+                    do! scope.Complete()
+                    return Ok a
+                | Error e -> return Error e
+            with e ->
+                let (err: 'err) = (outer :> ExceptionHandler<'err>).Handle e
+                return Error err
+        })
+
 namespace Orsak.ScopeAware
 
 open Orsak
