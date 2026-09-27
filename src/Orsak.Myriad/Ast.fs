@@ -308,23 +308,51 @@ let environmentProviderCfg (context: GeneratorContext) (environmentName: string)
         fieldName = Writer.trimI (List.last effectType)
     }
 
-let environmentCfg (context: GeneratorContext) (SynTypeDefn(typeInfo, repr, _, _, _, _)) =
+/// An inherited interface is either a provider, or another [<GenEnvironment>] interface from the same file.
+type private Inherited =
+    | InheritedProvider of EnvironmentProviderCfg
+    | InheritedEnvironment of baseType: string list * EnvironmentCfg
+
+/// `declared` holds the file's [<GenEnvironment>] interfaces by name, so an inherited one is resolved to its providers.
+let rec private resolveEnvironment
+    (context: GeneratorContext)
+    (declared: Map<string, SynTypeDefn list>)
+    (visiting: string list)
+    (SynTypeDefn(typeInfo, repr, _, _, _, _))
+    =
     let name = parseTypeName typeInfo
     let fail reason = failwith $"GenEnvironment: '%s{name}' %s{reason}"
+
+    if List.contains name visiting then
+        fail "inherits itself."
 
     let members =
         match repr with
         | SynTypeDefnRepr.ObjectModel(_, members, _) -> members
         | _ -> fail "must be an interface."
 
-    let providers = [
+    let inherited = [
         for m in members do
             match m with
             | SynMemberDefn.Inherit(SynType.LongIdent(SynLongIdent(ids, _, _)), _, _) ->
-                environmentProviderCfg context name (ids |> List.map _.idText)
+                let path = ids |> List.map _.idText
+
+                match declared |> Map.tryFind (List.last path) with
+                | Some [ environment ] ->
+                    InheritedEnvironment(path, resolveEnvironment context declared (name :: visiting) environment)
+                | Some _ ->
+                    fail $"inherits '%s{List.last path}', and more than one [<GenEnvironment>] interface in the file has that name."
+                | None -> InheritedProvider(environmentProviderCfg context name path)
             | SynMemberDefn.Inherit _ -> fail "can only inherit non-generic provider interfaces."
             | _ -> fail "can only inherit provider interfaces, and cannot declare members of its own."
     ]
+
+    let providers =
+        inherited
+        |> List.collect (function
+            | InheritedProvider provider -> [ provider ]
+            | InheritedEnvironment(_, environment) -> environment.providers)
+        |> List.distinctBy _.providerType
 
     if providers.IsEmpty then
         fail "must inherit at least one provider interface."
@@ -333,7 +361,23 @@ let environmentCfg (context: GeneratorContext) (SynTypeDefn(typeInfo, repr, _, _
     | Some(field, _) -> fail $"inherits more than one provider whose effect is named '%s{field}'."
     | None -> ()
 
-    { name = name; providers = providers }
+    let extends =
+        match inherited |> List.choose (function InheritedEnvironment(path, e) -> Some(path, e) | InheritedProvider _ -> None) with
+        | [ baseType, environment ] ->
+            let own =
+                providers
+                |> List.filter (fun p -> not (environment.providers |> List.exists (fun i -> i.providerType = p.providerType)))
+
+            if own.IsEmpty then
+                None
+            else
+                Some { baseType = baseType; inherited = environment.providers; own = own }
+        | _ -> None
+
+    { name = name; providers = providers; extends = extends }
+
+let environmentCfg (context: GeneratorContext) (declared: Map<string, SynTypeDefn list>) (typeDefn: SynTypeDefn) =
+    resolveEnvironment context declared [] typeDefn
 
 let private opensOf (decls: SynModuleDecl list) = [
     for decl in decls do
@@ -345,6 +389,14 @@ let private opensOf (decls: SynModuleDecl list) = [
 let parseEnvironments (context: GeneratorContext) (ast: ParsedInput) : ContextEnvironmentScope list = [
     match ast with
     | ParsedInput.ImplFile(ParsedImplFileInput(contents = modules)) ->
+        // every [<GenEnvironment>] interface in the file, which the others can inherit
+        let declared =
+            modules
+            |> List.collect (fun (SynModuleOrNamespace(decls = decls)) ->
+                attributedTypes Ast.hasAttribute<GenEnvironmentAttribute> decls)
+            |> List.groupBy (fun (SynTypeDefn(typeInfo, _, _, _, _, _)) -> parseTypeName typeInfo)
+            |> Map.ofList
+
         for i, SynModuleOrNamespace(longId = id; kind = kind; decls = decls) in List.indexed modules do
             let types = attributedTypes Ast.hasAttribute<GenEnvironmentAttribute> decls
             let isInline = isInlineGeneration context "GenEnvironment" types
@@ -355,7 +407,7 @@ let parseEnvironments (context: GeneratorContext) (ast: ParsedInput) : ContextEn
             let scope = {
                 placement = placement isInline kind id
                 openStatements = opensOf decls
-                environments = types |> List.map (environmentCfg context)
+                environments = types |> List.map (environmentCfg context declared)
             }
 
             // In a separate file the generated module sits next to the input module, so it cannot share its name.

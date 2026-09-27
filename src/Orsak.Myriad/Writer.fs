@@ -88,8 +88,22 @@ type EnvironmentProviderCfg = {
     fieldName: string
 }
 
+/// [omit]
+/// A [<GenEnvironment>] interface that inherits exactly one other [<GenEnvironment>] interface from the same file,
+/// and adds providers of its own, so it can also be created by extending an instance of the inherited one.
+type EnvironmentBaseCfg = {
+    baseType: string list
+    inherited: EnvironmentProviderCfg list
+    own: EnvironmentProviderCfg list
+}
+
 /// <exclude/>
-type EnvironmentCfg = { name: string; providers: EnvironmentProviderCfg list }
+// `providers` includes those of any inherited [<GenEnvironment>] interfaces.
+type EnvironmentCfg = {
+    name: string
+    providers: EnvironmentProviderCfg list
+    extends: EnvironmentBaseCfg option
+}
 
 /// <exclude/>
 /// The input's own opens are repeated when the code is placed in a namespace.

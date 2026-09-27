@@ -42,3 +42,11 @@ let inlineWorkflow () : Effect<_, string, string> = eff {
 printfn "%s" ((inlineWorkflow () |> Effect.runOrFail (Inline.environment ())).Result)
 
 
+
+let localizedWorkflow () : Effect<_, string, string> = eff {
+    let! greeting = Inline.greet "localized"
+    let! culture = Effect.Create(fun (provider: #Inline.ILocaleProvider) -> provider.Effect.Culture)
+    return $"{greeting} in {culture}"
+}
+
+printfn "%s" ((localizedWorkflow () |> Effect.runOrFail (Inline.localized ())).Result)
