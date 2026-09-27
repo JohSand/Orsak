@@ -258,6 +258,38 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
+    let withEnvironment_runs_the_effect_with_the_derived_environment () = task {
+        let length: Effect<string, int, string> = Effect.Create(fun (s: string) -> s.Length)
+        let! result = length |> Effect.withEnvironment (fun (n: int) -> String('x', n)) |> Effect.run 3
+        result =! Ok 3
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let withEnvironment_keeps_the_error_of_the_effect () = task {
+        let failing: Effect<string, int, string> = eff { return! Error "failed" }
+        let! result = failing |> Effect.withEnvironment string |> Effect.run 3
+        result =! Error "failed"
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let a_transaction_runs_an_effect_typed_against_the_outer_environment_by_upcasting () = task {
+        // typed against the outer environment, so it can't be bound in the transaction's body as it is
+        let now: Effect<GrowingTestEnv, DateTimeOffset, string> = Clock.utcNow ()
+
+        let! result =
+            eff {
+                do! GrowingTransaction.insert "a"
+                let! now = now |> Effect.withEnvironment (fun env -> upcast env)
+                let! rows = GrowingTransaction.read ()
+                return now <= DateTimeOffset.UtcNow, rows.Length
+            }
+            |> transaction
+            |> run
+
+        result =! Ok(true, 1)
+    }
+
+    [<Fact(Timeout = 10_000)>]
     let a_generic_combinator_opens_a_scope_for_the_effects_it_is_given () = task {
         let reports = ResizeArray()
         let scope = ProgressScope(reports)
