@@ -192,6 +192,7 @@ module MyriadTests =
     [<InlineData(12)>]
     [<InlineData(13)>]
     [<InlineData(14)>]
+    [<InlineData(19)>]
     let ``EnvironmentGen creates the expected output`` (i: int) = task {
         let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
 
@@ -227,6 +228,22 @@ module MyriadTests =
         let source = "module Company.App.Environment\n\n[<GenEnvironment>]\ntype IEnvironment =\n    inherit IFooProvider\n"
         let error = Assert.Throws<exn>(fun () -> Ast.generateEnvironment source |> ignore)
         Assert.Contains("would have the same name as the module 'Company.App.Environment'", error.Message)
+
+    [<Fact>]
+    let EnvironmentGen_rejects_inheriting_a_name_several_environments_in_the_file_have () =
+        let source =
+            "namespace A\n\n[<GenEnvironment>]\ntype IShared =\n    inherit IFooProvider\n\nnamespace B\n\n[<GenEnvironment>]\ntype IShared =\n    inherit IBarProvider\n\n[<GenEnvironment>]\ntype IEnvironment =\n    inherit IShared\n    inherit IBazProvider\n"
+
+        let error = Assert.Throws<exn>(fun () -> Ast.generateEnvironment source |> ignore)
+        Assert.Contains("more than one [<GenEnvironment>] interface in the file has that name", error.Message)
+
+    [<Fact>]
+    let EnvironmentGen_rejects_environments_inheriting_each_other () =
+        let source =
+            "[<GenEnvironment>]\ntype IFirst =\n    inherit ISecond\n\n[<GenEnvironment>]\ntype ISecond =\n    inherit IFirst\n"
+
+        let error = Assert.Throws<exn>(fun () -> Ast.generateEnvironment source |> ignore)
+        Assert.Contains("inherits itself", error.Message)
 
     [<Fact>]
     let ``EffectGen rejects a qualified ProviderName, since it declares the provider`` () =
