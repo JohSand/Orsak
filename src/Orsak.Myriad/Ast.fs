@@ -317,8 +317,7 @@ type private Inherited =
 
 let private serviceFieldName =
     function
-    | BeginsScope(fieldName = field)
-    | HandlesExceptions(fieldName = field) -> Some field
+    | BeginsScope(fieldName = field) -> Some field
     | GrowsInto _ -> None
 
 /// The generic interfaces a [<GenEnvironment>] interface may inherit: those of Orsak's scopes.
@@ -336,12 +335,12 @@ let private serviceCfg (fail: string -> EnvironmentServiceCfg) (ids: LongIdent) 
     | _ when args.Length <> typeArgs.Length -> fail $"can only inherit '%s{name}' with named types as type arguments."
     | ("ScopeProvider" | "CompletableScopeProvider"), [ scope ] ->
         BeginsScope(ids |> List.map _.idText, scope, Writer.trimI (List.last scope) + "Scope")
-    | "ExceptionHandler", [ error ] -> HandlesExceptions(ids |> List.map _.idText, error, "ExceptionHandler")
     | "IGrowsInto", [ scope; [ inner ] ] -> GrowsInto(ids |> List.map _.idText, scope, inner, [], "")
     | "IGrowsInto", [ _; _ ] -> fail "can only grow into a [<GenEnvironment>] interface of the same file, named without qualification."
     | _ ->
         fail
-            "can only inherit non-generic provider interfaces, ScopeProvider<'Scope>, CompletableScopeProvider<'Scope>, ExceptionHandler<'err> and IGrowsInto<'Scope, 'Inner>."
+            "can only inherit non-generic provider interfaces, ScopeProvider<'Scope>, CompletableScopeProvider<'Scope> and IGrowsInto<'Scope, 'Inner>."
+
 
 /// `declared` holds the file's [<GenEnvironment>] interfaces by name, so an inherited one is resolved to its providers.
 let rec private resolveEnvironment

@@ -19,7 +19,6 @@ type ITransactionProvider =
 type IAppEnvironment =
     inherit ITestEffect1Provider
     inherit CompletableScopeProvider<ITransaction>
-    inherit ExceptionHandler<string>
     inherit IGrowsInto<ITransaction, IScopedEnvironment>
 
 // the environment in the scope: the application's, and the transaction
