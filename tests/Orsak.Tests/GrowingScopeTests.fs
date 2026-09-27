@@ -142,6 +142,50 @@ and ProgressScopeEnv(outer: ProgressTestEnv, scope: IProgressScope) =
     interface IProgressProvider with
         member _.Progress = scope.Progress
 
+/// A completable scope recording what happens to it, numbered in the order the scopes are begun.
+type RecordingScope(number: int, log: ResizeArray<string>) =
+    member _.Number = number
+
+    interface CompletableScope with
+        member _.Complete() =
+            log.Add $"complete {number}"
+            ValueTask()
+
+        member _.DisposeAsync() =
+            log.Add $"dispose {number}"
+            ValueTask()
+
+type IRecordingScopeProvider =
+    abstract member Scope: RecordingScope
+
+type RecordingEnv(log: ResizeArray<string>) =
+    let mutable begun = 0
+
+    interface ExceptionHandler<string> with
+        member _.Handle e = e.Message
+
+    interface CompletableScopeProvider<RecordingScope> with
+        member _.BeginScope() =
+            begun <- begun + 1
+            log.Add $"begin {begun}"
+            ValueTask<RecordingScope>(RecordingScope(begun, log))
+
+    interface IGrowsInto<RecordingScope, RecordingScopeEnv> with
+        member this.Grow scope = RecordingScopeEnv(this, scope)
+
+and RecordingScopeEnv(outer: RecordingEnv, scope: RecordingScope) =
+    interface ExceptionHandler<string> with
+        member _.Handle e = (outer :> ExceptionHandler<string>).Handle e
+
+    interface CompletableScopeProvider<RecordingScope> with
+        member _.BeginScope() = (outer :> CompletableScopeProvider<RecordingScope>).BeginScope()
+
+    interface IGrowsInto<RecordingScope, RecordingScopeEnv> with
+        member _.Grow scope = (outer :> IGrowsInto<RecordingScope, RecordingScopeEnv>).Grow scope
+
+    interface IRecordingScopeProvider with
+        member _.Scope = scope
+
 type GrowingScopeTests() =
     do
         use conn = new SqliteConnection(GrowingTransaction.connectionString)
@@ -255,6 +299,117 @@ type GrowingScopeTests() =
         let! result = committed () |> run
         failed =! Error "second failed"
         result =! Ok [ 1, "a" ]
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let transaction_commits_the_writes_of_all_its_effects_together () = task {
+        let insertOrder = GrowingTransaction.insert "order"
+        let insertLines = eff {
+            do! GrowingTransaction.insert "line 1"
+            do! GrowingTransaction.insert "line 2"
+        }
+
+        let! placed =
+            eff {
+                do! insertOrder
+                do! insertLines
+            }
+            |> transaction
+            |> run
+
+        let! result = committed () |> run
+        placed =! Ok()
+        result =! Ok [ 1, "order"; 2, "line 1"; 3, "line 2" ]
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let transaction_rolls_back_the_writes_of_all_its_effects_when_a_later_one_fails () = task {
+        let insertOrder = GrowingTransaction.insert "order"
+        let insertLines = eff {
+            do! GrowingTransaction.insert "line 1"
+            do! GrowingTransaction.insert "line 2"
+        }
+        let checkStock = eff { return! Error "out of stock" }
+
+        let! placed =
+            eff {
+                do! insertOrder
+                do! insertLines
+                do! checkStock
+            }
+            |> transaction
+            |> run
+
+        let! result = committed () |> run
+        placed =! Error "out of stock"
+        result =! Ok []
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let transaction_rolls_back_earlier_writes_when_an_effect_deep_in_a_helper_fails () = task {
+        let insertOrder = GrowingTransaction.insert "order"
+
+        let reserve item = eff {
+            do! GrowingTransaction.insert item
+            let! rows = GrowingTransaction.read ()
+
+            if rows.Length > 2 then
+                return! Error $"cannot reserve {item}"
+        }
+
+        let reserveAll = eff {
+            do! reserve "a"
+            do! reserve "b"
+        }
+
+        let! placed =
+            eff {
+                do! insertOrder
+                do! reserveAll
+            }
+            |> transaction
+            |> run
+
+        let! result = committed () |> run
+        placed =! Error "cannot reserve b"
+        result =! Ok []
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let transaction_commits_writes_of_effects_bound_together_with_and () = task {
+        let! placed =
+            eff {
+                let! () = GrowingTransaction.insert "a"
+                and! () = GrowingTransaction.insert "b"
+                return ()
+            }
+            |> transaction
+            |> run
+
+        let! result = committed () |> run
+        placed =! Ok()
+        test <@ result |> Result.map (List.map snd >> List.sort) = Ok [ "a"; "b" ] @>
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let a_nested_transaction_is_its_own_scope_and_completes_even_when_the_outer_one_fails () = task {
+        // nested transactions don't join the outer one: the inner one is completed on its own
+        let log = ResizeArray()
+
+        let scopeNumber () =
+            Effect.Create(fun (p: #IRecordingScopeProvider) -> p.Scope.Number)
+
+        let! result =
+            eff {
+                let! outer = scopeNumber ()
+                let! inner = CompletingScope<RecordingScope>.Within(scopeNumber ())
+                return! Error $"outer {outer} failed after inner {inner}"
+            }
+            |> CompletingScope<RecordingScope>.Within
+            |> Effect.run (RecordingEnv log)
+
+        result =! Error "outer 1 failed after inner 2"
+        List.ofSeq log =! [ "begin 1"; "begin 2"; "complete 2"; "dispose 2"; "dispose 1" ]
     }
 
     [<Fact(Timeout = 10_000)>]
