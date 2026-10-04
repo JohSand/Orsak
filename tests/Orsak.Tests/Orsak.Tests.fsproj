@@ -31,6 +31,7 @@
         <Compile Include="TailCallTests.fs"/>
         <Compile Include="ForLoopTests.fs"/>
         <Compile Include="WhenAllTests.fs"/>
+        <Compile Include="LimitedParallelTests.fs"/>
         <Compile Include="ScopedTests.fs"/>
         <Compile Include="GrowingScopeTests.fs"/>
         <Compile Include="MyriadTests.fs"/>
