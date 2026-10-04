@@ -313,6 +313,75 @@ module Effect =
         return List.ofArray array
     }
 
+    let inline mapPar (s: Effect<'r, 'a, 'e> seq) f= eff {
+        let! array = s |>  Seq.map f |> whenAll
+        return List.ofArray array
+    }
+
+    /// <summary>
+    /// Executes effects in parallel, at most <paramref name="limit"/> at a time, and collects their results in a list,
+    /// in the order the effects were given. The effects are started in that order, the next one as soon as fewer than
+    /// <paramref name="limit"/> are running, without waiting for the others. Once one fails or throws, no more are
+    /// started, and once those already running have completed, the result is the first error in that order, or the
+    /// exception.
+
+    /// </summary>
+    /// <param name="limit">The most effects to run at a time, at least 1</param>
+    /// <param name="s">The effects to run in parallel</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// // at most 4 requests at a time
+    /// customerIds |> Seq.map fetchCustomer |> Effect.parLimited 4
+    /// </code>
+    /// </example>
+    let parLimited (limit: int) (s: Effect<'r, 'a, 'e> seq) : Effect<'r, 'a list, 'e> =
+        if limit < 1 then
+            raise (ArgumentOutOfRangeException(nameof limit, limit, "At least one effect must be allowed to run."))
+
+        mkEffect (fun (env: 'r) -> vtask {
+            let effects = Array.ofSeq s
+            let results = Array.zeroCreate effects.Length
+            let errors: 'e voption array = Array.zeroCreate effects.Length
+            let next = ref -1
+            let failed = ref false
+
+            // each worker runs the next effect not yet started, until none are left or one has failed
+            let worker () = task {
+                let mutable i = Interlocked.Increment &next.contents
+
+                while i < effects.Length && not (Volatile.Read &failed.contents) do
+                    try
+                        match! effects[i].Run env with
+                        | Ok a -> results[i] <- a
+                        | Error err ->
+                            errors[i] <- ValueSome err
+                            Volatile.Write(&failed.contents, true)
+                    with e ->
+                        Volatile.Write(&failed.contents, true)
+                        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e).Throw()
+
+
+                    i <- Interlocked.Increment &next.contents
+
+            }
+
+            let! _ = Task.WhenAll [| for _ in 1 .. min limit effects.Length -> worker () |]
+
+            match errors |> Array.tryPick (function ValueSome err -> Some err | ValueNone -> None) with
+            | Some err -> return Error err
+            | None -> return Ok(List.ofArray results)
+        })
+
+    /// <summary>
+    /// Applies <paramref name="f"/> to each effect, and executes the results in parallel, at most
+    /// <paramref name="limit"/> at a time, like <c>Effect.parLimited</c>.
+    /// </summary>
+    /// <param name="limit">The most effects to run at a time, at least 1</param>
+    /// <param name="s">The effects</param>
+    /// <param name="f">The function to apply to each effect</param>
+    let mapParLimited (limit: int) (s: Effect<'r, 'a, 'e> seq) (f: Effect<'r, 'a, 'e> -> Effect<'r, 'b, 'e>) =
+        s |> Seq.map f |> parLimited limit
+
     ///Traverses an array of effects, turning it in to an effect of an array.
     ///For a more generic implementation, consider FSharpPlus
     let inline traverse f (effects: Effect<'r, 'a, 'e> array) : Effect<'r, 'b array, 'e> = eff {
