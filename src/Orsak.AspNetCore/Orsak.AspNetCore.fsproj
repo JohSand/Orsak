@@ -9,6 +9,7 @@
         <Compile Include="ReflectedFunction.fs" />
         <Compile Include="BackgroundWorker.fs" />
         <Compile Include="ScalingEffectWorker.fs" />
+        <Compile Include="ScalingJobBuilder.fs" />
         <Compile Include="EndpointRouting.fs" />
         <Compile Include="EndpointRoutingV2.fs" />
     </ItemGroup>
