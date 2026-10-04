@@ -166,60 +166,6 @@ module Helpers =
                     .AppendParameter(chars[paramIndex + 1], names[0])
                     .AppendPath(chars.Slice(paramIndex + 2), names.Slice(1))
 
-    [<return: Struct>]
-    let (|TupledArg|_|) (var: Var) =
-        if var.Name = "tupledArg" then ValueSome() else ValueNone
-
-    let getNames (q: Expr) =
-        match q with
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, Let(var5, _, _))))))
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, Lambda(var5, _)))))) -> [|
-            var.Name
-            var2.Name
-            var3.Name
-            var4.Name
-            var5.Name
-          |]
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Let(var4, _, _)))))
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, Lambda(var4, _))))) -> [|
-            var.Name
-            var2.Name
-            var3.Name
-            var4.Name
-          |]
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Let(var3, _, _))))
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, Lambda(var3, _)))) -> [| var.Name; var2.Name; var3.Name |]
-        | Lambda(TupledArg, Let(var, _, Let(var2, _, _))) -> [| var.Name; var2.Name |]
-        // a curried handler, one lambda per parameter: fun a b c -> ... or a function taking a b c
-        | Lambda _ ->
-            let rec curried (e: Expr) =
-                match e with
-                | Lambda(var, body) -> var.Name :: curried body
-                | _ -> []
-
-            List.toArray (curried q)
-        | _ -> [||]
-
-    let getMethodInfo (q: Expr) =
-        match q with
-        | Lambda(TupledArg, Let(_, _, Let(_, _, Let(_, _, Let(_, _, Let(_, _, Call(_, mi, _)))))))
-        | Lambda(TupledArg, Let(_, _, Let(_, _, Let(_, _, Let(_, _, Lambda(_, Call(_, mi, _)))))))
-        | Lambda(TupledArg, Let(_, _, Let(_, _, Let(_, _, Let(_, _, Call(_, mi, _))))))
-        | Lambda(TupledArg, Let(_, _, Let(_, _, Let(_, _, Lambda(_, Call(_, mi, _))))))
-        | Lambda(TupledArg, Let(_, _, Let(_, _, Let(_, _, Call(_, mi, _)))))
-        | Lambda(TupledArg, Let(_, _, Let(_, _, Lambda(_, Call(_, mi, _)))))
-        | Lambda(TupledArg, Let(_, _, Let(_, _, Call(_, mi, _)))) -> mi
-        // a curried handler: the call is inside one lambda per parameter
-        | Lambda(_, body) ->
-            let rec innermost (e: Expr) =
-                match e with
-                | Lambda(_, body) -> innermost body
-                | Call(_, mi, _) -> mi
-                | _ -> Unchecked.defaultof<_>
-
-            innermost body
-        | _ -> Unchecked.defaultof<_>
-
     let createCtorFunc<'T> () =
         let ctorInfo = typeof<'T>.GetConstructors()[0]
         let args = Expression.Parameter(typeof<obj array>, "args")
@@ -304,8 +250,9 @@ type EffectRunnerExtensions =
         when ('Eff or 'H): (static member ( *>> ): 'Eff * 'H -> RequestDelegate)>
         (this: 'H, path: PrintfFormat<'Printer, unit, unit, 'Eff, 'T>, verb: string, handler: (Expr<'T -> 'Eff>))
         =
-        match handler with
-        | WithValue(:? ('T -> 'Eff) as eff, _type, expr) ->
+        let eff, shape = ReflectedFunction.capture handler
+
+        let endpoint =
             if typeof<'T> = typeof<unit> then
                 Endpoint {|
                     verb = verb
@@ -314,7 +261,7 @@ type EffectRunnerExtensions =
                     conventions = id
                 |}
             else
-                let names = getNames expr
+                let names = shape.ParameterNames
 
                 Endpoint {|
                     verb = verb
@@ -322,13 +269,11 @@ type EffectRunnerExtensions =
                     requestDelegate = createEndpointDelegate eff names (routeValueParsers path.Value) this
                     conventions = id
                 |}
-            |> fun x -> x.WithMetadata(HandlingMethod(getMethodInfo expr))
 
-        | _ ->
-            Throwhelpers.argumentException
-                "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
+        match shape.Method with
+        | Some mi -> endpoint.WithMetadata(HandlingMethod mi)
+        | None -> endpoint
 
-            Unchecked.defaultof<_>
 
     /// <summary>
     /// Creates a GET endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>.
