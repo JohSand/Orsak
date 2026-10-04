@@ -4,9 +4,10 @@
         <RootNamespace>Orsak.AspNetCore</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
+        <Compile Include="Diagnostics.fs" />
         <Compile Include="Throwhelpers.fs" />
         <Compile Include="BackgroundWorker.fs" />
-        <Compile Include="Diagnostics.fs" />
+        <Compile Include="ScalingEffectWorker.fs" />
         <Compile Include="EndpointRouting.fs" />
         <Compile Include="EndpointRoutingV2.fs" />
     </ItemGroup>
