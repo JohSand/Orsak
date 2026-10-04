@@ -36,6 +36,7 @@
         <Compile Include="GrowingScopeTests.fs"/>
         <Compile Include="MyriadTests.fs"/>
         <Compile Include="EndpointRoutingTests.fs"/>
+        <Compile Include="ScalingEffectJobTests.fs"/>
     </ItemGroup>
     <ItemGroup Condition="'$(TargetFramework)' == 'NET6.0'">
         <PackageReference Include="xunit" Version="2.9.3"/>
