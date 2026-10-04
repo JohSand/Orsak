@@ -37,6 +37,7 @@
         <Compile Include="MyriadTests.fs"/>
         <Compile Include="EndpointRoutingTests.fs"/>
         <Compile Include="ScalingEffectJobTests.fs"/>
+        <Compile Include="ScalingJobBuilderTests.fs" MyriadInlineGeneration="true" />
     </ItemGroup>
     <ItemGroup Condition="'$(TargetFramework)' == 'NET6.0'">
         <PackageReference Include="xunit" Version="2.9.3"/>
@@ -60,8 +61,11 @@
         <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
         <PackageReference Include="Unquote" Version="7.0.1"/>
+        <PackageReference Include="Myriad.Sdk" Version="1.1.0" />
         <PackageReference Include="Myriad.Core" Version="1.1.0"/>
+        <PackageDownload Include="Myriad" Version="[1.1.0]" />
     </ItemGroup>
+    <Import Project="..\..\src\Orsak.Myriad\build\Orsak.Myriad.InTest.props" />
     <ItemGroup>
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj"/>
         <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj"/>
