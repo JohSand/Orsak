@@ -12,8 +12,18 @@ open Orsak
 
 /// A job whose workload is a function, so the builder needs no subclass per job.
 type DelegatingScalingEffectJob<'r, 'err>
-    (name, logger, _services: IServiceProvider, work: unit -> Effect<'r,unit,'err>, runnerFactory, workload: CancellationToken -> Task<WorkerLoad>,
-     ?maxExtraWorkers, ?monitorInterval, ?restartDelay, ?maxRestartDelay) =
+    (
+        name,
+        logger,
+        _services: IServiceProvider,
+        work: unit -> Effect<'r, unit, 'err>,
+        runnerFactory,
+        workload: CancellationToken -> Task<WorkerLoad>,
+        ?maxExtraWorkers,
+        ?monitorInterval,
+        ?restartDelay,
+        ?maxRestartDelay
+    ) =
     inherit
         ScalingEffectJob<'r, unit, 'err>(
             name,
@@ -73,25 +83,44 @@ type ScalingJobBuilder(name: string option) =
         let work, shape = ReflectedFunction.capture work
         let name = spec.Name |> Option.orElse shape.Name
 
-        { Name = name; Work = work; Environment = spec.Environment; Workload = spec.Workload
-          MaxExtraWorkers = spec.MaxExtraWorkers; MonitorInterval = spec.MonitorInterval
-          RestartDelay = spec.RestartDelay; MaxRestartDelay = spec.MaxRestartDelay }
+        {
+            Name = name
+            Work = work
+            Environment = spec.Environment
+            Workload = spec.Workload
+            MaxExtraWorkers = spec.MaxExtraWorkers
+            MonitorInterval = spec.MonitorInterval
+            RestartDelay = spec.RestartDelay
+            MaxRestartDelay = spec.MaxRestartDelay
+        }
 
     /// The environment of a worker, from the services and the token that stops the worker.
     [<CustomOperation("environment")>]
-    member _.Environment(spec: ScalingJobSpec<'Work, _, 'Load>, create: IServiceProvider -> CancellationToken -> 'r) =
-        { Name = spec.Name; Work = spec.Work; Environment = create; Workload = spec.Workload
-          MaxExtraWorkers = spec.MaxExtraWorkers; MonitorInterval = spec.MonitorInterval
-          RestartDelay = spec.RestartDelay; MaxRestartDelay = spec.MaxRestartDelay }
+    member _.Environment(spec: ScalingJobSpec<'Work, _, 'Load>, create: IServiceProvider -> CancellationToken -> 'r) = {
+        Name = spec.Name
+        Work = spec.Work
+        Environment = create
+        Workload = spec.Workload
+        MaxExtraWorkers = spec.MaxExtraWorkers
+        MonitorInterval = spec.MonitorInterval
+        RestartDelay = spec.RestartDelay
+        MaxRestartDelay = spec.MaxRestartDelay
+    }
 
     /// How much work there is, from the services, checked to decide whether to add or remove a worker.
     [<CustomOperation("workload")>]
     member _.Workload
         (spec: ScalingJobSpec<'Work, 'Env, _>, workload: IServiceProvider -> CancellationToken -> Task<WorkerLoad>)
-        =
-        { Name = spec.Name; Work = spec.Work; Environment = spec.Environment; Workload = workload
-          MaxExtraWorkers = spec.MaxExtraWorkers; MonitorInterval = spec.MonitorInterval
-          RestartDelay = spec.RestartDelay; MaxRestartDelay = spec.MaxRestartDelay }
+        = {
+        Name = spec.Name
+        Work = spec.Work
+        Environment = spec.Environment
+        Workload = workload
+        MaxExtraWorkers = spec.MaxExtraWorkers
+        MonitorInterval = spec.MonitorInterval
+        RestartDelay = spec.RestartDelay
+        MaxRestartDelay = spec.MaxRestartDelay
+    }
 
     [<CustomOperation("maxExtraWorkers")>]
     member _.MaxExtraWorkers(spec: ScalingJobSpec<_, _, _>, count) = { spec with MaxExtraWorkers = Some count }
@@ -107,11 +136,7 @@ type ScalingJobBuilder(name: string option) =
 
     member _.Run
         (spec:
-            ScalingJobSpec<
-                unit -> Effect<'r, unit, 'err>,
-                IServiceProvider -> CancellationToken -> 'r,
-                WorkloadNotSet
-             >)
+            ScalingJobSpec<unit -> Effect<'r, unit, 'err>, IServiceProvider -> CancellationToken -> 'r, WorkloadNotSet>)
         : ScalingJobDefinition =
         let name = spec.Name |> Option.defaultValue "ScalingJob"
 
@@ -167,15 +192,51 @@ type ScalingJobBuilder(name: string option) =
                     )
                     :> IHostedService
         }
+#if NET8_0_OR_GREATER
+type ScalingJobBuilder2<'T, 'r when 'T: (member Extend: ICancellationProvider -> 'r)>(t: 'T) =
+    inherit ScalingJobBuilder(None)
 
+    member inline _.Run
+        (spec: ScalingJobSpec<unit -> Effect<'r, unit, 'err>, EnvironmentNotSet, WorkloadNotSet>)
+        : ScalingJobDefinition =
+        let name = spec.Name |> Option.defaultValue "ScalingJob"
+
+        {
+            Name = name
+            Create =
+                fun services ->
+                    let logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(name)
+
+                    new DelegatingScalingEffectJob<'r, 'err>(
+                        name,
+                        logger,
+                        services,
+                        spec.Work,
+                        (fun token ->
+                            t.Extend(
+                                {
+                                    new ICancellationProvider with
+                                        member _.Source = CancellationTokenSource.CreateLinkedTokenSource(token)
+                                }
+                            )),
+                        (fun _ -> task { return WorkerLoad.Sustained }),
+                        ?maxExtraWorkers = spec.MaxExtraWorkers,
+                        ?monitorInterval = spec.MonitorInterval,
+                        ?restartDelay = spec.RestartDelay,
+                        ?maxRestartDelay = spec.MaxRestartDelay
+                    )
+                    :> IHostedService
+        }
+#endif
 [<AutoOpen>]
 module ScalingJob =
     /// A job named after its work function
     let scalingJob = ScalingJobBuilder(None)
     /// A job with a name of its own
     let namedScalingJob name = ScalingJobBuilder(Some name)
-
+#if NET8_0_OR_GREATER
+    let inline scalingJob2 a = ScalingJobBuilder2(a)
+#endif
     type IServiceCollection with
         member services.AddScalingJob(job: ScalingJobDefinition) =
             services.AddHostedService(fun sp -> job.Create sp :?> BackgroundService)
-
