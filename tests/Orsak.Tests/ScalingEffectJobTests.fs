@@ -183,11 +183,11 @@ let a_failing_worker_waits_no_longer_than_the_max_restart_delay () = task {
         )
 
     do! start job
-    do! Task.Delay 500
+    // waits of at most 10 ms: 12 runs take a fraction of a second, where doubling without the max would take
+    // 10 ms * 2^11, about 20 seconds, well past the 5 seconds eventually waits. Waiting for the runs, rather than
+    // counting them in a fixed time, keeps a slow machine from failing the test.
+    do! eventually (fun () -> workers.Runs >= 12)
     do! stop job
-    // waits of at most 10 ms, about 15 ms with the timer's resolution: around 30 runs in 500 ms, where doubling
-    // without the max would give about 6
-    test <@ workers.Runs >= 12 @>
 }
 
 
@@ -207,8 +207,13 @@ let the_job_adds_a_worker_when_its_workload_increases_up_to_the_maximum () = tas
 let the_job_stops_an_extra_worker_when_its_workload_is_low () = task {
     let workers = Workers()
 
+    // more work until every worker has run, so no extra worker is stopped before it has recorded its environment
     use job =
-        new TestJob(RecordingLogger(), workers.Work succeed, fun check -> if check <= 2 then Increased else Low)
+        new TestJob(
+            RecordingLogger(),
+            workers.Work succeed,
+            fun _ -> if workers.Environments.Length < 3 then Increased else Low
+        )
 
     do! start job
     do! eventually (fun () -> workers.Environments.Length = 3)
@@ -216,9 +221,12 @@ let the_job_stops_an_extra_worker_when_its_workload_is_low () = task {
     let stopped () =
         workers.Environments |> List.filter _.Token.IsCancellationRequested |> List.length
 
-    // both extra workers are stopped, but not the baseline worker
+    // both extra workers are stopped, but not the baseline worker, whose token is only cancelled when the job
+    // stops: the workers run in no particular order, so the baseline is told apart by still running
     do! eventually (fun () -> stopped () = 2)
-    test <@ not workers.Environments.Head.Token.IsCancellationRequested @>
+    let runs = workers.Runs
+    do! eventually (fun () -> workers.Runs >= runs + 3)
+    stopped () =! 2
     do! stop job
 }
 
