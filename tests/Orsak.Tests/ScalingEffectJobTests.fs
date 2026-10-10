@@ -85,7 +85,7 @@ let start (job: TestJob) = task { do! job.StartAsync CancellationToken.None }
 let stop (job: TestJob) = task { do! job.StopAsync CancellationToken.None }
 
 [<Fact(Timeout = 10_000)>]
-let a_worker_runs_its_effect_again_and_again_until_stopped () = task {
+let ``a worker runs its effect again and again until stopped`` () = task {
     let workers = Workers()
     use job = new TestJob(RecordingLogger(), workers.Work succeed, fun _ -> Sustained)
     do! start job
@@ -97,7 +97,7 @@ let a_worker_runs_its_effect_again_and_again_until_stopped () = task {
 }
 
 [<Fact(Timeout = 10_000)>]
-let a_worker_logs_an_exception_and_runs_its_effect_again () = task {
+let ``a worker logs an exception and runs its effect again`` () = task {
     let workers = Workers()
     let logger = RecordingLogger()
     let work = workers.Work(fun n -> if n <= 2 then failwith $"run {n} threw" else Ok())
@@ -115,7 +115,7 @@ let a_worker_logs_an_exception_and_runs_its_effect_again () = task {
 }
 
 [<Fact(Timeout = 10_000)>]
-let a_worker_logs_an_error_and_runs_its_effect_again () = task {
+let ``a worker logs an error and runs its effect again`` () = task {
     let workers = Workers()
     let logger = RecordingLogger()
     let work = workers.Work(fun n -> if n = 1 then Error "out of stock" else Ok())
@@ -127,7 +127,7 @@ let a_worker_logs_an_error_and_runs_its_effect_again () = task {
 }
 
 [<Fact(Timeout = 10_000)>]
-let a_failing_worker_waits_before_running_its_effect_again () = task {
+let ``a failing worker waits before running its effect again`` () = task {
     let workers = Workers()
     let work = workers.Work(fun _ -> Error "failing")
 
@@ -148,7 +148,7 @@ let a_failing_worker_waits_before_running_its_effect_again () = task {
 }
 
 [<Fact(Timeout = 10_000)>]
-let a_failing_worker_waits_twice_as_long_after_each_failure_in_a_row () = task {
+let ``a failing worker waits twice as long after each failure in a row`` () = task {
     let workers = Workers()
     let work = workers.Work(fun _ -> Error "failing")
 
@@ -169,7 +169,7 @@ let a_failing_worker_waits_twice_as_long_after_each_failure_in_a_row () = task {
 }
 
 [<Fact(Timeout = 10_000)>]
-let a_failing_worker_waits_no_longer_than_the_max_restart_delay () = task {
+let ``a failing worker waits no longer than the max restart delay`` () = task {
     let workers = Workers()
     let work = workers.Work(fun _ -> Error "failing")
 
@@ -192,7 +192,7 @@ let a_failing_worker_waits_no_longer_than_the_max_restart_delay () = task {
 
 
 [<Fact(Timeout = 10_000)>]
-let the_job_adds_a_worker_when_its_workload_increases_up_to_the_maximum () = task {
+let ``the job adds a worker when its workload increases up to the maximum`` () = task {
     let workers = Workers()
     use job = new TestJob(RecordingLogger(), workers.Work succeed, fun _ -> Increased)
     do! start job
@@ -204,7 +204,7 @@ let the_job_adds_a_worker_when_its_workload_increases_up_to_the_maximum () = tas
 }
 
 [<Fact(Timeout = 10_000)>]
-let the_job_stops_an_extra_worker_when_its_workload_is_low () = task {
+let ``the job stops an extra worker when its workload is low`` () = task {
     let workers = Workers()
 
     // more work until every worker has run, so no extra worker is stopped before it has recorded its environment
@@ -231,7 +231,7 @@ let the_job_stops_an_extra_worker_when_its_workload_is_low () = task {
 }
 
 [<Fact(Timeout = 10_000)>]
-let the_job_logs_an_exception_from_getting_its_workload_and_checks_again () = task {
+let ``the job logs an exception from getting its workload and checks again`` () = task {
     let workers = Workers()
     let logger = RecordingLogger()
 
@@ -245,7 +245,7 @@ let the_job_logs_an_exception_from_getting_its_workload_and_checks_again () = ta
 }
 
 [<Fact(Timeout = 10_000)>]
-let stopping_the_job_stops_all_its_workers () = task {
+let ``stopping the job stops all its workers`` () = task {
     let workers = Workers()
     use job = new TestJob(RecordingLogger(), workers.Work succeed, fun _ -> Increased)
     do! start job

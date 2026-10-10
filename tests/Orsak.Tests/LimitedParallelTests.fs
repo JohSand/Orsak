@@ -32,14 +32,14 @@ type Tracker() =
 let run (e: Effect<unit, 'a, string>) = e |> Effect.run ()
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_returns_the_results_in_the_order_the_effects_were_given () = task {
+let ``parLimited returns the results in the order the effects were given`` () = task {
     let tracker = Tracker()
     let! result = [ for i in 1..10 -> tracker.Effect(i, Ok i) ] |> Effect.parLimited 3 |> run
     result =! Ok [ 1..10 ]
 }
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_runs_at_most_the_limit_at_a_time () = task {
+let ``parLimited runs at most the limit at a time`` () = task {
     let tracker = Tracker()
     let! result = [ for i in 1..20 -> tracker.Effect(i, Ok i) ] |> Effect.parLimited 3 |> run
     test <@ Result.isOk result @>
@@ -47,14 +47,14 @@ let parLimited_runs_at_most_the_limit_at_a_time () = task {
 }
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_with_a_limit_of_one_runs_the_effects_one_at_a_time () = task {
+let ``parLimited with a limit of one runs the effects one at a time`` () = task {
     let tracker = Tracker()
     let! _ = [ for i in 1..5 -> tracker.Effect(i, Ok i) ] |> Effect.parLimited 1 |> run
     tracker.MostRunning =! 1
 }
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_with_a_limit_above_the_number_of_effects_runs_them_all_at_once () = task {
+let ``parLimited with a limit above the number of effects runs them all at once`` () = task {
     let tracker = Tracker()
     let! result = [ for i in 1..4 -> tracker.Effect(i, Ok i) ] |> Effect.parLimited 100 |> run
     result =! Ok [ 1..4 ]
@@ -62,13 +62,13 @@ let parLimited_with_a_limit_above_the_number_of_effects_runs_them_all_at_once ()
 }
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_of_no_effects_succeeds_with_an_empty_list () = task {
+let ``parLimited of no effects succeeds with an empty list`` () = task {
     let! result = ([]: Effect<unit, int, string> list) |> Effect.parLimited 3 |> run
     result =! Ok []
 }
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_fails_with_the_first_error_in_the_order_the_effects_were_given () = task {
+let ``parLimited fails with the first error in the order the effects were given`` () = task {
     let tracker = Tracker()
 
     let effects = [
@@ -83,7 +83,7 @@ let parLimited_fails_with_the_first_error_in_the_order_the_effects_were_given ()
 }
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_starts_no_more_effects_once_one_has_failed () = task {
+let ``parLimited starts no more effects once one has failed`` () = task {
     let tracker = Tracker()
     let effects = [ for i in 1..10 -> tracker.Effect(i, (if i = 3 then Error "third" else Ok i)) ]
     let! result = effects |> Effect.parLimited 1 |> run
@@ -92,7 +92,7 @@ let parLimited_starts_no_more_effects_once_one_has_failed () = task {
 }
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_rethrows_an_exception_and_starts_no_more_effects () = task {
+let ``parLimited rethrows an exception and starts no more effects`` () = task {
     let tracker = Tracker()
 
     let throwing: Effect<unit, int, string> = eff {
@@ -108,13 +108,13 @@ let parLimited_rethrows_an_exception_and_starts_no_more_effects () = task {
 }
 
 [<Fact>]
-let parLimited_rejects_a_limit_below_one () =
+let ``parLimited rejects a limit below one`` () =
     Assert.Throws<ArgumentOutOfRangeException>(fun () ->
         ([]: Effect<unit, int, string> list) |> Effect.parLimited 0 |> ignore)
     |> ignore
 
 [<Fact(Timeout = 10_000)>]
-let mapParLimited_applies_the_function_to_each_effect_and_runs_at_most_the_limit_at_a_time () = task {
+let ``mapParLimited applies the function to each effect and runs at most the limit at a time`` () = task {
     let tracker = Tracker()
 
     let! result =
@@ -126,7 +126,7 @@ let mapParLimited_applies_the_function_to_each_effect_and_runs_at_most_the_limit
 }
 
 [<Fact(Timeout = 10_000)>]
-let parLimited_starts_the_next_effect_as_soon_as_fewer_than_the_limit_are_running () = task {
+let ``parLimited starts the next effect as soon as fewer than the limit are running`` () = task {
     let releaseFirst = TaskCompletionSource()
     let thirdStarted = TaskCompletionSource()
 

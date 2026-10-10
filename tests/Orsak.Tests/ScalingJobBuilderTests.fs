@@ -48,7 +48,7 @@ let createEnvironment (services: IServiceProvider) (_: CancellationToken) =
     CounterEnv(services.GetRequiredService<ICounter>())
 
 [<Fact>]
-let scalingJob_is_named_after_its_work_function () =
+let ``scalingJob is named after its work function`` () =
     let job = scalingJob {
         work handleCounting
         environment createEnvironment
@@ -57,7 +57,7 @@ let scalingJob_is_named_after_its_work_function () =
     job.Name =! "handleCounting"
 
 [<Fact>]
-let namedScalingJob_keeps_its_own_name () =
+let ``namedScalingJob keeps its own name`` () =
     let job = namedScalingJob "counting" {
         work handleCounting
         environment createEnvironment
@@ -75,7 +75,7 @@ let namedScalingJob_keeps_its_own_name () =
 //     job.Name =! "ScalingJob"
 
 [<Fact(Timeout = 10_000)>]
-let a_scaling_job_added_to_the_services_runs_its_work () = task {
+let ``a scaling job added to the services runs its work`` () = task {
     let mutable count = 0
 
     let counter = {
