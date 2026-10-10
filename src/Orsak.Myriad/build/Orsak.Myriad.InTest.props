@@ -2,4 +2,14 @@
     <ItemGroup>
         <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)/../bin/$(Configuration)/net8.0/Orsak.Myriad.dll" />
     </ItemGroup>
+
+    <!-- Myriad replaces changed output files by deleting and moving them, without coordinating with other
+         processes, so the inner builds of a multi-targeted project fail when they regenerate the same files at
+         once. Generating for the first target framework before the inner builds start leaves the output up to
+         date for the others, which then do not write it. The inner build of that framework reuses this result,
+         including the references resolved for it, so BuildOnlySettings comes first, as in Build: without it,
+         references are resolved without their related files, and xml docs and pdbs are not copied to the output. -->
+    <Target Name="_OrsakMyriadGenerateBeforeInnerBuilds" BeforeTargets="DispatchToInnerBuilds" Condition=" '$(TargetFrameworks)' != '' ">
+        <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="BuildOnlySettings;MyriadSdkGenerateCode" Properties="TargetFramework=$(TargetFrameworks.Split(';')[0].Trim())" />
+    </Target>
 </Project>

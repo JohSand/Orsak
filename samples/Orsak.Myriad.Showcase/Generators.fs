@@ -94,3 +94,46 @@ module AppEnvironment =
 
     let run effects = Effect.run (create effects)
     let runOrFail effects = Effect.runOrFail (create effects)
+
+module RequestEnvironment =
+    let extend (outer: IAppEnvironment) (effect: System.Threading.CancellationTokenSource) : IRequestEnvironment =
+        { new IRequestEnvironment
+
+          interface IBeanCounterProvider with
+              member _.Effect = (outer :> IBeanCounterProvider).Effect
+          interface IGuidGenProvider with
+              member _.GuidGenerator = (outer :> IGuidGenProvider).GuidGenerator
+          interface IRandomProvider with
+              member _.Effect = (outer :> IRandomProvider).Effect
+          interface ICancellationProvider with
+              member _.Source = effect
+        }
+
+    let create
+        (effects:
+            {|
+                BeanCounter: IBeanCounter
+                GuidGenerator: Orsak.IGuidGenerator
+                RandomGenerator: Orsak.IRandomGenerator
+                CancellationTokenSource: System.Threading.CancellationTokenSource
+            |})
+        : IRequestEnvironment =
+        { new IRequestEnvironment
+
+          interface IBeanCounterProvider with
+              member _.Effect = effects.BeanCounter
+          interface IGuidGenProvider with
+              member _.GuidGenerator = effects.GuidGenerator
+          interface IRandomProvider with
+              member _.Effect = effects.RandomGenerator
+          interface ICancellationProvider with
+              member _.Source = effects.CancellationTokenSource
+        }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)
+
+[<AutoOpen>]
+module AppEnvironmentExtensions =
+    type IAppEnvironment with
+        member this.Extend(effect: System.Threading.CancellationTokenSource) = RequestEnvironment.extend this effect

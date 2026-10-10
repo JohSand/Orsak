@@ -89,3 +89,8 @@ module AppEnvironment =
 
     let run effects = Effect.run (create effects)
     let runOrFail effects = Effect.runOrFail (create effects)
+
+[<AutoOpen>]
+module AppEnvironmentExtensions =
+    type IAppEnvironment with
+        member this.Extend(effect: ITransaction) = ScopedEnvironment.extend this effect

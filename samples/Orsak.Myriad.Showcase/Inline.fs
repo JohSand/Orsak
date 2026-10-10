@@ -50,10 +50,10 @@ type ILocalizedEnvironment =
     inherit IInlineEnvironment
     inherit ILocaleProvider
 
-/// Uses the generated LocalizedEnvironment.extend, which forwards the providers of the environment it extends. As
-/// it adds a single provider, extend takes that effect rather than a record of effects.
+/// Uses the generated Extend member, which calls LocalizedEnvironment.extend, forwarding the providers of the
+/// environment it extends. As it adds a single provider, it takes that effect rather than a record of effects.
 let localized () =
-    LocalizedEnvironment.extend (environment ()) { new ILocale with member _.Culture = "sv-SE" }
+    environment().Extend { new ILocale with member _.Culture = "sv-SE" }
 
 type IUnitOfWork =
     inherit CompletableScope
@@ -199,3 +199,13 @@ module AppEnvironmentWithWork =
 
     let run effects = Effect.run (create effects)
     let runOrFail effects = Effect.runOrFail (create effects)
+
+[<AutoOpen>]
+module InlineEnvironmentExtensions =
+    type IInlineEnvironment with
+        member this.Extend(effect: ILocale) = LocalizedEnvironment.extend this effect
+
+[<AutoOpen>]
+module AppEnvironmentWithWorkExtensions =
+    type IAppEnvironmentWithWork with
+        member this.Extend(effect: IUnitOfWork) = WorkEnvironment.extend this effect
