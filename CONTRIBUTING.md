@@ -9,19 +9,25 @@ dotnet build -c Release
 dotnet test --no-build -c Release
 ```
 
-The tests run on .NET 8 and .NET 10. To run some of them, filter by method or class name, which accepts wildcards:
+The tests run on .NET 8 and .NET 10. To run some of them, filter by method or class name, which accepts wildcards at
+the start and end, and names with spaces:
 
 ```bash
-dotnet test tests/Orsak.Tests/Orsak.Tests.fsproj --no-build -c Release -f net10.0 -- --filter-method "*fanOut*"
+dotnet test --project tests/Orsak.Tests/Orsak.Tests.fsproj --no-build -c Release -f net10.0 --filter-method "*fanOut*"
+dotnet test --project tests/Orsak.Tests/Orsak.Tests.fsproj --no-build -c Release --filter-method "*fanOut completes for an empty source"
 ```
+
+`dotnet test` runs the tests on Microsoft.Testing.Platform, as set in `global.json`, so it takes the test runner's
+options, such as `--filter-method`, `--filter-class` and `--filter-query`, rather than VSTest's `--filter`.
 
 The tests of the Myriad generators compare the generated code with approved snapshots, using
 [Verify](https://github.com/VerifyTests/Verify), in `tests/Orsak.Tests/TestDataVerified`. When a change to the
 generated code is intended, update the `.verified.fsx` files, and commit them with the change.
 
-Name tests with underscores, as in `fanOut_completes_for_an_empty_source`, rather than with double backticks and
-spaces, so they can be matched by a filter. Tests of asynchronous code should have a timeout, as in
-`[<Fact(Timeout = 10_000)>]`, so a hang fails the test instead of the run.
+Name tests as sentences, with double backticks and spaces, as in ``` ``fanOut completes for an empty source`` ```.
+Keep the name of the function a test is about as it is written, as in ``` ``addDelay_ adds delay on false`` ```.
+Tests of asynchronous code should have a timeout, as in `[<Fact(Timeout = 10_000)>]`, so a hang fails the test
+instead of the run.
 
 ## Documentation
 

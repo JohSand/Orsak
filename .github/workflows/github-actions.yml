@@ -56,13 +56,13 @@ jobs:
         run: dotnet build --configuration Release
 
       - name: Run unit tests
-        run: dotnet test --no-build -c release -- --report-xunit-trx --results-directory ./test-results
+        run: dotnet test --no-build -c Release --report-xunit-trx --results-directory ./test-results
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-            files: tests/**/test-results/**/*.trx
+            files: test-results/**/*.trx
 
       - name: Pack NuGet package
         if: ${{ success() && github.event_name != 'pull_request' }}
@@ -125,11 +125,11 @@ jobs:
         run: dotnet build --configuration Debug -p:Optimize=false
 
       - name: Run unit tests (dynamic resumable-code path forced)
-        run: dotnet test --no-build -c debug -p:Optimize=false -- --report-xunit-trx --results-directory ./test-results
+        run: dotnet test --no-build -c Debug -p:Optimize=false --report-xunit-trx --results-directory ./test-results
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
             check_name: Dynamic Path Test Results
-            files: tests/**/test-results/**/*.trx
+            files: test-results/**/*.trx
