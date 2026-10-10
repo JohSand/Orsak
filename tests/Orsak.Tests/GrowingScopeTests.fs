@@ -200,7 +200,7 @@ type GrowingScopeTests() =
     let committed () = transaction (GrowingTransaction.read ())
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_binds_transactional_and_other_effects_in_any_order () = task {
+    let ``transaction binds transactional and other effects in any order`` () = task {
         let! result =
             eff {
                 let! _ = Clock.utcNow ()
@@ -217,14 +217,14 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_commits_when_its_effect_succeeds () = task {
+    let ``transaction commits when its effect succeeds`` () = task {
         let! _ = transaction (GrowingTransaction.insert "a") |> run
         let! result = committed () |> run
         result =! Ok [ 1, "a" ]
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_rolls_back_when_its_effect_fails () = task {
+    let ``transaction rolls back when its effect fails`` () = task {
         let! failed =
             eff {
                 do! GrowingTransaction.insert "a"
@@ -239,7 +239,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_rolls_back_and_rethrows_when_its_effect_throws () = task {
+    let ``transaction rolls back and rethrows when its effect throws`` () = task {
         let throwing: Effect<GrowingTransactionEnv, unit, string> = eff {
             do! GrowingTransaction.insert "a"
             failwith "thrown"
@@ -252,7 +252,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transactional_effects_compose_as_plain_effects () = task {
+    let ``transactional effects compose as plain effects`` () = task {
         // no scope-aware builder: a function of transactional effects is an ordinary effect
         let insertAndCount data = eff {
             do! GrowingTransaction.insert data
@@ -273,7 +273,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let each_transaction_is_its_own_scope () = task {
+    let ``each transaction is its own scope`` () = task {
         let! failed =
             eff {
                 do! transaction (GrowingTransaction.insert "a")
@@ -291,7 +291,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_commits_the_writes_of_all_its_effects_together () = task {
+    let ``transaction commits the writes of all its effects together`` () = task {
         let insertOrder = GrowingTransaction.insert "order"
         let insertLines = eff {
             do! GrowingTransaction.insert "line 1"
@@ -312,7 +312,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_rolls_back_the_writes_of_all_its_effects_when_a_later_one_fails () = task {
+    let ``transaction rolls back the writes of all its effects when a later one fails`` () = task {
         let insertOrder = GrowingTransaction.insert "order"
         let insertLines = eff {
             do! GrowingTransaction.insert "line 1"
@@ -335,7 +335,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_rolls_back_earlier_writes_when_an_effect_deep_in_a_helper_fails () = task {
+    let ``transaction rolls back earlier writes when an effect deep in a helper fails`` () = task {
         let insertOrder = GrowingTransaction.insert "order"
 
         let reserve item = eff {
@@ -365,7 +365,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let transaction_commits_writes_of_effects_bound_together_with_and () = task {
+    let ``transaction commits writes of effects bound together with and`` () = task {
         let! placed =
             eff {
                 let! () = GrowingTransaction.insert "a"
@@ -381,7 +381,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let a_nested_transaction_is_its_own_scope_and_completes_even_when_the_outer_one_fails () = task {
+    let ``a nested transaction is its own scope and completes even when the outer one fails`` () = task {
         // nested transactions don't join the outer one: the inner one is completed on its own
         let log = ResizeArray()
 
@@ -402,7 +402,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let a_completing_scope_is_disposed_without_completing_when_its_effect_throws () = task {
+    let ``a completing scope is disposed without completing when its effect throws`` () = task {
         let log = ResizeArray()
         let throwing: Effect<RecordingScopeEnv, unit, string> = eff { failwith "thrown" }
 
@@ -419,21 +419,21 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let withEnvironment_runs_the_effect_with_the_derived_environment () = task {
+    let ``withEnvironment runs the effect with the derived environment`` () = task {
         let length: Effect<string, int, string> = Effect.Create(fun (s: string) -> s.Length)
         let! result = length |> Effect.withEnvironment (fun (n: int) -> String('x', n)) |> Effect.run 3
         result =! Ok 3
     }
 
     [<Fact(Timeout = 10_000)>]
-    let withEnvironment_keeps_the_error_of_the_effect () = task {
+    let ``withEnvironment keeps the error of the effect`` () = task {
         let failing: Effect<string, int, string> = eff { return! Error "failed" }
         let! result = failing |> Effect.withEnvironment string |> Effect.run 3
         result =! Error "failed"
     }
 
     [<Fact(Timeout = 10_000)>]
-    let a_transaction_runs_an_effect_typed_against_the_outer_environment_by_upcasting () = task {
+    let ``a transaction runs an effect typed against the outer environment by upcasting`` () = task {
         // typed against the outer environment, so it can't be bound in the transaction's body as it is
         let now: Effect<GrowingTestEnv, DateTimeOffset, string> = Clock.utcNow ()
 
@@ -451,7 +451,7 @@ type GrowingScopeTests() =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let a_generic_combinator_opens_a_scope_for_the_effects_it_is_given () = task {
+    let ``a generic combinator opens a scope for the effects it is given`` () = task {
         let reports = ResizeArray()
         let scope = ProgressScope(reports)
 

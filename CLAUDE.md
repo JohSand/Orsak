@@ -12,17 +12,19 @@ Orsak is an F# library for functional effects inspired by ZIO. It implements pra
 dotnet tool restore
 dotnet restore
 dotnet build --configuration Release
-dotnet test --no-build -c release
+dotnet test --no-build -c Release
 
 # Run a single test project
-dotnet test tests/Orsak.Tests/Orsak.Tests.fsproj --no-build -c release
+dotnet test --project tests/Orsak.Tests/Orsak.Tests.fsproj --no-build -c Release
 
-# Run a single test by name filter
-dotnet test tests/Orsak.Tests/Orsak.Tests.fsproj --no-build -c release --filter "FullyQualifiedName~TestName"
+# Run tests by name (names may contain spaces; * only at the start or end)
+dotnet test --project tests/Orsak.Tests/Orsak.Tests.fsproj --no-build -c Release --filter-method "*TestName*"
 
 # Pack NuGet packages
 dotnet pack --configuration Release --output ./nupkg
 ```
+
+`dotnet test` runs on Microsoft.Testing.Platform (set in `global.json`), so options go to the test runner directly: `--filter-method`, `--filter-class`, `--filter-query`, not VSTest's `--filter`, which is rejected.
 
 The test suite uses **Verify.Xunit** for snapshot/approval testing. When snapshot output changes intentionally, update `.verified.txt` files alongside tests.
 
@@ -81,3 +83,4 @@ The main library targets `net6.0`, `net8.0`, and `net10.0`. Some APIs (e.g., `IT
 - Errors are modeled as the `'e` type parameter (discriminated unions), not exceptions. Exceptions bubble only for truly unexpected failures.
 - The `IProvide<'t>` marker interface is used as a dedicated marker — don't conflate it with ad-hoc provider interfaces.
 - Snapshot test files (`*.verified.txt`) live alongside test files; commit them with intentional changes.
+- Name tests as sentences with double backticks and spaces, e.g. ``` ``fanOut completes for an empty source`` ```, keeping function names as written (``` ``addDelay_ adds delay on false`` ```). Filters match names with spaces.
