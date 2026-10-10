@@ -1,6 +1,5 @@
 ﻿namespace Orsak.Tests
 
-open System.Net
 open System.Threading.Tasks
 open FSharp.Control
 open Orsak
@@ -19,10 +18,10 @@ module Dummy =
         mkEffect (fun (d: #Dummy) ->
             ValueTask<_>(
                 task = task {
-                    //some level of effect resumption is needed...
-                    //Task.Yield is not enough.
-                    //Task.Delay can do it, but it sometimes just hangs.
-                    let! x = Dns.GetHostEntryAsync("google.com")
+                    // suspends, so the effects around it suspend and resume too, as with real I/O, without
+                    // depending on the network. Task.Delay would also suspend, but waits for the timer's
+                    // resolution, about 15 ms on Windows, on every run.
+                    do! Task.Yield()
                     return! d.ok ()
                 }
             ))
