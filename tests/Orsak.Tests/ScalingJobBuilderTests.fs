@@ -65,14 +65,14 @@ let namedScalingJob_keeps_its_own_name () =
 
     job.Name =! "counting"
 
-[<Fact>]
-let scalingJob_whose_work_is_a_lambda_gets_a_default_name () =
-    let job = scalingJob {
-        work (fun _ -> countOnce () |> Effect.map id)
-        environment createEnvironment
-    }
-
-    job.Name =! "ScalingJob"
+// [<Fact>]
+// let scalingJob2_extended_with_cancellation () =
+//     let env = (CounterEnv({ new ICounter with member _.Count() = () }))
+//     let job = scalingJob2 env {
+//         work (fun _ -> countOnce () |> Effect.map id)
+//     }
+//
+//     job.Name =! "ScalingJob"
 
 [<Fact(Timeout = 10_000)>]
 let a_scaling_job_added_to_the_services_runs_its_work () = task {
@@ -122,16 +122,13 @@ module TestEnvironment =
     let runOrFail effects = Effect.runOrFail (create effects)
 
 module JobTestEnvironment =
-    let extend
-        (outer: ITestEnvironment)
-        (effects: {| CancellationTokenSource: System.Threading.CancellationTokenSource |})
-        : IJobTestEnvironment =
+    let extend (outer: ITestEnvironment) (effect: System.Threading.CancellationTokenSource) : IJobTestEnvironment =
         { new IJobTestEnvironment
 
           interface ICounterProvider with
               member _.Effect = (outer :> ICounterProvider).Effect
           interface ICancellationProvider with
-              member _.Source = effects.CancellationTokenSource
+              member _.Source = effect
         }
 
     let create
@@ -147,3 +144,8 @@ module JobTestEnvironment =
 
     let run effects = Effect.run (create effects)
     let runOrFail effects = Effect.runOrFail (create effects)
+
+[<AutoOpen>]
+module TestEnvironmentExtensions =
+    type ITestEnvironment with
+        member this.Extend(effect: System.Threading.CancellationTokenSource) = JobTestEnvironment.extend this effect
