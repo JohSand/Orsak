@@ -38,6 +38,17 @@ type IWideEnvironment =
     inherit ITestEffect2Provider
     inherit ITestEffect3Provider
 
+// these two add the same effect, so neither gets an Extend member, as both would take the same type
+[<GenEnvironment>]
+type ISiblingEnvironment =
+    inherit IAppEnvironment
+    inherit ITestEffect3Provider
+
+[<GenEnvironment>]
+type ITwinEnvironment =
+    inherit IAppEnvironment
+    inherit ITestEffect3Provider
+
 // adds nothing of its own, so it only gets create
 [<GenEnvironment>]
 type IAliasEnvironment =
@@ -130,6 +141,62 @@ module WideEnvironment =
     let run effects = Effect.run (create effects)
     let runOrFail effects = Effect.runOrFail (create effects)
 
+module SiblingEnvironment =
+    let extend (outer: IAppEnvironment) (effect: ITestEffect3) : ISiblingEnvironment =
+        { new ISiblingEnvironment
+
+          interface ITestEffect1Provider with
+              member _.Effect = (outer :> ITestEffect1Provider).Effect
+          interface IGuidGenProvider with
+              member _.GuidGenerator = (outer :> IGuidGenProvider).GuidGenerator
+          interface ITestEffect3Provider with
+              member _.Effect = effect
+        }
+
+    let create
+        (effects: {| TestEffect1: ITestEffect1; GuidGenerator: Orsak.IGuidGenerator; TestEffect3: ITestEffect3 |})
+        : ISiblingEnvironment =
+        { new ISiblingEnvironment
+
+          interface ITestEffect1Provider with
+              member _.Effect = effects.TestEffect1
+          interface IGuidGenProvider with
+              member _.GuidGenerator = effects.GuidGenerator
+          interface ITestEffect3Provider with
+              member _.Effect = effects.TestEffect3
+        }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)
+
+module TwinEnvironment =
+    let extend (outer: IAppEnvironment) (effect: ITestEffect3) : ITwinEnvironment =
+        { new ITwinEnvironment
+
+          interface ITestEffect1Provider with
+              member _.Effect = (outer :> ITestEffect1Provider).Effect
+          interface IGuidGenProvider with
+              member _.GuidGenerator = (outer :> IGuidGenProvider).GuidGenerator
+          interface ITestEffect3Provider with
+              member _.Effect = effect
+        }
+
+    let create
+        (effects: {| TestEffect1: ITestEffect1; GuidGenerator: Orsak.IGuidGenerator; TestEffect3: ITestEffect3 |})
+        : ITwinEnvironment =
+        { new ITwinEnvironment
+
+          interface ITestEffect1Provider with
+              member _.Effect = effects.TestEffect1
+          interface IGuidGenProvider with
+              member _.GuidGenerator = effects.GuidGenerator
+          interface ITestEffect3Provider with
+              member _.Effect = effects.TestEffect3
+        }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)
+
 module AliasEnvironment =
     let create (effects: {| TestEffect1: ITestEffect1; GuidGenerator: Orsak.IGuidGenerator |}) : IAliasEnvironment =
         { new IAliasEnvironment
@@ -142,3 +209,11 @@ module AliasEnvironment =
 
     let run effects = Effect.run (create effects)
     let runOrFail effects = Effect.runOrFail (create effects)
+
+[<AutoOpen>]
+module AppEnvironmentExtensions =
+    type IAppEnvironment with
+        member this.Extend(effect: ITestEffect2) = ScopedEnvironment.extend this effect
+
+        member this.Extend(effects: {| TestEffect2: ITestEffect2; TestEffect3: ITestEffect3 |}) =
+            WideEnvironment.extend this effects

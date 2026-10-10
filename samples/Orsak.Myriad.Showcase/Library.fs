@@ -42,3 +42,10 @@ type IAppEnvironment =
     inherit IBeanCounterProvider
     inherit IGuidGenProvider
     inherit IRandomProvider
+
+/// Extends IAppEnvironment with cancellation, so it also gets RequestEnvironment.extend, and IAppEnvironment gets a
+/// generated Extend member that calls it: appEnvironment.Extend(cancellationTokenSource).
+[<GenEnvironment>]
+type IRequestEnvironment =
+    inherit IAppEnvironment
+    inherit ICancellationProvider

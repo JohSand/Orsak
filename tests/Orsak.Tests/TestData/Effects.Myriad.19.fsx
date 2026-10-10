@@ -38,6 +38,17 @@ type IWideEnvironment =
     inherit ITestEffect2Provider
     inherit ITestEffect3Provider
 
+// these two add the same effect, so neither gets an Extend member, as both would take the same type
+[<GenEnvironment>]
+type ISiblingEnvironment =
+    inherit IAppEnvironment
+    inherit ITestEffect3Provider
+
+[<GenEnvironment>]
+type ITwinEnvironment =
+    inherit IAppEnvironment
+    inherit ITestEffect3Provider
+
 // adds nothing of its own, so it only gets create
 [<GenEnvironment>]
 type IAliasEnvironment =
