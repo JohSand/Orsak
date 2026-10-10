@@ -30,6 +30,7 @@ open Orsak.Myriad.Syntax
 module EnvironmentSyntax =
     let private parameterName = "effects"
     let private outerName = "outer"
+    let private singleEffectName = "effect"
 
     /// `Name<A, B>`
     let private genericType (name: string list) (args: string list list) =
@@ -46,7 +47,7 @@ module EnvironmentSyntax =
     let private serviceType =
         function
         | BeginsScope(interfaceType, scope, _) -> genericType interfaceType [ scope ]
-        | GrowsInto(interfaceType, scope, inner, _, _) -> genericType interfaceType [ scope; [ inner ] ]
+        | GrowsInto(interfaceType, scope, inner, _) -> genericType interfaceType [ scope; [ inner ] ]
 
     /// The record of effects: a field for each provider, and for each service implemented by one.
     let private effectsRecordType (providers: EnvironmentProviderCfg list) (services: EnvironmentServiceCfg list) =
@@ -102,18 +103,27 @@ module EnvironmentSyntax =
     let private dotGet (expr: SynExpr) (name: string) =
         SynExpr.DotGet(expr, range0, SynLongIdent.Create [ name ], range0)
 
-    /// Where the environment gets what it implements: the record of effects, or the environment it extends.
+    /// Where the environment gets its services: the record of effects, or the environment it extends.
     type private Source =
         | FromEffects
         | FromOuter
 
-    let private providerImpl (source: Source) (provider: EnvironmentProviderCfg) =
-        let effect =
-            match source with
-            | FromEffects -> longExpr [ parameterName; provider.fieldName ]
-            | FromOuter -> dotGet (outerAs (longType provider.providerType)) provider.propertyName
+    /// `effects.Foo`
+    let private fromEffects (provider: EnvironmentProviderCfg) =
+        longExpr [ parameterName; provider.fieldName ]
 
-        SynInterfaceImpl(longType provider.providerType, Some range0, [], [ memberDefn "_" provider.propertyName [] effect ], range0)
+    /// `(outer :> IFooProvider).Effect`
+    let private fromOuter (provider: EnvironmentProviderCfg) =
+        dotGet (outerAs (longType provider.providerType)) provider.propertyName
+
+    let private providerImpl (effectOf: EnvironmentProviderCfg -> SynExpr) (provider: EnvironmentProviderCfg) =
+        SynInterfaceImpl(
+            longType provider.providerType,
+            Some range0,
+            [],
+            [ memberDefn "_" provider.propertyName [] (effectOf provider) ],
+            range0
+        )
 
     let private serviceImpl (source: Source) (service: EnvironmentServiceCfg) =
         // `effects.Field.Name`, or `(outer :> Interface).Name`
@@ -126,31 +136,23 @@ module EnvironmentSyntax =
             match service with
             | BeginsScope(fieldName = field) ->
                 memberDefn "_" "BeginScope" [ unitPat ] (appAtomic (memberOf field "BeginScope") unitExpr)
-            | GrowsInto(inner = inner; innerBase = innerBase; innerField = innerField) ->
+            | GrowsInto(inner = inner; innerBase = innerBase) ->
                 match source with
                 | FromEffects ->
-                    // `this` is typed as the interface being implemented, so it is cast to the environment extended
+                    // `this` is typed as the interface being implemented, so it is cast to the environment extended.
+                    // 'Inner adds only the provider of the scope, so its extend takes the scope itself.
                     let self = paren (SynExpr.Downcast(longExpr [ "this" ], longType innerBase, range0))
-
-                    let scope =
-                        SynExpr.AnonRecd(
-                            false,
-                            None,
-                            [ SynLongIdent.Create [ innerField ], Some range0, longExpr [ "scope" ] ],
-                            range0,
-                            { OpeningBraceRange = range0 }
-                        )
-
-                    memberDefn "this" "Grow" [ namedPat "scope" ] (app (app (longExpr [ Writer.trimI inner; "extend" ]) self) scope)
+                    let extend = app (longExpr [ Writer.trimI inner; "extend" ]) self
+                    memberDefn "this" "Grow" [ namedPat "scope" ] (app extend (longExpr [ "scope" ]))
                 | FromOuter ->
                     memberDefn "_" "Grow" [ namedPat "scope" ] (app (dotGet (outerAs (serviceType service)) "Grow") (longExpr [ "scope" ]))
 
         SynInterfaceImpl(serviceType service, Some range0, [], [ memberImpl ], range0)
 
-    /// Implements the environment, taking each provider and service from `sourceOf`.
+    /// Implements the environment, taking each provider's effect from `effectOf`, and the services from `serviceSource`.
     let private objectExpression
         (environment: EnvironmentCfg)
-        (providerSource: EnvironmentProviderCfg -> Source)
+        (effectOf: EnvironmentProviderCfg -> SynExpr)
         (serviceSource: Source)
         =
         SynExpr.ObjExpr(
@@ -160,7 +162,7 @@ module EnvironmentSyntax =
             [],
             [],
             [
-                for provider in environment.providers -> providerImpl (providerSource provider) provider
+                for provider in environment.providers -> providerImpl effectOf provider
                 for service in environment.services -> serviceImpl serviceSource service
             ],
             range0,
@@ -175,22 +177,27 @@ module EnvironmentSyntax =
         letDecl name [ namedPat parameterName, Some parameterName ] None body
 
     /// `let extend (outer: IBase) (effects: {| ... |}) : IEnvironment`, forwarding the providers and services of
-    /// `outer`, and taking the environment's own providers from the record of effects.
+    /// `outer`, and taking the environment's own providers from the record of effects. When the environment adds
+    /// a single provider, it takes that effect instead: `let extend (outer: IBase) (effect: IFoo) : IEnvironment`.
     let private extend (environment: EnvironmentCfg) (extends: EnvironmentBaseCfg) =
         let outer =
             SynPat.Paren(SynPat.Typed(namedPat outerName, longType extends.baseType, range0), range0)
 
-        let effects =
-            SynPat.Paren(SynPat.Typed(namedPat parameterName, effectsRecordType extends.own [], range0), range0)
+        let ownName, ownType, fromOwn =
+            match extends.own with
+            | [ provider ] -> singleEffectName, longType provider.effectType, (fun _ -> longExpr [ singleEffectName ])
+            | own -> parameterName, effectsRecordType own [], fromEffects
 
-        let providerSource (provider: EnvironmentProviderCfg) =
+        let own = SynPat.Paren(SynPat.Typed(namedPat ownName, ownType, range0), range0)
+
+        let effectOf (provider: EnvironmentProviderCfg) =
             if extends.inherited |> List.exists (fun i -> i.providerType = provider.providerType) then
-                FromOuter
+                fromOuter provider
             else
-                FromEffects
+                fromOwn provider
 
-        let body = objectExpression environment providerSource FromOuter
-        letDecl "extend" [ outer, Some outerName; effects, Some parameterName ] (Some(longType [ environment.name ])) body
+        let body = objectExpression environment effectOf FromOuter
+        letDecl "extend" [ outer, Some outerName; own, Some ownName ] (Some(longType [ environment.name ])) body
 
     /// extend comes first, as an environment growing into itself uses it in create.
     let private environmentModule (environment: EnvironmentCfg) =
@@ -201,7 +208,7 @@ module EnvironmentSyntax =
             )
 
         let create =
-            objectExpression environment (fun _ -> FromEffects) FromEffects
+            objectExpression environment fromEffects FromEffects
 
         moduleDecl (Writer.trimI environment.name) [
             match environment.extends with

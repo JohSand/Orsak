@@ -33,13 +33,13 @@ open Orsak.Myriad
 open Orsak.Scoped
 
 module ScopedEnvironment =
-    let extend (outer: IAppEnvironment) (effects: {| Transaction: ITransaction |}) : IScopedEnvironment =
+    let extend (outer: IAppEnvironment) (effect: ITransaction) : IScopedEnvironment =
         { new IScopedEnvironment
 
           interface ITestEffect1Provider with
               member _.Effect = (outer :> ITestEffect1Provider).Effect
           interface ITransactionProvider with
-              member _.Effect = effects.Transaction
+              member _.Effect = effect
           interface CompletableScopeProvider<ITransaction> with
               member _.BeginScope() =
                   (outer :> CompletableScopeProvider<ITransaction>).BeginScope()
@@ -66,7 +66,7 @@ module ScopedEnvironment =
               member _.BeginScope() = effects.TransactionScope.BeginScope()
           interface IGrowsInto<ITransaction, IScopedEnvironment> with
               member this.Grow scope =
-                  ScopedEnvironment.extend (this :?> IAppEnvironment) {| Transaction = scope |}
+                  ScopedEnvironment.extend (this :?> IAppEnvironment) scope
         }
 
     let run effects = Effect.run (create effects)
@@ -84,7 +84,7 @@ module AppEnvironment =
               member _.BeginScope() = effects.TransactionScope.BeginScope()
           interface IGrowsInto<ITransaction, IScopedEnvironment> with
               member this.Grow scope =
-                  ScopedEnvironment.extend (this :?> IAppEnvironment) {| Transaction = scope |}
+                  ScopedEnvironment.extend (this :?> IAppEnvironment) scope
         }
 
     let run effects = Effect.run (create effects)

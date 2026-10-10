@@ -50,9 +50,10 @@ type ILocalizedEnvironment =
     inherit IInlineEnvironment
     inherit ILocaleProvider
 
-/// Uses the generated LocalizedEnvironment.extend, which forwards the providers of the environment it extends.
+/// Uses the generated LocalizedEnvironment.extend, which forwards the providers of the environment it extends. As
+/// it adds a single provider, extend takes that effect rather than a record of effects.
 let localized () =
-    LocalizedEnvironment.extend (environment ()) {| Locale = { new ILocale with member _.Culture = "sv-SE" } |}
+    LocalizedEnvironment.extend (environment ()) { new ILocale with member _.Culture = "sv-SE" }
 
 type IUnitOfWork =
     inherit CompletableScope
@@ -120,7 +121,7 @@ module InlineEnvironment =
     let runOrFail effects = Effect.runOrFail (create effects)
 
 module LocalizedEnvironment =
-    let extend (outer: IInlineEnvironment) (effects: {| Locale: ILocale |}) : ILocalizedEnvironment =
+    let extend (outer: IInlineEnvironment) (effect: ILocale) : ILocalizedEnvironment =
         { new ILocalizedEnvironment
 
           interface IClockProvider with
@@ -128,7 +129,7 @@ module LocalizedEnvironment =
           interface IGreeterProvider with
               member _.Effect = (outer :> IGreeterProvider).Effect
           interface ILocaleProvider with
-              member _.Effect = effects.Locale
+              member _.Effect = effect
         }
 
     let create (effects: {| Clock: IClock; Greeter: IGreeter; Locale: ILocale |}) : ILocalizedEnvironment =
@@ -146,13 +147,13 @@ module LocalizedEnvironment =
     let runOrFail effects = Effect.runOrFail (create effects)
 
 module WorkEnvironment =
-    let extend (outer: IAppEnvironmentWithWork) (effects: {| UnitOfWork: IUnitOfWork |}) : IWorkEnvironment =
+    let extend (outer: IAppEnvironmentWithWork) (effect: IUnitOfWork) : IWorkEnvironment =
         { new IWorkEnvironment
 
           interface IGreeterProvider with
               member _.Effect = (outer :> IGreeterProvider).Effect
           interface IUnitOfWorkProvider with
-              member _.Effect = effects.UnitOfWork
+              member _.Effect = effect
           interface CompletableScopeProvider<IUnitOfWork> with
               member _.BeginScope() =
                   (outer :> CompletableScopeProvider<IUnitOfWork>).BeginScope()
@@ -175,7 +176,7 @@ module WorkEnvironment =
               member _.BeginScope() = effects.UnitOfWorkScope.BeginScope()
           interface IGrowsInto<IUnitOfWork, IWorkEnvironment> with
               member this.Grow scope =
-                  WorkEnvironment.extend (this :?> IAppEnvironmentWithWork) {| UnitOfWork = scope |}
+                  WorkEnvironment.extend (this :?> IAppEnvironmentWithWork) scope
         }
 
     let run effects = Effect.run (create effects)
@@ -193,7 +194,7 @@ module AppEnvironmentWithWork =
               member _.BeginScope() = effects.UnitOfWorkScope.BeginScope()
           interface IGrowsInto<IUnitOfWork, IWorkEnvironment> with
               member this.Grow scope =
-                  WorkEnvironment.extend (this :?> IAppEnvironmentWithWork) {| UnitOfWork = scope |}
+                  WorkEnvironment.extend (this :?> IAppEnvironmentWithWork) scope
         }
 
     let run effects = Effect.run (create effects)
