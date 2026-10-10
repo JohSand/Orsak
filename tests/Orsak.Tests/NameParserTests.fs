@@ -137,43 +137,43 @@ let curriedThenTupled (i: int) (j: int, k: int) = ignore (i, j, k)
 let takesUnit () = 42
 
 [<Fact>]
-let read_names_a_function_passed_by_name_after_its_method () =
+let ``read names a function passed by name after its method`` () =
     let shape = Shapes.Read(twoArgFunction)
     Assert.Equal(Some(nameof twoArgFunction), shape.Name)
     Assert.Equal(nameof twoArgFunction, shape.Method.Value.Name)
 
 [<Fact>]
-let read_gives_no_method_or_name_for_a_lambda_doing_more_than_calling_a_function () =
+let ``read gives no method or name for a lambda doing more than calling a function`` () =
     let shape = Shapes.Read(fun (i: int) -> i + 3)
     Assert.Equal<_ array>([| "i" |], shape.ParameterNames)
     Assert.Equal(None, shape.Method)
     Assert.Equal(None, shape.Name)
 
 [<Fact>]
-let read_finds_the_method_of_a_function_partially_applied_in_place () =
+let ``read finds the method of a function partially applied in place`` () =
     let shape = Shapes.Read(add 1)
     Assert.Equal<_ array>([| "b" |], shape.ParameterNames)
     Assert.Equal(Some(nameof add), shape.Name)
 
 [<Fact>]
-let read_names_a_partial_application_bound_to_a_name_after_it () =
+let ``read names a partial application bound to a name after it`` () =
     let shape = Shapes.Read(addOne)
     Assert.Equal(Some(nameof addOne), shape.Name)
     Assert.Equal(None, shape.Method)
 
 [<Fact>]
-let read_reads_a_tupled_parameter_after_a_curried_one () =
+let ``read reads a tupled parameter after a curried one`` () =
     let shape = Shapes.Read(curriedThenTupled)
     Assert.Equal<_ array>([| "i"; "j"; "k" |], shape.ParameterNames)
     Assert.Equal(Some(nameof curriedThenTupled), shape.Name)
 
 [<Fact>]
-let read_finds_the_method_of_a_function_taking_unit () =
+let ``read finds the method of a function taking unit`` () =
     let shape = Shapes.Read(takesUnit)
     Assert.Equal(Some(nameof takesUnit), shape.Name)
 
 [<Fact>]
-let capture_rejects_a_function_quoted_without_its_value () =
+let ``capture rejects a function quoted without its value`` () =
     Assert.Throws<System.ArgumentException>(fun () ->
         Orsak.AspNetCore.ReflectedFunction.capture <@ fun (i: int) -> i @> |> ignore)
     |> ignore
