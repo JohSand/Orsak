@@ -119,9 +119,9 @@ module Message =
         })
 
     let private transaction (f: DbTransactional -> Result<_,_>) =
-        mkEffect (fun tran -> ValueTask<_>(f tran))
+        mkEffect (fun (provider: #ITransactionProvider) -> ValueTask<_>(f provider.Transaction))
 
-    let read<'a, 'err> (sql: string) (p: obj) : Transaction<'a option, 'err> =
+    let read<'r, 'a, 'err when 'r :> ITransactionProvider> (sql: string) (p: obj) : Effect<'r, 'a option, 'err> =
         transaction (fun tran -> 
             let b = tran.Connection.QueryFirstOrDefault<'a>(sql, p)
             match box b with
@@ -129,9 +129,9 @@ module Message =
             | _ -> Ok(Some b)
         )
 
-    let execute (sql: string) (p: obj) : Transaction<unit, 'err> =
-        mkEffect (fun (tran: DbTransactional) -> vtask {
-            let connection = tran.Connection
+    let execute (sql: string) (p: obj) =
+        mkEffect (fun (provider: #ITransactionProvider) -> vtask {
+            let connection = provider.Transaction.Connection
             let b = connection.Execute(sql, param = p)
             return Ok()
         })
@@ -139,7 +139,7 @@ module Message =
 
     let handleMessage (message: MessageModel) = commitEff {
         match!
-            read<{| handled: string; id: Int64; orderId: string |}, _>
+            read<_, {| handled: string; id: Int64; orderId: string |}, _>
                 ("SELECT handled, id, orderId FROM inbox where orderId = @orderId")
                 {| orderId = message.orderId |}
         with
