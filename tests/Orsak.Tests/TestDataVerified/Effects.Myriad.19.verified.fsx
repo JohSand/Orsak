@@ -13,17 +13,30 @@ type ITestEffect2 =
 type ITestEffect2Provider =
     abstract Effect: ITestEffect2
 
+type ITestEffect3 =
+    abstract Test: unit -> int
+
+type ITestEffect3Provider =
+    abstract Effect: ITestEffect3
+
 [<GenEnvironment>]
 type IAppEnvironment =
     inherit ITestEffect1Provider
     inherit IGuidGenProvider
 
-// extends IAppEnvironment, so it also gets an extend function
+// extends IAppEnvironment, so it also gets an extend function, taking the one effect it adds
 [<GenEnvironment>]
 type IScopedEnvironment =
     inherit IAppEnvironment
     inherit ITestEffect2Provider
     inherit IGuidGenProvider
+
+// adds two effects, so its extend function takes a record of them
+[<GenEnvironment>]
+type IWideEnvironment =
+    inherit IAppEnvironment
+    inherit ITestEffect2Provider
+    inherit ITestEffect3Provider
 
 // adds nothing of its own, so it only gets create
 [<GenEnvironment>]
@@ -49,7 +62,7 @@ module AppEnvironment =
     let runOrFail effects = Effect.runOrFail (create effects)
 
 module ScopedEnvironment =
-    let extend (outer: IAppEnvironment) (effects: {| TestEffect2: ITestEffect2 |}) : IScopedEnvironment =
+    let extend (outer: IAppEnvironment) (effect: ITestEffect2) : IScopedEnvironment =
         { new IScopedEnvironment
 
           interface ITestEffect1Provider with
@@ -57,7 +70,7 @@ module ScopedEnvironment =
           interface IGuidGenProvider with
               member _.GuidGenerator = (outer :> IGuidGenProvider).GuidGenerator
           interface ITestEffect2Provider with
-              member _.Effect = effects.TestEffect2
+              member _.Effect = effect
         }
 
     let create
@@ -71,6 +84,47 @@ module ScopedEnvironment =
               member _.GuidGenerator = effects.GuidGenerator
           interface ITestEffect2Provider with
               member _.Effect = effects.TestEffect2
+        }
+
+    let run effects = Effect.run (create effects)
+    let runOrFail effects = Effect.runOrFail (create effects)
+
+module WideEnvironment =
+    let extend
+        (outer: IAppEnvironment)
+        (effects: {| TestEffect2: ITestEffect2; TestEffect3: ITestEffect3 |})
+        : IWideEnvironment =
+        { new IWideEnvironment
+
+          interface ITestEffect1Provider with
+              member _.Effect = (outer :> ITestEffect1Provider).Effect
+          interface IGuidGenProvider with
+              member _.GuidGenerator = (outer :> IGuidGenProvider).GuidGenerator
+          interface ITestEffect2Provider with
+              member _.Effect = effects.TestEffect2
+          interface ITestEffect3Provider with
+              member _.Effect = effects.TestEffect3
+        }
+
+    let create
+        (effects:
+            {|
+                TestEffect1: ITestEffect1
+                GuidGenerator: Orsak.IGuidGenerator
+                TestEffect2: ITestEffect2
+                TestEffect3: ITestEffect3
+            |})
+        : IWideEnvironment =
+        { new IWideEnvironment
+
+          interface ITestEffect1Provider with
+              member _.Effect = effects.TestEffect1
+          interface IGuidGenProvider with
+              member _.GuidGenerator = effects.GuidGenerator
+          interface ITestEffect2Provider with
+              member _.Effect = effects.TestEffect2
+          interface ITestEffect3Provider with
+              member _.Effect = effects.TestEffect3
         }
 
     let run effects = Effect.run (create effects)

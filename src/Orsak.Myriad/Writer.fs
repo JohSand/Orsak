@@ -105,9 +105,8 @@ type EnvironmentServiceCfg =
     | BeginsScope of interfaceType: string list * scopeType: string list * fieldName: string
     /// IGrowsInto<'Scope, 'Inner>, where 'Inner is a [<GenEnvironment>] interface of the same file extending the
     /// environment with a provider of 'Scope: implemented with the extend function of 'Inner. `innerBase` is the
-    /// environment 'Inner extends, and `innerField` the field of its provider of 'Scope, both filled in once all the
-    /// environments of the file are known.
-    | GrowsInto of interfaceType: string list * scopeType: string list * inner: string * innerBase: string list * innerField: string
+    /// environment 'Inner extends, filled in once all the environments of the file are known.
+    | GrowsInto of interfaceType: string list * scopeType: string list * inner: string * innerBase: string list
 
 /// <exclude/>
 // `providers` and `services` include those of any inherited [<GenEnvironment>] interfaces.

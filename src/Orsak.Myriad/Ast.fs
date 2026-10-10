@@ -335,7 +335,7 @@ let private serviceCfg (fail: string -> EnvironmentServiceCfg) (ids: LongIdent) 
     | _ when args.Length <> typeArgs.Length -> fail $"can only inherit '%s{name}' with named types as type arguments."
     | ("ScopeProvider" | "CompletableScopeProvider"), [ scope ] ->
         BeginsScope(ids |> List.map _.idText, scope, Writer.trimI (List.last scope) + "Scope")
-    | "IGrowsInto", [ scope; [ inner ] ] -> GrowsInto(ids |> List.map _.idText, scope, inner, [], "")
+    | "IGrowsInto", [ scope; [ inner ] ] -> GrowsInto(ids |> List.map _.idText, scope, inner, [])
     | "IGrowsInto", [ _; _ ] -> fail "can only grow into a [<GenEnvironment>] interface of the same file, named without qualification."
     | _ ->
         fail
@@ -427,7 +427,7 @@ let private completeGrowth (environments: EnvironmentCfg list) (environment: Env
     let services =
         environment.services
         |> List.map (function
-            | GrowsInto(interfaceType, scope, innerName, _, _) ->
+            | GrowsInto(interfaceType, scope, innerName, _) ->
                 let fail reason =
                     failwith $"GenEnvironment: '%s{environment.name}' grows into '%s{innerName}', which %s{reason}"
 
@@ -441,7 +441,7 @@ let private completeGrowth (environments: EnvironmentCfg list) (environment: Env
                 | Some extends ->
                     match extends.own with
                     | [ provider ] when List.last provider.effectType = List.last scope ->
-                        GrowsInto(interfaceType, scope, innerName, extends.baseType, provider.fieldName)
+                        GrowsInto(interfaceType, scope, innerName, extends.baseType)
                     | own ->
                         let added = own |> List.map (fun p -> $"'%s{List.last p.effectType}'") |> String.concat ", "
 
