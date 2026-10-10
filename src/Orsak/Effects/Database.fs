@@ -24,15 +24,12 @@ type DbTransactional(tran: DbTransaction) =
 
 /// <exclude/>
 /// <summary>
-/// Pure transaction effect.
+/// Provides the transaction of the scope an effect runs in. An effect asks for the transaction by requiring this of
+/// its environment, which only the environment grown in a scope of <see cref="DbTransactional"/> implements.
 /// </summary>
-type Transaction<'a, 'err> = Effect<DbTransactional, 'a, 'err>
-
-/// <exclude/>
-/// <summary>
-/// Effects created by trxAware have this type.
-/// </summary>
-type EnlistedTransaction<'r, 'a, 'err> = Effect<ScopedEnvironment<'r, DbTransactional>, 'a, 'err>
+[<Experimental("Experimental feature, API not stable")>]
+type ITransactionProvider =
+    abstract member Transaction: DbTransactional
 
 namespace Orsak.Scoped
 
@@ -44,9 +41,10 @@ open System.Threading.Tasks
 /// <exclude/>
 [<AutoOpen>]
 module Builder =
+    //effects bound in commitEff run in a transaction, and are ordinary effects of the environment the outer one grows into.
+    //the result is an effect of the outer environment, which no longer provides the transaction
+    [<Experimental("Experimental feature, API not stable")>]
     let commitEff = Orsak.Scoped.CompletableScopeCreatingEffectBuilder<DbTransactional>()
-
-    let trxAware = Orsak.ScopeAware.ScopeAwareEffectBuilder<DbTransactional>()
 
 (*
     Using scoped effects:
@@ -59,43 +57,32 @@ type IProgressScope =
     abstract member Progress: System.IProgress<float>
     inherit Scoped
 
+//the provider effects use to reach the progress of the scope they run in
+/// <exclude/>
+type IProgressProvider =
+    abstract member Progress: System.IProgress<float>
 
 //builder for your scope
 /// <exclude/>
 module Builder2 =
-    //using this to create an effect, will create an IProgressScope at the start of the effect, and it will be available
-    //throught the effect, and disposed at the end of the effect
-    //the result will be just a normal effect, that requires a IProgressScopeProvider
+    //using this to create an effect, will create an IProgressScope at the start of the effect, and grow the
+    //environment into one that provides it, throughout the effect. The scope is disposed at the end of the effect
+    //the result will be just a normal effect, that requires a IProgressScopeProvider which grows in an IProgressScope
     let pEff = Orsak.Scoped.ScopeCreatingEffectBuilder<IProgressScope>()
-
-    //using this allows access to the IProgressScope created by a another effect
-    //expects to be bound in pEff
-    //if bound in a normal eff, the resulting Effect will be specialized as an enlisted progress effect
-    let enlistP = Orsak.ScopeAware.ScopeAwareEffectBuilder<IProgressScope>()
 
 open Builder2
 
 /// <exclude/>
 module Progress =
-    //Pure progress effect, no other effects allowed.
-    /// <exclude/>
-    type Progress<'err> = Effect<IProgressScope, unit, 'err>
-
     //Function for calling our scoped effect
-    let report (t: float) : Progress<_> =
-        //by not making x generic, we restrict how report is called. (No #)
-        //it can now only really be called through pEff or enlistP
-        Effect.Create(fun (x: IProgressScope) -> x.Progress.Report(t))
+    //it is an ordinary effect, which can only be run in an environment grown in an IProgressScope
+    let report (t: float) =
+        Effect.Create(fun (x: #IProgressProvider) -> x.Progress.Report(t))
 
-    let reportWhenDone total (e: Effect<'r,_,_>) = enlistP {
+    let reportWhenDone total (e: Effect<'r,_,_>) = eff {
         let! result = e
         do! report total
         return result
-    }
-
-    let reportWhenDone2 total (e: Effect<'r,_,_>) = eff {
-        let! a = reportWhenDone total e
-        return a
     }
 
     let whenAll (effects: Effect<'r,_,_> array) = pEff {
@@ -165,6 +152,17 @@ type Runner() =
 
     interface GuidProvider with
         member this.Gen = raise (System.NotImplementedException())
+
+    interface IGrowsInto<IProgressScope, ScopedRunner> with
+        member this.Grow scope = ScopedRunner(scope)
+
+//The environment Runner grows into in an IProgressScope: everything Runner has, and the progress of the scope.
+/// <exclude/>
+and ScopedRunner(scope: IProgressScope) =
+    inherit Runner()
+
+    interface IProgressProvider with
+        member this.Progress = scope.Progress
 
 /// <exclude/>
 module Test =
