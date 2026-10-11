@@ -194,6 +194,7 @@ module MyriadTests =
     [<InlineData(14)>]
     [<InlineData(19)>]
     [<InlineData(20)>]
+    [<InlineData(21)>]
     let ``EnvironmentGen creates the expected output`` (i: int) = task {
         let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
 

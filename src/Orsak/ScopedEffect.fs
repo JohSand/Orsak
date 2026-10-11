@@ -36,10 +36,12 @@ type CompletableScopeProvider<'Scope when 'Scope :> CompletableScope> = ScopePro
 
 /// <summary>
 /// Implemented by an environment that can grow into <typeparamref name="'Inner"/>, the environment of effects running
-/// in a scope of type <typeparamref name="'Scope"/>. The inner environment usually inherits the outer one, adding a
-/// provider of the scope.
+/// in a scope of type <typeparamref name="'Scope"/>. Such an environment also begins the scope, as a
+/// <see cref="ScopeProvider{Scope}"/>. The inner environment usually inherits the outer one, adding a provider of
+/// the scope.
 /// </summary>
-type IGrowsInto<'Scope, 'Inner> =
+type IGrowsInto<'Scope, 'Inner when 'Scope :> Scoped> =
+    inherit ScopeProvider<'Scope>
     /// <summary>Creates the environment of effects running in <paramref name="scope"/>.</summary>
     abstract member Grow: scope: 'Scope -> 'Inner
 
@@ -56,12 +58,12 @@ type Scope<'Scope when 'Scope :> Scoped> =
     /// <param name="body">The effect to run in the scope, an effect of the grown environment.</param>
     /// <returns>An effect of the outer environment, which no longer needs what the scope provides.</returns>
     static member Within<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> ScopeProvider<'Scope> and 'Outer :> IGrowsInto<'Scope, 'Inner>>
+        when 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (body: Effect<'Inner, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         mkEffect (fun (outer: 'Outer) -> vtask {
-            use! scope = (outer :> ScopeProvider<'Scope>).BeginScope()
-            let inner = (outer :> IGrowsInto<'Scope, 'Inner>).Grow scope
+            use! scope = outer.BeginScope()
+            let inner = outer.Grow scope
 
             match! body.Run inner with
             | Ok a -> return Ok a
@@ -83,12 +85,12 @@ type CompletingScope<'Scope when 'Scope :> CompletableScope> =
     /// <param name="body">The effect to run in the scope, an effect of the grown environment.</param>
     /// <returns>An effect of the outer environment, which no longer needs what the scope provides.</returns>
     static member Within<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> CompletableScopeProvider<'Scope> and 'Outer :> IGrowsInto<'Scope, 'Inner>>
+        when 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (body: Effect<'Inner, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         mkEffect (fun (outer: 'Outer) -> vtask {
-            use! scope = (outer :> CompletableScopeProvider<'Scope>).BeginScope()
-            let inner = (outer :> IGrowsInto<'Scope, 'Inner>).Grow scope
+            use! scope = outer.BeginScope()
+            let inner = outer.Grow scope
 
             match! body.Run inner with
             | Ok a ->
@@ -118,7 +120,7 @@ type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
 
     /// <summary>Runs the effects of the expression in a new scope, as <c>Scope.Within</c> does.</summary>
     member inline _.Run<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> ScopeProvider<'Scope> and 'Outer :> IGrowsInto<'Scope, 'Inner>>
+        when 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (code: EffectCode<'Inner, 'a, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         Scope<'Scope>.Within(eff.Run code)
@@ -147,7 +149,7 @@ type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScop
     /// <c>CompletingScope.Within</c> does.
     /// </summary>
     member inline _.Run<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> CompletableScopeProvider<'Scope> and 'Outer :> IGrowsInto<'Scope, 'Inner>>
+        when 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (code: EffectCode<'Inner, 'a, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         CompletingScope<'Scope>.Within(eff.Run code)

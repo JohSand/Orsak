@@ -342,6 +342,20 @@ let private serviceCfg (fail: string -> EnvironmentServiceCfg) (ids: LongIdent) 
             "can only inherit non-generic provider interfaces, ScopeProvider<'Scope>, CompletableScopeProvider<'Scope> and IGrowsInto<'Scope, 'Inner>."
 
 
+/// IGrowsInto<'Scope, 'Inner> inherits ScopeProvider<'Scope>: an environment growing in a scope it doesn't say how to
+/// begin, begins it with a ScopeProvider<'Scope>, qualified as its IGrowsInto is.
+let private withImpliedScopes (services: EnvironmentServiceCfg list) =
+    let begun =
+        services |> List.choose (function BeginsScope(scopeType = scope) -> Some scope | _ -> None)
+
+    services
+    |> List.collect (function
+        | GrowsInto(interfaceType, scope, _, _) as grows when not (List.contains scope begun) ->
+            let provider = List.take (interfaceType.Length - 1) interfaceType @ [ "ScopeProvider" ]
+            [ BeginsScope(provider, scope, Writer.trimI (List.last scope) + "Scope"); grows ]
+        | service -> [ service ])
+    |> List.distinct
+
 /// `declared` holds the file's [<GenEnvironment>] interfaces by name, so an inherited one is resolved to its providers.
 let rec private resolveEnvironment
     (context: GeneratorContext)
@@ -396,6 +410,7 @@ let rec private resolveEnvironment
             | InheritedService service -> [ service ]
             | InheritedEnvironment(_, environment) -> environment.services)
         |> List.distinct
+        |> withImpliedScopes
 
     if providers.IsEmpty then
         fail "must inherit at least one provider interface."

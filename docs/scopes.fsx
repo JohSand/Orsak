@@ -126,8 +126,8 @@ val transfer:
 ## An environment that grows
 
 The environment of the application has no transaction, so it doesn't implement `ITransactionProvider`. Instead it
-says how to begin one, with `CompletableScopeProvider`, and which environment it grows into once there is one, with
-`IGrowsInto`. With one kind of scope, the inner environment can inherit the outer one, and add the provider of the scope:
+implements `IGrowsInto`, which says how to begin one, and which environment it grows into once there is one. With one
+kind of scope, the inner environment can inherit the outer one, and add the provider of the scope:
 *)
 type AppEnv(bank: Bank) =
     interface IAuditProvider with
@@ -136,12 +136,11 @@ type AppEnv(bank: Bank) =
                 member _.Record message = printfn $"audit: %s{message}"
             }
 
-    interface CompletableScopeProvider<Transaction> with
+    interface IGrowsInto<Transaction, TransactionEnv> with
         member _.BeginScope() =
             printfn "transaction begun"
             ValueTask<Transaction>(Transaction bank)
 
-    interface IGrowsInto<Transaction, TransactionEnv> with
         member _.Grow transaction = TransactionEnv(bank, transaction)
 
 and TransactionEnv(bank: Bank, transaction: Transaction) =
@@ -151,7 +150,8 @@ and TransactionEnv(bank: Bank, transaction: Transaction) =
         member _.Transaction = transaction
 
 (**
-A scope that is not completed is begun with `ScopeProvider`, which `CompletableScopeProvider` is another name for.
+`BeginScope` is a member of `ScopeProvider<'Scope>`, which `IGrowsInto` inherits. An environment that only begins
+scopes, without growing, implements that alone, also under the name `CompletableScopeProvider`.
 
 ## Running effects in a scope
 
@@ -163,14 +163,13 @@ let transferInTransaction source target amount =
     transfer source target amount |> CompletingScope<Transaction>.Within
 
 (**
-The transaction is gone from the type: what is left is an environment that can begin one, and grows into one with
+The transaction is gone from the type: what is left is an environment that grows, in a transaction, into one with
 what `transfer` needs.
 
 ```fsharp
 val transferInTransaction:
   source: string -> target: string -> amount: decimal -> Effect<'Outer, unit, TransferError>
-    when 'Outer :> CompletableScopeProvider<Transaction>
-    and 'Outer :> IGrowsInto<Transaction, 'Inner>
+    when 'Outer :> IGrowsInto<Transaction, 'Inner>
     and 'Inner :> ITransactionProvider
     and 'Inner :> IAuditProvider
 ```
@@ -283,7 +282,7 @@ ada: 75, grace: 60
 
 So the parts that should share a transaction are written with plain `eff`, as `transfer` is, and the scope is opened
 once, around all of them. The type shows which is which: an effect that needs `ITransactionProvider` joins the
-transaction it runs in, and one that needs `CompletableScopeProvider<Transaction>` begins its own.
+transaction it runs in, and one that needs `IGrowsInto<Transaction, 'Inner>` begins its own.
 
 ## Scopes that aren't completed
 
@@ -327,8 +326,7 @@ let inOrder (steps: (string * Effect<'r, unit, 'e>) list) = progress {
 ```fsharp
 val inOrder:
   steps: (string * Effect<'r, unit, 'e>) list -> Effect<'Outer, unit, 'e>
-    when 'Outer :> ScopeProvider<ProgressScope>
-    and 'Outer :> IGrowsInto<ProgressScope, 'r>
+    when 'Outer :> IGrowsInto<ProgressScope, 'r>
     and 'r :> IProgressProvider
 ```
 
@@ -341,10 +339,8 @@ type JobEnv() =
                 member _.Record message = printfn $"audit: %s{message}"
             }
 
-    interface ScopeProvider<ProgressScope> with
-        member _.BeginScope() = ValueTask<ProgressScope>(ProgressScope())
-
     interface IGrowsInto<ProgressScope, JobProgressEnv> with
+        member _.BeginScope() = ValueTask<ProgressScope>(ProgressScope())
         member _.Grow scope = JobProgressEnv scope
 
 and JobProgressEnv(scope: ProgressScope) =
@@ -399,7 +395,7 @@ that inherits the outer one also inherits how it grows, and would grow into an e
 without the progress. The compiler rejects that, as `Progress.report` then has no provider.
 
 So with several scopes, the environments inherit what they share from a common base, and each says for itself how
-it grows:
+it grows. The base begins the scopes, with `ScopeProvider`, so that is written once:
 *)
 type BatchBase(bank: Bank) =
     interface IAuditProvider with
@@ -527,8 +523,8 @@ environment along the way is a type of its own, and only grows once.
 
 * A scope is an `IAsyncDisposable`, or a `CompletableScope` when there is something to commit.
 * Effects ask for the scope with a provider interface of their own, such as `ITransactionProvider`.
-* The outer environment implements `ScopeProvider<'Scope>`, to begin the scope, and `IGrowsInto<'Scope, 'Inner>`, to
-  create the inner environment, which provides the scope.
+* The outer environment implements `IGrowsInto<'Scope, 'Inner>`: it begins the scope, as a `ScopeProvider<'Scope>`,
+  and creates the inner environment, which provides the scope.
 * `Scope<'Scope>.Within` and `CompletingScope<'Scope>.Within` open a scope around an effect, and
   `ScopeCreatingEffectBuilder` and `CompletableScopeCreatingEffectBuilder` around a computation expression. The
   result is an effect of the outer environment.

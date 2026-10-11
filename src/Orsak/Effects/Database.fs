@@ -15,7 +15,7 @@ type DbTransactional(tran: DbTransaction) =
     member val Connection = tran.Connection
 
     interface CompletableScope with
-        member this.Complete() = vtask { do tran.Commit() }
+        member this.Complete() = vtask { do! tran.CommitAsync() }
 
         member this.DisposeAsync() : ValueTask = vtask {
             do! tran.DisposeAsync()
@@ -171,7 +171,7 @@ module Test =
             [| GuidGenerator.newGuid () |]
             |> Progress.whenAllBatch 10
     }
-    
+
     let test() = task {
         match!
             test2()
@@ -181,4 +181,4 @@ module Test =
         | Ok () -> ()
         | Error (_ :string) -> ()
     }
-        
+
