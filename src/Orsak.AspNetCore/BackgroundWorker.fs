@@ -17,25 +17,11 @@ open FSharp.Control
 /// </summary>
 [<AutoOpen>]
 module BackgroundWorker =
-    let private interpret2<'r, 'a, 'e> (work: Expr<'a -> Effect<'r, unit, 'e>>)  =
-        match work with
-        | Patterns.WithValue(:? ('a -> Effect<'r, unit, 'e>) as work, _, expr) ->
-            let s =
-                match expr with
-                | Patterns.ValueWithName(_, _, name) -> name
-                | Patterns.Application(Patterns.ValueWithName(_, _, name), _) -> name
-                | _ -> "guess?"
+    /// The work, and the name of the worker, read from the function it was passed as: its logger is named after it.
+    let private interpret2<'r, 'a, 'e> (work: Expr<'a -> Effect<'r, unit, 'e>>) =
+        let work, shape = ReflectedFunction.capture work
+        shape.Name |> Option.defaultValue "EffectWorker", work
 
-            s, work
-        | Patterns.WithValue(_, _, expr) ->
-            let _ =
-                match expr with
-                | Patterns.ValueWithName(_, _, name) -> name
-                | Patterns.Application(Patterns.ValueWithName(_, _, name), _) -> name
-                | _ -> "guess?"
-
-            failwith "what type-safety?"
-        | _ -> failwith "what type-safety?"
 
     /// <summary>
     /// The hosted service <c>AddEffectWorker</c> registers: it runs the worker effect with <c>Effect.forever</c>,

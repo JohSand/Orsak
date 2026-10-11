@@ -79,69 +79,67 @@ type EffectRunnerExtensions =
     static member inline CreateEndpoint2
         (this: 'H, path: PrintfFormat<'Printer, unit, unit, ^Eff, ^T>, verb: string, handler: Expr< ^Handler>)
         =
-        match handler with
-        | WithValue(:? ^Handler as routeHandler, _type, expr) ->
-            let parsers = routeValueParsers path.Value
-            let names = if parsers.Length = 0 then [||] else getNames expr
+        let routeHandler, shape = ReflectedFunction.capture handler
+        let parsers = routeValueParsers path.Value
+        let names = if parsers.Length = 0 then [||] else shape.ParameterNames
 
-            if names.Length <> parsers.Length then
-                Throwhelpers.argumentException
-                    $"The route '%s{path.Value}' has %i{parsers.Length} values, but %i{names.Length} parameter names could be read from its handler. Pass a function or lambda directly, so that its parameter names can name the route values."
+        if names.Length <> parsers.Length then
+            Throwhelpers.argumentException
+                $"The route '%s{path.Value}' has %i{parsers.Length} values, but %i{names.Length} parameter names could be read from its handler. Pass a function or lambda directly, so that its parameter names can name the route values."
 
-            let requestDelegate =
-                if parsers.Length = 0 then
-                    // no route values: the unit -> 'Eff handler is called for each request
-                    RequestDelegate(fun ctx ->
-                        let (run: RequestDelegate) =
-                            (RouteHandler.Invoke(routeHandler, Unchecked.defaultof< ^T>, null, Unchecked.defaultof<RouteHandler>)
-                            : ^Eff)
-                            *>> this
+        let requestDelegate =
+            if parsers.Length = 0 then
+                // no route values: the unit -> 'Eff handler is called for each request
+                RequestDelegate(fun ctx ->
+                    let (run: RequestDelegate) =
+                        (RouteHandler.Invoke(routeHandler, Unchecked.defaultof< ^T>, null, Unchecked.defaultof<RouteHandler>)
+                        : ^Eff)
+                        *>> this
 
-                        run.Invoke(ctx))
-                elif parsers.Length = 1 then
-                    // one route value: 'T is the value's type, so it is passed as is, without an array. Not bound
-                    // with let, which would resolve RouteHandler.Invoke here, before 'T is known.
-                    let parser, name = parsers[0], names[0]
+                    run.Invoke(ctx))
+            elif parsers.Length = 1 then
+                // one route value: 'T is the value's type, so it is passed as is, without an array. Not bound
+                // with let, which would resolve RouteHandler.Invoke here, before 'T is known.
+                let parser, name = parsers[0], names[0]
 
-                    RequestDelegate(fun ctx ->
-                        let (run: RequestDelegate) =
-                            (RouteHandler.Invoke(
-                                routeHandler,
-                                (readRouteValue parser name ctx :?> ^T),
-                                null,
-                                Unchecked.defaultof<RouteHandler>
-                            )
-                            : ^Eff)
-                            *>> this
+                RequestDelegate(fun ctx ->
+                    let (run: RequestDelegate) =
+                        (RouteHandler.Invoke(
+                            routeHandler,
+                            (readRouteValue parser name ctx :?> ^T),
+                            null,
+                            Unchecked.defaultof<RouteHandler>
+                        )
+                        : ^Eff)
+                        *>> this
 
-                        run.Invoke(ctx))
-                else
-                    RequestDelegate(fun ctx ->
-                        let values = Array.zeroCreate parsers.Length
+                    run.Invoke(ctx))
+            else
+                RequestDelegate(fun ctx ->
+                    let values = Array.zeroCreate parsers.Length
 
-                        for i = 0 to parsers.Length - 1 do
-                            values[i] <- readRouteValue parsers[i] names[i] ctx
+                    for i = 0 to parsers.Length - 1 do
+                        values[i] <- readRouteValue parsers[i] names[i] ctx
 
-                        let (run: RequestDelegate) =
-                            (RouteHandler.Invoke(routeHandler, Unchecked.defaultof< ^T>, values, Unchecked.defaultof<RouteHandler>)
-                            : ^Eff)
-                            *>> this
+                    let (run: RequestDelegate) =
+                        (RouteHandler.Invoke(routeHandler, Unchecked.defaultof< ^T>, values, Unchecked.defaultof<RouteHandler>)
+                        : ^Eff)
+                        *>> this
 
-                        run.Invoke(ctx))
+                    run.Invoke(ctx))
 
+        let endpoint =
             Endpoint {|
                 verb = verb
                 path = StringBuilder().AppendPath(path.Value, names)
                 requestDelegate = requestDelegate
                 conventions = id
             |}
-            |> fun x -> x.WithMetadata(HandlingMethod(getMethodInfo expr))
 
-        | _ ->
-            Throwhelpers.argumentException
-                "This expression is expected to be constructed with ReflectedDefinition(includeValue = true)."
+        match shape.Method with
+        | Some mi -> endpoint.WithMetadata(HandlingMethod mi)
+        | None -> endpoint
 
-            Unchecked.defaultof<_>
 
     /// <summary>
     /// Creates a GET endpoint for <paramref name="path"/>, handled by <paramref name="routeHandler"/>, a curried

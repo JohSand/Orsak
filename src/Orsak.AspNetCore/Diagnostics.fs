@@ -41,6 +41,18 @@ module EffectDiagnostics =
     let private source = new ActivitySource(SourceName)
     let private meter = new Meter(MeterName)
 
+    let durations =
+        meter.CreateHistogram<int64>("orsak.effect.event_handling_duration", unit = "ms", description = "Measures the duration of handling an event")
+
+    let eventCounter =
+        meter.CreateCounter<int64>("orsak.effect.event_count", description = "Number of events observed since process start")
+
+#if NET8_0_OR_GREATER
+    let workers =
+        meter.CreateUpDownCounter<int64>("orsak.effect.worker_count", description = "Number of workers")
+#endif
+
+
     let private effectDuration =
         meter.CreateHistogram<float>("orsak.effect.duration", "ms", "Duration of effect handler execution")
 
