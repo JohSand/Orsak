@@ -17,9 +17,6 @@ open Swensen.Unquote
 // Scopes whose effects run in an environment grown from the outer one. The effects are ordinary effects, bound in
 // plain eff: those using the transaction ask for it with a provider interface, which only the grown environment has.
 
-type ITransactionProvider =
-    abstract member Transaction: DbTransactional
-
 module GrowingTransaction =
     let connectionString = "Data Source=growing-scope-tests.db;Cache=Shared"
 

@@ -14,7 +14,6 @@ open Microsoft.Data.Sqlite
 
 open Orsak
 open Orsak.Effects
-open Orsak.ScopeAware
 open Orsak.Scoped
 open Xunit
 open Swensen.Unquote
@@ -40,9 +39,6 @@ module Clock =
 type TestProvider() =
     let rng = RandomNumberGenerator.Create()
 
-    interface ExceptionHandler<string> with
-        member this.Handle e = e.ToString()
-
     interface IClockProvider with
         member this.Clock =
             { new IClock with
@@ -60,6 +56,15 @@ type TestProvider() =
             return DbTransactional(tran)
         }
 
+    interface IGrowsInto<DbTransactional, TestTransactionProvider> with
+        member this.Grow transaction = TestTransactionProvider(transaction)
+
+/// The environment TestProvider grows into in a transaction: everything it has, and the transaction.
+and TestTransactionProvider(transaction: DbTransactional) =
+    inherit TestProvider()
+
+    interface ITransactionProvider with
+        member this.Transaction = transaction
 
 
 type Scoped() =
@@ -81,9 +86,9 @@ type Scoped() =
 
     //Mostly explores what is possible with this api
     //all the async usage is wasted with SQLite, but can be valuable with other providers.
-    let read () : Transaction<_, _> =
-        mkEffect (fun (trans: DbTransactional) -> vtask {
-            let command = trans.Connection.CreateCommand()
+    let read () =
+        mkEffect (fun (p: #ITransactionProvider) -> vtask {
+            let command = p.Transaction.Connection.CreateCommand()
 
             command.CommandText <- "SELECT pkey, data FROM TestData"
 
@@ -103,7 +108,7 @@ type Scoped() =
         })
 
 
-    let readSingle () : EnlistedTransaction<_, _, _> = trxAware {
+    let readSingle () = eff {
         let! _now = Clock.utcNow ()
 
         let! list = read ()
@@ -120,7 +125,7 @@ type Scoped() =
 
     let readAndCommit () = commitEff { return! read () }
 
-    let readThenFail () = trxAware {
+    let readThenFail () = eff {
         let! _now = Clock.utcNow ()
         let! list = read ()
         let value = Assert.Single(list)
@@ -128,9 +133,9 @@ type Scoped() =
         return! Error "Something went wrong"
     }
 
-    let insert () : Transaction<unit, _> =
-        mkEffect (fun (trans: DbTransactional) -> vtask {
-            let command = trans.Connection.CreateCommand()
+    let insert () =
+        mkEffect (fun (p: #ITransactionProvider) -> vtask {
+            let command = p.Transaction.Connection.CreateCommand()
             command.CommandText <- """INSERT INTO TestData (data) VALUES (@data)"""
             let par = command.CreateParameter()
             par.ParameterName <- "@data"
@@ -140,7 +145,7 @@ type Scoped() =
             return Ok()
         })
 
-    let scopedInsert () = trxAware {
+    let scopedInsert () = eff {
         do! insert ()
         return ()
     }

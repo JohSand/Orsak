@@ -216,7 +216,7 @@ module MyriadTests =
 
     [<Theory>]
     [<InlineData("inherit IProvide<IFoo>", "can only inherit non-generic provider interfaces")>]
-    [<InlineData("inherit IFooProvider\n    inherit ExceptionHandler<string>", "can only inherit non-generic provider interfaces")>]
+    [<InlineData("inherit IFooProvider\n    inherit IHandler<string>", "can only inherit non-generic provider interfaces")>]
     [<InlineData("abstract Foo: int", "cannot declare members of its own")>]
     [<InlineData("inherit IFooService", "cannot infer the effect type of 'IFooService'")>]
     [<InlineData("inherit A.IFooProvider\n    inherit B.IFooProvider", "more than one provider whose effect is named 'Foo'")>]

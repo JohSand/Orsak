@@ -89,10 +89,6 @@ type MainEnv = {
     interface Scoped.CompletableScopeProvider<DbTransactional> with
         member _.BeginScope() = Transaction.create ()
 
-    interface Scoped.ExceptionHandler<string> with
-        member _.Handle(arg1: exn) : string =
-            raise (System.NotImplementedException())
-
     interface MessageSinkProvider with
         member this.Sink: MessageSink = this.queueClient
 
@@ -123,9 +119,23 @@ type BackgroundEnv = {
     interface Scoped.CompletableScopeProvider<DbTransactional> with
         member _.BeginScope() = Transaction.create ()
 
-    interface Scoped.ExceptionHandler<string> with
-        member _.Handle(arg1: exn) : string =
-            raise (System.NotImplementedException())
+    interface Scoped.IGrowsInto<DbTransactional, BackgroundTransactionEnv> with
+        member this.Grow transaction = { background = this; transaction = transaction }
 
     interface MessageSinkProvider with
         member this.Sink: MessageSink = this.queueClient
+
+/// The environment BackgroundEnv grows into in a transaction: what it has, and the transaction.
+and BackgroundTransactionEnv = {
+    background: BackgroundEnv
+    transaction: DbTransactional
+} with
+
+    interface ILoggerProvider with
+        member this.Logger s = (this.background :> ILoggerProvider).Logger s
+
+    interface MessageSinkProvider with
+        member this.Sink: MessageSink = this.background.queueClient
+
+    interface ITransactionProvider with
+        member this.Transaction = this.transaction

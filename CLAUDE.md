@@ -38,7 +38,7 @@ Use interfaces primarily to describe side-effects.
 
 - **`Effect<'r, 'a, 'e>`** — struct wrapper around `EffectDelegate<'r, 'a, 'e>`, a delegate returning `ValueTask<Result<'a, 'e>>`. Lazy — nothing runs until `run`/`runOrFail` is called with an environment.
 - **`eff { }` computation expression** (`EffectBuilder.fs`) — resumable state machine (F# resumable code) for zero-allocation synchronous paths. Supports bind on `Task`, `Async`, `Result`, `ValueTask`, and nested `Effect`.
-- **`ScopedEffect`** (`ScopedEffect.fs`) — `AsyncDisposable`-aware scopes for resource management (e.g., DB transactions, progress tracking). Two builders: `ScopeCreatingEffectBuilder` (creates scope) and `ScopeAwareEffectBuilder` (binds within existing scope).
+- **`ScopedEffect`** (`ScopedEffect.fs`) — `AsyncDisposable`-aware scopes for resource management (e.g., DB transactions, progress tracking). An environment implementing `IGrowsInto<'Scope, 'Inner>` grows into the environment of the effects in a scope, which reach the scope through an ordinary provider constraint. `Scope.Within`/`CompletingScope.Within` and the builders `ScopeCreatingEffectBuilder`/`CompletableScopeCreatingEffectBuilder` open the scope and return an effect of the outer environment.
 - **`EffectSeq`** (`EffSeqBuilder.fs`) — streaming effects as async enumerables.
 - **`BaseEffects.fs`** — pre-built effect interfaces: `IGuidGenerator`, `ITimeProvider`, `IRandomProvider`, `ICacheProvider`, `ICancellationProvider`.
 
