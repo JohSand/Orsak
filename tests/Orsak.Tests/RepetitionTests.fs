@@ -3,6 +3,7 @@ namespace Orsak.Tests
 open System
 open System.Collections.Concurrent
 open System.Collections.Generic
+open System.Diagnostics
 open System.Threading
 open System.Threading.Tasks
 open FSharp.Control
@@ -34,6 +35,42 @@ module RepetitionTests =
         let! result = effect |> Effect.forever |> Effect.run ()
         Ok 4 =! result
         4 =! runs ()
+    }
+
+    /// An effect that fails synchronously the given number of times, then succeeds with the stack depth it ran at.
+    let failingSynchronously times =
+        let mutable remaining = times
+
+        mkEffect (fun () ->
+            if remaining > 0 then
+                remaining <- remaining - 1
+                ValueTask<_>(Error "again")
+            else
+                ValueTask<_>(Ok(StackTrace(false).FrameCount)))
+
+    /// How much deeper the stack is after 1000 failed runs than after 10, retrying with retry.
+    let stackGrowth (retry: Effect<unit, int, string> -> Effect<unit, int, string>) = task {
+        let! after10 = failingSynchronously 10 |> retry |> Effect.runOrFail ()
+        let! after1000 = failingSynchronously 1000 |> retry |> Effect.runOrFail ()
+        return after1000 - after10
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let ``forever doesn't grow the stack while the effect keeps failing synchronously`` () = task {
+        let! growth = stackGrowth Effect.forever
+        Assert.True(growth <= 10, $"The stack grew by {growth} frames over 990 more failed runs")
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let ``forever runs a synchronously failing effect a million times`` () = task {
+        let! result = failingSynchronously 1_000_000 |> Effect.forever |> Effect.run ()
+        Assert.True(Result.isOk result)
+    }
+
+    [<Fact(Timeout = 10_000)>]
+    let ``retryWhile doesn't grow the stack while the effect keeps failing synchronously`` () = task {
+        let! growth = stackGrowth (Effect.retryWhile (fun _ -> true))
+        Assert.True(growth <= 10, $"The stack grew by {growth} frames over 990 more failed runs")
     }
 
     [<Fact(Timeout = 10_000)>]

@@ -123,8 +123,21 @@ module Effect =
     /// Runs the effect again every time it fails, until it succeeds. The resulting effect never fails.
     /// </summary>
     /// <param name="e">The effect</param>
-    [<TailCall>]
-    let rec forever (e: Effect<'r, 'a, 'e>) = onError (fun _err -> forever e) e
+    let forever (e: Effect<'r, 'a, 'e>) : Effect<'r, 'a, 'e> =
+        let attempt = asResult e
+
+        // A loop rather than recursion through onError, which nests a run per failure: the loop runs any number of
+        // failures that complete synchronously in constant stack.
+        eff {
+            let mutable result = ValueNone
+
+            while result.IsNone do
+                match! attempt with
+                | Ok a -> result <- ValueSome a
+                | Error _ -> ()
+
+            return result.Value
+        }
 
     /// <summary>
     /// Runs the effect repeatedly for as long as it returns <c>true</c>.
@@ -161,14 +174,20 @@ module Effect =
     /// |> Effect.retryWhile (fun err -> err = Timeout)
     /// </code>
     /// </example>
-    let rec retryWhile cond (e: Effect<'r, 'a, 'e>) =
-        onError
-            (fun err ->
-                if (cond err) then
-                    retryWhile cond e
-                else
-                    eff { return! Error err })
-            e
+    let retryWhile cond (e: Effect<'r, 'a, 'e>) : Effect<'r, 'a, 'e> =
+        let attempt = asResult e
+
+        // a loop, in constant stack, as forever
+        eff {
+            let mutable result = ValueNone
+
+            while result.IsNone do
+                match! attempt with
+                | Ok a -> result <- ValueSome(Ok a)
+                | Error err -> if not (cond err) then result <- ValueSome(Error err)
+
+            return! result.Value
+        }
 
     /// <summary>
     /// Runs the effect again when it fails, up to <paramref name="times"/> times after the first attempt. It fails
