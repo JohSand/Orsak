@@ -4,6 +4,7 @@ open Orsak
 open Orsak.Myriad
 open System.Threading
 open Microsoft.Extensions.Caching.Memory
+open Orsak.Myriad.Showcase.Inline
 open Orsak.Myriad.Showcase
 
 let myRunner  (cache: IFace) (rnd: IRandomGenerator) =
@@ -56,11 +57,11 @@ printfn "%s" ((localizedWorkflow () |> Effect.runOrFail (Inline.localized ())).R
 let workLog = ResizeArray<string>()
 
 let inUnitOfWork () : Effect<_, string, string> =
-    eff {
+    uow {
         let! greeting = Inline.greet "unit of work"
         do! Effect.Create(fun (provider: #Inline.IUnitOfWorkProvider) -> provider.Effect.Record greeting)
         return greeting
     }
-    |> Orsak.Scoped.CompletingScope<Inline.IUnitOfWork>.Within
+   // |> Orsak.Scoped.CompletingScope<Inline.IUnitOfWork>.Within
 
 printfn "%s: %A" ((inUnitOfWork () |> Effect.runOrFail (Inline.environmentWithWork workLog)).Result) (List.ofSeq workLog)

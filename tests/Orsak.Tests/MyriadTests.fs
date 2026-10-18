@@ -194,6 +194,7 @@ module MyriadTests =
     [<InlineData(14)>]
     [<InlineData(19)>]
     [<InlineData(20)>]
+    [<InlineData(21)>]
     let ``EnvironmentGen creates the expected output`` (i: int) = task {
         let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
 
@@ -216,7 +217,7 @@ module MyriadTests =
 
     [<Theory>]
     [<InlineData("inherit IProvide<IFoo>", "can only inherit non-generic provider interfaces")>]
-    [<InlineData("inherit IFooProvider\n    inherit ExceptionHandler<string>", "can only inherit non-generic provider interfaces")>]
+    [<InlineData("inherit IFooProvider\n    inherit IHandler<string>", "can only inherit non-generic provider interfaces")>]
     [<InlineData("abstract Foo: int", "cannot declare members of its own")>]
     [<InlineData("inherit IFooService", "cannot infer the effect type of 'IFooService'")>]
     [<InlineData("inherit A.IFooProvider\n    inherit B.IFooProvider", "more than one provider whose effect is named 'Foo'")>]
@@ -232,7 +233,7 @@ module MyriadTests =
         Assert.Contains("would have the same name as the module 'Company.App.Environment'", error.Message)
 
     [<Fact>]
-    let EnvironmentGen_rejects_inheriting_a_name_several_environments_in_the_file_have () =
+    let ``EnvironmentGen rejects inheriting a name several environments in the file have`` () =
         let source =
             "namespace A\n\n[<GenEnvironment>]\ntype IShared =\n    inherit IFooProvider\n\nnamespace B\n\n[<GenEnvironment>]\ntype IShared =\n    inherit IBarProvider\n\n[<GenEnvironment>]\ntype IEnvironment =\n    inherit IShared\n    inherit IBazProvider\n"
 
@@ -240,7 +241,7 @@ module MyriadTests =
         Assert.Contains("more than one [<GenEnvironment>] interface in the file has that name", error.Message)
 
     [<Fact>]
-    let EnvironmentGen_rejects_environments_inheriting_each_other () =
+    let ``EnvironmentGen rejects environments inheriting each other`` () =
         let source =
             "[<GenEnvironment>]\ntype IFirst =\n    inherit ISecond\n\n[<GenEnvironment>]\ntype ISecond =\n    inherit IFirst\n"
 

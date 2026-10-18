@@ -62,12 +62,18 @@ type IUnitOfWork =
 type IUnitOfWorkProvider =
     abstract Effect: IUnitOfWork
 
+[<AutoOpen>]
+module Builder =
+    //effects bound in commitEff run in a transaction, and are ordinary effects of the environment the outer one grows into.
+    //the result is an effect of the outer environment, which no longer provides the transaction
+    [<Experimental("Experimental feature, API not stable")>]
+    let uow = CompletableScopeCreatingEffectBuilder<IUnitOfWork>()
+
 /// Grows into IWorkEnvironment in a scope of IUnitOfWork. The generator implements Grow with
-/// WorkEnvironment.extend, and BeginScope with a field of the record of effects.
+/// WorkEnvironment.extend, and the BeginScope that IGrowsInto inherits with a field of the record of effects.
 [<GenEnvironment>]
 type IAppEnvironmentWithWork =
     inherit IGreeterProvider
-    inherit CompletableScopeProvider<IUnitOfWork>
     inherit IGrowsInto<IUnitOfWork, IWorkEnvironment>
 
 /// The environment in a unit of work: the application's, and the unit of work.
@@ -92,7 +98,7 @@ let environmentWithWork (log: ResizeArray<string>) =
     AppEnvironmentWithWork.create {|
         Greeter = { new IGreeter with member _.Greet name = $"Hello {name}" }
         UnitOfWorkScope =
-            { new CompletableScopeProvider<IUnitOfWork> with
+            { new ScopeProvider<IUnitOfWork> with
                 member _.BeginScope() = Threading.Tasks.ValueTask<_>(unitOfWork log) }
     |}
 //------------------------------------------------------------------------------
@@ -154,17 +160,16 @@ module WorkEnvironment =
               member _.Effect = (outer :> IGreeterProvider).Effect
           interface IUnitOfWorkProvider with
               member _.Effect = effect
-          interface CompletableScopeProvider<IUnitOfWork> with
+          interface ScopeProvider<IUnitOfWork> with
               member _.BeginScope() =
-                  (outer :> CompletableScopeProvider<IUnitOfWork>).BeginScope()
+                  (outer :> ScopeProvider<IUnitOfWork>).BeginScope()
           interface IGrowsInto<IUnitOfWork, IWorkEnvironment> with
               member _.Grow scope =
                   (outer :> IGrowsInto<IUnitOfWork, IWorkEnvironment>).Grow scope
         }
 
     let create
-        (effects:
-            {| Greeter: IGreeter; UnitOfWork: IUnitOfWork; UnitOfWorkScope: CompletableScopeProvider<IUnitOfWork> |})
+        (effects: {| Greeter: IGreeter; UnitOfWork: IUnitOfWork; UnitOfWorkScope: ScopeProvider<IUnitOfWork> |})
         : IWorkEnvironment =
         { new IWorkEnvironment
 
@@ -172,7 +177,7 @@ module WorkEnvironment =
               member _.Effect = effects.Greeter
           interface IUnitOfWorkProvider with
               member _.Effect = effects.UnitOfWork
-          interface CompletableScopeProvider<IUnitOfWork> with
+          interface ScopeProvider<IUnitOfWork> with
               member _.BeginScope() = effects.UnitOfWorkScope.BeginScope()
           interface IGrowsInto<IUnitOfWork, IWorkEnvironment> with
               member this.Grow scope =
@@ -184,13 +189,13 @@ module WorkEnvironment =
 
 module AppEnvironmentWithWork =
     let create
-        (effects: {| Greeter: IGreeter; UnitOfWorkScope: CompletableScopeProvider<IUnitOfWork> |})
+        (effects: {| Greeter: IGreeter; UnitOfWorkScope: ScopeProvider<IUnitOfWork> |})
         : IAppEnvironmentWithWork =
         { new IAppEnvironmentWithWork
 
           interface IGreeterProvider with
               member _.Effect = effects.Greeter
-          interface CompletableScopeProvider<IUnitOfWork> with
+          interface ScopeProvider<IUnitOfWork> with
               member _.BeginScope() = effects.UnitOfWorkScope.BeginScope()
           interface IGrowsInto<IUnitOfWork, IWorkEnvironment> with
               member this.Grow scope =

@@ -2,7 +2,6 @@
     <PropertyGroup>
         <TargetFrameworks>net8.0; net10.0</TargetFrameworks>
         <IsTestProject>true</IsTestProject>
-        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <NoWarn>0057; 0988</NoWarn>
         <LangVersion>preview</LangVersion>
@@ -47,9 +46,11 @@
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="6.0.3"/>
     </ItemGroup>
     <ItemGroup Condition="'$(TargetFramework)' != 'NET6.0'">
-        <PackageReference Include="xunit.v3" Version="2.0.2"/>
-        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
-        <PackageReference Include="Verify.XunitV3" Version="30.0.0"/>
+        <PackageReference Include="xunit.v3" Version="4.0.2"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
+        <!-- Held at 32.0.1, the last Verify without its SponsorCheck licence requirement: from 33.0 the build fails
+             (SC021) unless a sponsorship licence is declared, which this project doesn't use. It works with xunit.v3 4. -->
+        <PackageReference Include="Verify.XunitV3" Version="32.0.1"/>
         <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3"/>
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3"/>
@@ -59,7 +60,7 @@
         <PackageReference Update="FSharp.Core" Version="9.0.303"/>
         <PackageReference Include="Ben.Demystifier" Version="0.4.1"/>
         <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0"/>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1"/>
         <PackageReference Include="Unquote" Version="7.0.1"/>
         <PackageReference Include="Myriad.Sdk" Version="1.1.0" />
         <PackageReference Include="Myriad.Core" Version="1.1.0"/>

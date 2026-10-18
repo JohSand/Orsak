@@ -1,6 +1,5 @@
 ﻿namespace Orsak.Tests
 
-open System.Net
 open System.Threading.Tasks
 open FSharp.Control
 open Orsak
@@ -19,10 +18,10 @@ module Dummy =
         mkEffect (fun (d: #Dummy) ->
             ValueTask<_>(
                 task = task {
-                    //some level of effect resumption is needed...
-                    //Task.Yield is not enough.
-                    //Task.Delay can do it, but it sometimes just hangs.
-                    let! x = Dns.GetHostEntryAsync("google.com")
+                    // suspends, so the effects around it suspend and resume too, as with real I/O, without
+                    // depending on the network. Task.Delay would also suspend, but waits for the timer's
+                    // resolution, about 15 ms on Windows, on every run.
+                    do! Task.Yield()
                     return! d.ok ()
                 }
             ))
@@ -38,7 +37,7 @@ module Dummy =
 module ResilienceTests =
 
     [<Fact(Timeout = 10_000)>]
-    let repeatTimes_works_sequentially () = task {
+    let ``repeatTimes works sequentially`` () = task {
         let e = Dummy.indirection () |> Effect.repeatTimes 1000
         do! Dummy.run e
         
@@ -46,7 +45,7 @@ module ResilienceTests =
     }
 
     [<Fact(Timeout = 10_000)>]
-    let repeatTimes_works_concurrently_when_the_effects_are_created_separately () = task {
+    let ``repeatTimes works concurrently when the effects are created separately`` () = task {
         do!
             Task.WhenAll(
                 Dummy.indirection () |> Effect.repeatTimes 1000 |> Dummy.run,
@@ -70,10 +69,10 @@ module ResilienceTests =
     }
 
     [<Fact(Timeout = 30_000)>]
-    let a_single_synchronous_effect_value_can_be_run_in_parallel () = runInParallel (eff { return 42 })
+    let ``a single synchronous effect value can be run in parallel`` () = runInParallel (eff { return 42 })
 
     [<Fact(Timeout = 30_000)>]
-    let a_single_asynchronous_effect_value_can_be_run_in_parallel () =
+    let ``a single asynchronous effect value can be run in parallel`` () =
         runInParallel (eff {
             do! Task.Delay 1
             let! a = eff { return 20 }

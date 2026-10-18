@@ -32,5 +32,6 @@ Where to go next:
 * [Effect sequences](effect-sequences.html): streaming results, such as pages from an API, as effects.
 * [Web APIs](web-apis.html): running effects in web APIs, with minimal APIs, Giraffe, Oxpecker and Orsak.AspNetCore.
 * [Testing](testing.html): running effects with environments of fakes, including the clock.
+* [Scopes](scopes.html): running effects in transactions and other scopes, with an environment that grows.
 * [Generating code](myriad.html): generating effects and environments from interfaces with Orsak.Myriad.
 * The [API reference](reference/index.html).
