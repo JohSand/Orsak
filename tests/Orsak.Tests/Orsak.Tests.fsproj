@@ -31,6 +31,7 @@
         <Compile Include="ForLoopTests.fs"/>
         <Compile Include="WhenAllTests.fs"/>
         <Compile Include="LimitedParallelTests.fs"/>
+        <Compile Include="BaseEffectsTests.fs" Condition="'$(TargetFramework)' != 'NET6.0'"/>
         <Compile Include="ScopedTests.fs"/>
         <Compile Include="GrowingScopeTests.fs"/>
         <Compile Include="MyriadTests.fs"/>
