@@ -65,14 +65,47 @@ let ``namedScalingJob keeps its own name`` () =
 
     job.Name =! "counting"
 
-// [<Fact>]
-// let scalingJob2_extended_with_cancellation () =
-//     let env = (CounterEnv({ new ICounter with member _.Count() = () }))
-//     let job = scalingJob2 env {
-//         work (fun _ -> countOnce () |> Effect.map id)
-//     }
-//
-//     job.Name =! "ScalingJob"
+/// Records the source of each run's environment. A function passed by name: `work` takes a quotation, which can't
+/// hold an eff expression written in place.
+let recordSources (sources: System.Collections.Concurrent.ConcurrentQueue<CancellationTokenSource>) () = eff {
+    let! source = Effect.Create(fun (p: IJobTestEnvironment) -> p.Source)
+    sources.Enqueue source
+    do! countOnce ()
+}
+
+[<Fact(Timeout = 10_000)>]
+let ``scalingJob2 runs each run of its work in a cancellation scope of its own`` () = task {
+    let sources = System.Collections.Concurrent.ConcurrentQueue<CancellationTokenSource>()
+
+    let counter = {
+        new ICounter with
+            member _.Count() = ()
+    }
+
+    let environment = TestEnvironment.create {| Counter = counter |}
+
+    let job = scalingJob2 environment.Extend {
+        work (recordSources sources)
+    }
+
+    use services = ServiceCollection().AddLogging().AddScalingJob(job).BuildServiceProvider()
+    let hosted = services.GetServices<IHostedService>() |> Seq.exactlyOne
+    do! hosted.StartAsync CancellationToken.None
+    let clock = Stopwatch.StartNew()
+
+    while sources.Count < 3 && clock.Elapsed < TimeSpan.FromSeconds 5. do
+        do! Task.Delay 5
+
+    do! hosted.StopAsync CancellationToken.None
+
+    let seen = List.ofSeq sources
+    Assert.True(seen.Length >= 3, $"only {seen.Length} runs")
+    Assert.All(seen, fun s -> Assert.IsType<CancellationScope>(s) |> ignore)
+    Assert.Equal(seen.Length, (List.distinct seen).Length)
+    // every run has ended, so every scope is disposed
+    for source in seen do
+        Assert.Throws<ObjectDisposedException>(fun () -> source.Token |> ignore) |> ignore
+}
 
 [<Fact(Timeout = 10_000)>]
 let ``a scaling job added to the services runs its work`` () = task {

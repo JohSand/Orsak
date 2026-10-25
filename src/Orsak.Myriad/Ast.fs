@@ -452,10 +452,15 @@ let private completeGrowth (environments: EnvironmentCfg list) (environment: Env
                     | [] -> fail "isn't a [<GenEnvironment>] interface of the same namespace or module."
                     | _ -> fail "is the name of more than one [<GenEnvironment>] interface."
 
+                // a CancellationScope is a CancellationTokenSource, which ICancellationProvider provides
+                let provides (provider: EnvironmentProviderCfg) =
+                    List.last provider.effectType = List.last scope
+                    || List.last scope = "CancellationScope" && List.last provider.providerType = "ICancellationProvider"
+
                 match inner.extends with
                 | Some extends ->
                     match extends.own with
-                    | [ provider ] when List.last provider.effectType = List.last scope ->
+                    | [ provider ] when provides provider ->
                         GrowsInto(interfaceType, scope, innerName, extends.baseType)
                     | own ->
                         let added = own |> List.map (fun p -> $"'%s{List.last p.effectType}'") |> String.concat ", "
