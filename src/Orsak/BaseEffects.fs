@@ -2,6 +2,7 @@
 
 open System
 open System.Threading
+open System.Threading.Tasks
 open Microsoft.Extensions.Caching.Memory
 
 
@@ -41,10 +42,10 @@ module GuidGenerator =
     /// <summary>
     /// An <see cref="T:Orsak.IGuidGenerator"/> that uses <see cref="M:System.Guid.NewGuid"/>.
     /// </summary>
-    let defaultGen () =
-        { new IGuidGenerator with
+    let defaultGen () = {
+        new IGuidGenerator with
             member _.GenGuid() = Guid.NewGuid()
-        }
+    }
 
 #if NET8_0_OR_GREATER
 /// <summary>
@@ -205,6 +206,27 @@ module MemoryCache =
 type ICancellationProvider =
     /// <summary>The source used by the functions in <c>CancellationSource</c>.</summary>
     abstract member Source: CancellationTokenSource
+
+module CancellationProvider =
+    let fromToken (token: CancellationToken) = {
+        new ICancellationProvider with
+            member _.Source = CancellationTokenSource.CreateLinkedTokenSource(token)
+    }
+
+    let fromSource (source: CancellationTokenSource) = {
+        new ICancellationProvider with
+            member _.Source = source
+    }
+
+    let create () = {
+        new ICancellationProvider with
+            member _.Source = new CancellationTokenSource()
+    }
+
+    let createWithDelay (delay: TimeSpan) = {
+        new ICancellationProvider with
+            member _.Source = new CancellationTokenSource(delay = delay)
+    }
 
 /// <summary>
 /// Effects for reading and cancelling the environment's <see cref="T:System.Threading.CancellationTokenSource"/>.
