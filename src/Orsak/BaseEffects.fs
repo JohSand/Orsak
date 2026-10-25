@@ -53,26 +53,8 @@ module GuidGenerator =
 /// <c>TimeProvider.System</c> in production and a fake time provider in tests makes time-dependent effects testable.
 /// </summary>
 type ITimeProvider =
-    /// <summary>The clock used by <c>Time.utcNow</c>.</summary>
+    /// <summary>The clock used by the functions in <c>Time</c>.</summary>
     abstract Clock: TimeProvider
-
-/// <summary>
-/// Effects for reading the time through an <see cref="T:Orsak.ITimeProvider"/>.
-/// </summary>
-module Time =
-    /// <summary>
-    /// An effect that reads the current UTC time from the environment's clock.
-    /// </summary>
-    /// <example>
-    /// <code lang="fsharp">
-    /// let isExpired (expires: DateTimeOffset) = eff {
-    ///     let! now = Time.utcNow ()
-    ///     return now > expires
-    /// }
-    /// </code>
-    /// </example>
-    let utcNow () =
-        Effect.Create(fun (provider: #ITimeProvider) -> provider.Clock.GetUtcNow())
 #endif
 
 /// <summary>
@@ -207,26 +189,61 @@ type ICancellationProvider =
     /// <summary>The source used by the functions in <c>CancellationSource</c>.</summary>
     abstract member Source: CancellationTokenSource
 
-module CancellationProvider =
-    let fromToken (token: CancellationToken) = {
-        new ICancellationProvider with
-            member _.Source = CancellationTokenSource.CreateLinkedTokenSource(token)
-    }
+/// <summary>
+/// An <see cref="T:Orsak.ICancellationProvider"/> that owns its source, created by the functions in
+/// <c>CancellationProvider</c>, and disposes it when disposed.
+/// </summary>
+[<Sealed>]
+type OwnedCancellationProvider internal (source: CancellationTokenSource) =
+    /// <summary>The source, the same one on every read.</summary>
+    member _.Source = source
 
+    interface ICancellationProvider with
+        member _.Source = source
+
+    interface IDisposable with
+        member _.Dispose() = source.Dispose()
+
+/// <summary>
+/// Creates <see cref="T:Orsak.ICancellationProvider"/>s. Each provider holds one source, which every read of
+/// <c>Source</c> returns, so that cancelling it through <c>CancellationSource.cancel</c> cancels the tokens that
+/// effects got from it.
+/// </summary>
+module CancellationProvider =
+    /// <summary>
+    /// A provider of a new source linked to <paramref name="token"/>: it is cancelled when the token is, and can be
+    /// cancelled on its own without cancelling the token. Dispose the provider when done with it, which unregisters
+    /// the source from the token.
+    /// </summary>
+    /// <param name="token">The token the source is linked to.</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// use cancellation = CancellationProvider.fromToken stoppingToken
+    /// </code>
+    /// </example>
+    let fromToken (token: CancellationToken) =
+        new OwnedCancellationProvider(CancellationTokenSource.CreateLinkedTokenSource token)
+
+    /// <summary>
+    /// A provider of <paramref name="source"/>. The caller keeps owning the source, and disposes it.
+    /// </summary>
+    /// <param name="source">The source to provide.</param>
     let fromSource (source: CancellationTokenSource) = {
         new ICancellationProvider with
             member _.Source = source
     }
 
-    let create () = {
-        new ICancellationProvider with
-            member _.Source = new CancellationTokenSource()
-    }
+    /// <summary>A provider of a new source. Dispose the provider when done with it.</summary>
+    let create () =
+        new OwnedCancellationProvider(new CancellationTokenSource())
 
-    let createWithDelay (delay: TimeSpan) = {
-        new ICancellationProvider with
-            member _.Source = new CancellationTokenSource(delay = delay)
-    }
+    /// <summary>
+    /// A provider of a new source that is cancelled after <paramref name="delay"/>, counted from this call. Dispose the
+    /// provider when done with it.
+    /// </summary>
+    /// <param name="delay">The time after which the source is cancelled.</param>
+    let createWithDelay (delay: TimeSpan) =
+        new OwnedCancellationProvider(new CancellationTokenSource(delay = delay))
 
 /// <summary>
 /// Effects for reading and cancelling the environment's <see cref="T:System.Threading.CancellationTokenSource"/>.
@@ -251,6 +268,49 @@ module CancellationSource =
     /// </summary>
     let cancel () =
         Effect.Create(fun (provider: #ICancellationProvider) -> task { do! provider.Source.CancelAsync() })
+
+/// <summary>
+/// Effects for reading the time, and waiting, through an <see cref="T:Orsak.ITimeProvider"/>.
+/// </summary>
+module Time =
+    /// <summary>
+    /// An effect that reads the current UTC time from the environment's clock.
+    /// </summary>
+    /// <example>
+    /// <code lang="fsharp">
+    /// let isExpired (expires: DateTimeOffset) = eff {
+    ///     let! now = Time.utcNow ()
+    ///     return now > expires
+    /// }
+    /// </code>
+    /// </example>
+    let utcNow () =
+        Effect.Create(fun (provider: #ITimeProvider) -> provider.Clock.GetUtcNow())
+
+    /// <summary>
+    /// An effect that waits for <paramref name="delay"/> on the environment's clock, so that a fake clock in tests
+    /// decides when it ends. When the environment is also an <see cref="T:Orsak.ICancellationProvider"/>, cancelling
+    /// its source ends the wait early, with a <see cref="T:System.Threading.Tasks.TaskCanceledException"/>.
+    /// </summary>
+    /// <param name="delay">The time to wait.</param>
+    /// <example>
+    /// <code lang="fsharp">
+    /// let poll () = eff {
+    ///     while true do
+    ///         do! Queue.drain ()
+    ///         do! Time.delay (TimeSpan.FromSeconds 5.0)
+    /// }
+    /// </code>
+    /// </example>
+    let delay (delay: TimeSpan) =
+        Effect.Create(fun (provider: #ITimeProvider) -> task {
+            let token =
+                match box provider with
+                | :? ICancellationProvider as p -> p.Source.Token
+                | _ -> CancellationToken.None
+
+            do! Task.Delay(delay, provider.Clock, token)
+        })
 #endif
 
 open Microsoft.Extensions.Logging
@@ -261,3 +321,95 @@ open Microsoft.Extensions.Logging
 type ILoggerProvider =
     /// <summary>The logger.</summary>
     abstract member Effect: ILogger
+
+/// <summary>
+/// Effects for logging with the environment's <see cref="T:Microsoft.Extensions.Logging.ILogger"/>, through an
+/// <see cref="T:Orsak.ILoggerProvider"/>. Messages are templates, with arguments, as in
+/// <see cref="T:Microsoft.Extensions.Logging.LoggerExtensions"/>.
+/// </summary>
+/// <example>
+/// <code lang="fsharp">
+/// let import rows = eff {
+///     do! Rows.save rows
+///     do! Log.Information("Imported {Count} rows", rows.Length)
+/// }
+/// </code>
+/// </example>
+[<AbstractClass; Sealed>]
+type Log =
+    /// <summary>An effect that gets the environment's logger.</summary>
+    static member Logger<'r, 'e when 'r :> ILoggerProvider>() : Effect<'r, ILogger, 'e> =
+        Effect.Create(fun (provider: 'r) -> provider.Effect)
+
+    /// <summary>An effect that writes a log message at <paramref name="level"/>.</summary>
+    /// <param name="level">The level of the message.</param>
+    /// <param name="message">The message template.</param>
+    /// <param name="args">The values of the template's placeholders.</param>
+    static member Write<'r, 'e when 'r :> ILoggerProvider>
+        (level: LogLevel, message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Effect.Create(fun (provider: 'r) -> provider.Effect.Log(level, message, args))
+
+    /// <summary>An effect that writes a log message with an exception at <paramref name="level"/>.</summary>
+    /// <param name="level">The level of the message.</param>
+    /// <param name="ex">The exception to log.</param>
+    /// <param name="message">The message template.</param>
+    /// <param name="args">The values of the template's placeholders.</param>
+    static member Write<'r, 'e when 'r :> ILoggerProvider>
+        (level: LogLevel, ex: exn, message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Effect.Create(fun (provider: 'r) -> provider.Effect.Log(level, ex, message, args))
+
+    /// <summary>An effect that writes a trace log message.</summary>
+    static member Trace<'r, 'e when 'r :> ILoggerProvider>
+        (message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Trace, message, args)
+
+    /// <summary>An effect that writes a debug log message.</summary>
+    static member Debug<'r, 'e when 'r :> ILoggerProvider>
+        (message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Debug, message, args)
+
+    /// <summary>An effect that writes an informational log message.</summary>
+    static member Information<'r, 'e when 'r :> ILoggerProvider>
+        (message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Information, message, args)
+
+    /// <summary>An effect that writes a warning log message.</summary>
+    static member Warning<'r, 'e when 'r :> ILoggerProvider>
+        (message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Warning, message, args)
+
+    /// <summary>An effect that writes a warning log message with an exception.</summary>
+    static member Warning<'r, 'e when 'r :> ILoggerProvider>
+        (ex: exn, message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Warning, ex, message, args)
+
+    /// <summary>An effect that writes an error log message.</summary>
+    static member Error<'r, 'e when 'r :> ILoggerProvider>
+        (message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Error, message, args)
+
+    /// <summary>An effect that writes an error log message with an exception.</summary>
+    static member Error<'r, 'e when 'r :> ILoggerProvider>
+        (ex: exn, message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Error, ex, message, args)
+
+    /// <summary>An effect that writes a critical log message.</summary>
+    static member Critical<'r, 'e when 'r :> ILoggerProvider>
+        (message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Critical, message, args)
+
+    /// <summary>An effect that writes a critical log message with an exception.</summary>
+    static member Critical<'r, 'e when 'r :> ILoggerProvider>
+        (ex: exn, message: string, [<ParamArray>] args: obj array)
+        : Effect<'r, unit, 'e> =
+        Log.Write(LogLevel.Critical, ex, message, args)

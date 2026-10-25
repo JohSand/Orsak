@@ -8,6 +8,9 @@ Orsak.Myriad updated to Myriad 1.1.0, and now targets net8.0 (previously netstan
 
 ### Added
 Effect.whenAll, high performance alternative to Effect.par that returns an array
+CancellationProvider: `fromToken`, `fromSource`, `create` and `createWithDelay` create an `ICancellationProvider`; all but `fromSource` own their source, and dispose it when disposed
+Time.delay, which waits on the environment's clock, and ends early when the environment's cancellation source is cancelled
+Log: effects that log message templates with the environment's `ILogger`, e.g. `Log.Information("Imported {Count} rows", count)`
 Orsak.Myriad: `[<GenEnvironment>]` generates a `create` function for an interface that inherits provider interfaces, and `run` and `runOrFail` functions that run an effect in the created environment, see README
 Orsak.Myriad: with MyriadInlineGeneration, code is generated to be appended to the file itself, e.g. an ad hoc environment in a `rec` test file. Detected automatically from Myriad 1.1; with Myriad 1.0, set `Inline = true` on `[<GenEffects>]` and `[<GenEnvironment>]`, see README
 

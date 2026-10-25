@@ -212,7 +212,7 @@ type ScalingJobBuilder2<'T, 'r when 'T: (member Extend: ICancellationProvider ->
                         logger,
                         services,
                         spec.Work,
-                        (CancellationProvider.fromToken >> t.Extend),
+                        (fun token -> t.Extend(CancellationProvider.fromToken token :> ICancellationProvider)),
                         (fun _ -> task { return WorkerLoad.Sustained }),
                         ?maxExtraWorkers = spec.MaxExtraWorkers,
                         ?monitorInterval = spec.MonitorInterval,
