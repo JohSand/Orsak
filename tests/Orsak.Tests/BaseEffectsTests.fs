@@ -10,10 +10,10 @@ open Xunit
 open Swensen.Unquote
 
 [<Fact>]
-let ``CancellationProvider fromToken provides the same source on every read`` () =
-    use provider = CancellationProvider.fromToken CancellationToken.None
-    let p = provider :> ICancellationProvider
-    test <@ obj.ReferenceEquals(p.Source, p.Source) @>
+let ``CancellationProvider fromSource provides the source it is given`` () =
+    use source = new CancellationTokenSource()
+    let provider = CancellationProvider.fromSource source
+    test <@ obj.ReferenceEquals(provider.Source, source) @>
 
 [<Fact>]
 let ``CancellationProvider create provides the same source on every read`` () =
@@ -27,21 +27,6 @@ let ``CancellationSource cancel cancels the token getToken returned`` () = task 
     let! token = CancellationSource.getToken () |> Effect.runOrFail provider
     do! CancellationSource.cancel () |> Effect.runOrFail provider
     true =! token.IsCancellationRequested
-}
-
-[<Fact>]
-let ``CancellationProvider fromToken is cancelled with its token, without cancelling it`` () = task {
-    use outer = new CancellationTokenSource()
-    use provider = CancellationProvider.fromToken outer.Token
-    let! token = CancellationSource.getToken () |> Effect.runOrFail provider
-
-    outer.Cancel()
-    true =! token.IsCancellationRequested
-
-    use other = new CancellationTokenSource()
-    use linked = CancellationProvider.fromToken other.Token
-    do! CancellationSource.cancel () |> Effect.runOrFail linked
-    test <@ not other.IsCancellationRequested @>
 }
 
 type TimeEnv(clock: TimeProvider) =

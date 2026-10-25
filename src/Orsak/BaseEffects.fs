@@ -190,62 +190,6 @@ type ICancellationProvider =
     abstract member Source: CancellationTokenSource
 
 /// <summary>
-/// An <see cref="T:Orsak.ICancellationProvider"/> that owns its source, created by the functions in
-/// <c>CancellationProvider</c>, and disposes it when disposed.
-/// </summary>
-[<Sealed>]
-type OwnedCancellationProvider internal (source: CancellationTokenSource) =
-    /// <summary>The source, the same one on every read.</summary>
-    member _.Source = source
-
-    interface ICancellationProvider with
-        member _.Source = source
-
-    interface IDisposable with
-        member _.Dispose() = source.Dispose()
-
-/// <summary>
-/// Creates <see cref="T:Orsak.ICancellationProvider"/>s. Each provider holds one source, which every read of
-/// <c>Source</c> returns, so that cancelling it through <c>CancellationSource.cancel</c> cancels the tokens that
-/// effects got from it.
-/// </summary>
-module CancellationProvider =
-    /// <summary>
-    /// A provider of a new source linked to <paramref name="token"/>: it is cancelled when the token is, and can be
-    /// cancelled on its own without cancelling the token. Dispose the provider when done with it, which unregisters
-    /// the source from the token.
-    /// </summary>
-    /// <param name="token">The token the source is linked to.</param>
-    /// <example>
-    /// <code lang="fsharp">
-    /// use cancellation = CancellationProvider.fromToken stoppingToken
-    /// </code>
-    /// </example>
-    let fromToken (token: CancellationToken) =
-        new OwnedCancellationProvider(CancellationTokenSource.CreateLinkedTokenSource token)
-
-    /// <summary>
-    /// A provider of <paramref name="source"/>. The caller keeps owning the source, and disposes it.
-    /// </summary>
-    /// <param name="source">The source to provide.</param>
-    let fromSource (source: CancellationTokenSource) = {
-        new ICancellationProvider with
-            member _.Source = source
-    }
-
-    /// <summary>A provider of a new source. Dispose the provider when done with it.</summary>
-    let create () =
-        new OwnedCancellationProvider(new CancellationTokenSource())
-
-    /// <summary>
-    /// A provider of a new source that is cancelled after <paramref name="delay"/>, counted from this call. Dispose the
-    /// provider when done with it.
-    /// </summary>
-    /// <param name="delay">The time after which the source is cancelled.</param>
-    let createWithDelay (delay: TimeSpan) =
-        new OwnedCancellationProvider(new CancellationTokenSource(delay = delay))
-
-/// <summary>
 /// Effects for reading and cancelling the environment's <see cref="T:System.Threading.CancellationTokenSource"/>.
 /// </summary>
 module CancellationSource =

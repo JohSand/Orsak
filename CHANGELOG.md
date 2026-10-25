@@ -8,7 +8,7 @@ Orsak.Myriad updated to Myriad 1.1.0, and now targets net8.0 (previously netstan
 
 ### Added
 Effect.whenAll, high performance alternative to Effect.par that returns an array
-CancellationProvider: `fromToken`, `fromSource`, `create` and `createWithDelay` create an `ICancellationProvider`; all but `fromSource` own their source, and dispose it when disposed
+CancellationProvider: `fromSource` provides a source the caller owns, and `create` a new one, disposed with the provider
 Time.delay, which waits on the environment's clock, and ends early when the environment's cancellation source is cancelled
 Log: effects that log message templates with the environment's `ILogger`, e.g. `Log.Information("Imported {Count} rows", count)`
 CancellationScope: a `CancellationTokenSource` linked to a token, begun and disposed around an effect, so each source lives exactly as long as the effects using it. `Cancellation.within` runs an effect in one, nested in the current scope if there is one, and `Cancellation.timeout` cancels it after a duration, stopping the effect, unlike `Effect.timeout`
