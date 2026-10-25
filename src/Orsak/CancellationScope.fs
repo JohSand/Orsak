@@ -55,6 +55,34 @@ type CancellationScope private (parent: CancellationToken) =
             ValueTask.CompletedTask
 
 /// <summary>
+/// Creates <see cref="T:Orsak.ICancellationProvider"/>s, for an environment that doesn't begin cancellation scopes,
+/// such as one in a test. To link a source to a token, use <c>CancellationScope.LinkedTo</c>, which is a provider
+/// too; to cancel after a timeout, <c>Cancellation.timeout</c>.
+/// </summary>
+module CancellationProvider =
+    /// <summary>
+    /// A provider of <paramref name="source"/>, which every read of <c>Source</c> returns. The caller keeps owning the
+    /// source, and disposes it.
+    /// </summary>
+    /// <param name="source">The source to provide.</param>
+    let fromSource (source: CancellationTokenSource) = {
+        new ICancellationProvider with
+            member _.Source = source
+    }
+
+    /// <summary>
+    /// A provider of a new source, linked to no token: a <see cref="T:Orsak.CancellationScope"/>, which is its own
+    /// source. Dispose it when done with it.
+    /// </summary>
+    /// <example>
+    /// <code lang="fsharp">
+    /// use cancellation = CancellationProvider.create ()
+    /// </code>
+    /// </example>
+    let create () =
+        CancellationScope.LinkedTo CancellationToken.None
+
+/// <summary>
 /// Creates the <see cref="T:Orsak.Scoped.ScopeProvider`1"/>s that begin <see cref="T:Orsak.CancellationScope"/>s.
 /// </summary>
 module CancellationScope =
