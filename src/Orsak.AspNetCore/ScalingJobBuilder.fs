@@ -7,6 +7,7 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 open Microsoft.FSharp.Quotations
+open FSharp.Control
 open Orsak
 
 
@@ -193,10 +194,12 @@ type ScalingJobBuilder(name: string option) =
                     :> IHostedService
         }
 #if NET8_0_OR_GREATER
-type ScalingJobBuilder2<'T, 'r when 'T: (member Extend: ICancellationProvider -> 'r)>(t: 'T) =
+/// A job whose environment is extended with a cancellation scope for each run of its work, by `extend`: usually an
+/// environment's Extend member, such as one Myriad generates, as in `scalingJob2 env.Extend { ... }`.
+type ScalingJobBuilder2<'r>(extend: CancellationTokenSource -> 'r) =
     inherit ScalingJobBuilder(None)
 
-    member inline _.Run
+    member _.Run
         (spec: ScalingJobSpec<unit -> Effect<'r, unit, 'err>, EnvironmentNotSet, WorkloadNotSet>)
         : ScalingJobDefinition =
         let name = spec.Name |> Option.defaultValue "ScalingJob"
@@ -207,12 +210,22 @@ type ScalingJobBuilder2<'T, 'r when 'T: (member Extend: ICancellationProvider ->
                 fun services ->
                     let logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(name)
 
-                    new DelegatingScalingEffectJob<'r, 'err>(
+                    // each run of the work gets a cancellation scope of its own, linked to the worker's token and
+                    // disposed when the run ends, so the environment's source never outlives the effects using it
+                    let work () =
+                        let effect = spec.Work()
+
+                        mkEffect (fun (token: CancellationToken) -> vtask {
+                            use scope = CancellationScope.LinkedTo token
+                            return! effect.Run(extend scope)
+                        })
+
+                    new DelegatingScalingEffectJob<CancellationToken, 'err>(
                         name,
                         logger,
                         services,
-                        spec.Work,
-                        (fun token -> t.Extend(CancellationProvider.fromToken token :> ICancellationProvider)),
+                        work,
+                        id,
                         (fun _ -> task { return WorkerLoad.Sustained }),
                         ?maxExtraWorkers = spec.MaxExtraWorkers,
                         ?monitorInterval = spec.MonitorInterval,
@@ -229,7 +242,7 @@ module ScalingJob =
     /// A job with a name of its own
     let namedScalingJob name = ScalingJobBuilder(Some name)
 #if NET8_0_OR_GREATER
-    let inline scalingJob2 a = ScalingJobBuilder2(a)
+    let scalingJob2 extend = ScalingJobBuilder2(extend)
 #endif
     type IServiceCollection with
         member services.AddScalingJob(job: ScalingJobDefinition) =

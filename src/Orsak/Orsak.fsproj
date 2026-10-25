@@ -14,6 +14,7 @@
 		<Compile Include="BaseEffects.fs" />
 		<Compile Include="Resilience.fs" Condition="'$(TargetFramework)' != 'NET6.0'" />
 		<Compile Include="ScopedEffect.fs" />
+		<Compile Include="CancellationScope.fs" />
 		<Compile Include="Effects\Database.fs" />
 		<Compile Include="EffList.fs" />
 	</ItemGroup>
