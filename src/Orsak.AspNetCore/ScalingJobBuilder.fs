@@ -9,6 +9,7 @@ open Microsoft.Extensions.Logging
 open Microsoft.FSharp.Quotations
 open FSharp.Control
 open Orsak
+open Orsak.Scoped
 
 
 /// A job whose workload is a function, so the builder needs no subclass per job.
@@ -40,6 +41,7 @@ type DelegatingScalingEffectJob<'r, 'err>
 
     override _.GetWorkload token = workload token
 
+
 // Markers for the operations a job needs, until they are given: Run only accepts a spec without them.
 type WorkNotSet = WorkNotSet
 type EnvironmentNotSet = EnvironmentNotSet
@@ -57,6 +59,7 @@ type ScalingJobSpec<'Work, 'Env, 'Load> = {
     RestartDelay: TimeSpan option
     MaxRestartDelay: TimeSpan option
 }
+
 
 /// A job ready to be added to the services.
 type ScalingJobDefinition = { Name: string; Create: IServiceProvider -> IHostedService }
@@ -199,9 +202,7 @@ type ScalingJobBuilder(name: string option) =
 type ScalingJobBuilder2<'r>(extend: CancellationTokenSource -> 'r) =
     inherit ScalingJobBuilder(None)
 
-    member _.Run
-        (spec: ScalingJobSpec<unit -> Effect<'r, unit, 'err>, EnvironmentNotSet, WorkloadNotSet>)
-        : ScalingJobDefinition =
+    member _.Run(spec: ScalingJobSpec<unit -> Effect<'r, unit, 'err>, EnvironmentNotSet, WorkloadNotSet>) =
         let name = spec.Name |> Option.defaultValue "ScalingJob"
 
         {
@@ -234,6 +235,37 @@ type ScalingJobBuilder2<'r>(extend: CancellationTokenSource -> 'r) =
                     )
                     :> IHostedService
         }
+
+type ScalingJobBuilder3<'root, 'inner when 'root :> IGrowsInto<CancellationScope, 'inner>>
+    (f: CancellationToken -> 'root) =
+    inherit ScalingJobBuilder(None)
+
+    member _.Run(spec: ScalingJobSpec<unit -> Effect<'inner, unit, 'err>, EnvironmentNotSet, WorkloadNotSet>) =
+        let name = spec.Name |> Option.defaultValue "ScalingJob"
+
+        {
+            Name = name
+            Create =
+                fun services ->
+                    let logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(name)
+                    // each run of the work gets a cancellation scope of its own, linked to the worker's token and
+                    // disposed when the run ends, so the environment's source never outlives the effects using it
+
+                    new DelegatingScalingEffectJob<_, 'err>(
+                        name,
+                        logger,
+                        services,
+                        (fun () -> cancellableEff { do! spec.Work() }),
+                        f,
+                        (fun _ -> task { return WorkerLoad.Sustained }),
+                        ?maxExtraWorkers = spec.MaxExtraWorkers,
+                        ?monitorInterval = spec.MonitorInterval,
+                        ?restartDelay = spec.RestartDelay,
+                        ?maxRestartDelay = spec.MaxRestartDelay
+                    )
+                    :> IHostedService
+        }
+
 #endif
 [<AutoOpen>]
 module ScalingJob =
