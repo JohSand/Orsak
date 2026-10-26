@@ -12,7 +12,7 @@ CancellationProvider: `fromSource` provides a source the caller owns, and `creat
 Time.delay, which waits on the environment's clock, and ends early when the environment's cancellation source is cancelled
 Log: effects that log message templates with the environment's `ILogger`, e.g. `Log.Information("Imported {Count} rows", count)`
 CancellationScope: a `CancellationTokenSource` linked to a token, begun and disposed around an effect, so each source lives exactly as long as the effects using it. `Cancellation.within` runs an effect in one, nested in the current scope if there is one, and `Cancellation.timeout` cancels it after a duration, stopping the effect, unlike `Effect.timeout`
-Orsak.Myriad: an environment may grow into a `CancellationScope` by adding an `ICancellationProvider`
+Orsak.Myriad: an environment may grow into a `CancellationScope` by adding an `ICancellationProvider`, and an environment providing an `ICancellationProvider` begins its scopes nested in its source, with `CancellationScope.NestedIn`, so a scope begun in a scope is cancelled with it
 scalingJob2 takes the function extending its environment with a source, e.g. `scalingJob2 env.Extend { ... }`, and runs each run of its work in a cancellation scope of its own
 Orsak.Myriad: `[<GenEnvironment>]` generates a `create` function for an interface that inherits provider interfaces, and `run` and `runOrFail` functions that run an effect in the created environment, see README
 Orsak.Myriad: with MyriadInlineGeneration, code is generated to be appended to the file itself, e.g. an ad hoc environment in a `rec` test file. Detected automatically from Myriad 1.1; with Myriad 1.0, set `Inline = true` on `[<GenEffects>]` and `[<GenEnvironment>]`, see README

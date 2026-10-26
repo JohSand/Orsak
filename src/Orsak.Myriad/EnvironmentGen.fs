@@ -46,7 +46,8 @@ module EnvironmentSyntax =
 
     let private serviceType =
         function
-        | BeginsScope(interfaceType, scope, _) -> genericType interfaceType [ scope ]
+        | BeginsScope(interfaceType, scope, _)
+        | NestsCancellationScope(interfaceType, scope) -> genericType interfaceType [ scope ]
         | GrowsInto(interfaceType, scope, inner, _) -> genericType interfaceType [ scope; [ inner ] ]
 
     /// The record of effects: a field for each provider, and for each service implemented by one.
@@ -56,7 +57,8 @@ module EnvironmentSyntax =
             for s in services do
                 match s with
                 | BeginsScope(fieldName = field) -> yield ident field, serviceType s
-                | GrowsInto _ -> ()
+                | GrowsInto _
+                | NestsCancellationScope _ -> ()
         ]
 
         SynType.AnonRecd(false, fields, range0)
@@ -128,7 +130,8 @@ module EnvironmentSyntax =
             range0
         )
 
-    let private serviceImpl (source: Source) (service: EnvironmentServiceCfg) =
+    /// `cancellationSource` is the environment's cancellation source, when it provides one.
+    let private serviceImpl (source: Source) (cancellationSource: SynExpr option) (service: EnvironmentServiceCfg) =
         // `effects.Field.Name`, or `(outer :> Interface).Name`
         let memberOf field name =
             match source with
@@ -139,6 +142,10 @@ module EnvironmentSyntax =
             match service with
             | BeginsScope(fieldName = field) ->
                 memberDefn "_" "BeginScope" [ unitPat ] (appAtomic (memberOf field "BeginScope") unitExpr)
+            | NestsCancellationScope(scopeType = scope) ->
+                // `CancellationScope.NestedIn(source)`
+                let nestedIn = longExpr (scope @ [ "NestedIn" ])
+                memberDefn "_" "BeginScope" [ unitPat ] (appAtomic nestedIn (paren cancellationSource.Value))
             | GrowsInto(inner = inner; innerBase = innerBase) ->
                 match source with
                 | FromEffects ->
@@ -158,6 +165,11 @@ module EnvironmentSyntax =
         (effectOf: EnvironmentProviderCfg -> SynExpr)
         (serviceSource: Source)
         =
+        let cancellationSource =
+            environment.providers
+            |> List.tryFind (fun p -> List.last p.providerType = "ICancellationProvider")
+            |> Option.map effectOf
+
         SynExpr.ObjExpr(
             longType [ environment.name ],
             None,
@@ -166,7 +178,7 @@ module EnvironmentSyntax =
             [],
             [
                 for provider in environment.providers -> providerImpl effectOf provider
-                for service in environment.services -> serviceImpl serviceSource service
+                for service in environment.services -> serviceImpl serviceSource cancellationSource service
             ],
             range0,
             range0

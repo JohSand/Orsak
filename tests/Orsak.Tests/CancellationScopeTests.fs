@@ -116,6 +116,27 @@ let ``a scope begun in a scope is cancelled with it`` () = task {
     false =! parent.IsCancellationRequested
 }
 
+/// Cancels the scope it is nested in, from a scope of its own.
+let cancelOuterScope (outer: CancellationTokenSource) = cancellableEff {
+    outer.Cancel()
+    let! inner = source ()
+    return inner.IsCancellationRequested
+}
+
+let nestedCancellableEffs () = cancellableEff {
+    let! outer = source ()
+    return! cancelOuterScope outer
+}
+
+[<Fact>]
+let ``a cancellableEff begun in a cancellableEff is cancelled with it`` () = task {
+    use parent = new CancellationTokenSource()
+    let! innerCancelled = nestedCancellableEffs () |> Effect.runOrFail (root TimeProvider.System parent.Token)
+
+    true =! innerCancelled
+    false =! parent.IsCancellationRequested
+}
+
 [<Fact>]
 let ``Cancellation timeout fails with its error, and stops the effect, when it times out`` () = task {
     let clock = FakeTimeProvider()
@@ -181,8 +202,7 @@ module CancellableEnvironment =
           interface ICancellationProvider with
               member _.Source = effect
           interface ScopeProvider<CancellationScope> with
-              member _.BeginScope() =
-                  (outer :> ScopeProvider<CancellationScope>).BeginScope()
+              member _.BeginScope() = CancellationScope.NestedIn(effect)
           interface IGrowsInto<CancellationScope, ICancellableEnvironment> with
               member _.Grow scope =
                   (outer :> IGrowsInto<CancellationScope, ICancellableEnvironment>).Grow scope
@@ -190,11 +210,7 @@ module CancellableEnvironment =
 
     let create
         (effects:
-            {|
-                TimeProvider: System.TimeProvider
-                CancellationTokenSource: System.Threading.CancellationTokenSource
-                CancellationScopeScope: ScopeProvider<CancellationScope>
-            |})
+            {| TimeProvider: System.TimeProvider; CancellationTokenSource: System.Threading.CancellationTokenSource |})
         : ICancellableEnvironment =
         { new ICancellableEnvironment
 
@@ -204,7 +220,7 @@ module CancellableEnvironment =
               member _.Source = effects.CancellationTokenSource
           interface ScopeProvider<CancellationScope> with
               member _.BeginScope() =
-                  effects.CancellationScopeScope.BeginScope()
+                  CancellationScope.NestedIn(effects.CancellationTokenSource)
           interface IGrowsInto<CancellationScope, ICancellableEnvironment> with
               member this.Grow scope =
                   CancellableEnvironment.extend (this :?> IAppEnvironment) scope
