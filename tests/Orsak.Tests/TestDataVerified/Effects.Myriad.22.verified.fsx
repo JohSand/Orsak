@@ -34,20 +34,14 @@ module CancellableEnvironment =
           interface ICancellationProvider with
               member _.Source = effect
           interface ScopeProvider<CancellationScope> with
-              member _.BeginScope() =
-                  (outer :> ScopeProvider<CancellationScope>).BeginScope()
+              member _.BeginScope() = CancellationScope.NestedIn(effect)
           interface IGrowsInto<CancellationScope, ICancellableEnvironment> with
               member _.Grow scope =
                   (outer :> IGrowsInto<CancellationScope, ICancellableEnvironment>).Grow scope
         }
 
     let create
-        (effects:
-            {|
-                TestEffect1: ITestEffect1
-                CancellationTokenSource: System.Threading.CancellationTokenSource
-                CancellationScopeScope: ScopeProvider<CancellationScope>
-            |})
+        (effects: {| TestEffect1: ITestEffect1; CancellationTokenSource: System.Threading.CancellationTokenSource |})
         : ICancellableEnvironment =
         { new ICancellableEnvironment
 
@@ -57,7 +51,7 @@ module CancellableEnvironment =
               member _.Source = effects.CancellationTokenSource
           interface ScopeProvider<CancellationScope> with
               member _.BeginScope() =
-                  effects.CancellationScopeScope.BeginScope()
+                  CancellationScope.NestedIn(effects.CancellationTokenSource)
           interface IGrowsInto<CancellationScope, ICancellableEnvironment> with
               member this.Grow scope =
                   CancellableEnvironment.extend (this :?> IAppEnvironment) scope

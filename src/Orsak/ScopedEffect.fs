@@ -57,8 +57,7 @@ type Scope<'Scope when 'Scope :> Scoped> =
     /// </summary>
     /// <param name="body">The effect to run in the scope, an effect of the grown environment.</param>
     /// <returns>An effect of the outer environment, which no longer needs what the scope provides.</returns>
-    static member Within<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> IGrowsInto<'Scope, 'Inner>>
+    static member Within<'Outer, 'Inner, 'a, 'err when 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (body: Effect<'Inner, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         mkEffect (fun (outer: 'Outer) -> vtask {
@@ -84,8 +83,7 @@ type CompletingScope<'Scope when 'Scope :> CompletableScope> =
     /// </summary>
     /// <param name="body">The effect to run in the scope, an effect of the grown environment.</param>
     /// <returns>An effect of the outer environment, which no longer needs what the scope provides.</returns>
-    static member Within<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> IGrowsInto<'Scope, 'Inner>>
+    static member Within<'Outer, 'Inner, 'a, 'err when 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (body: Effect<'Inner, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         mkEffect (fun (outer: 'Outer) -> vtask {
@@ -119,8 +117,7 @@ type ScopeCreatingEffectBuilder<'Scope when 'Scope :> Scoped>() =
     inherit EffBuilderBase()
 
     /// <summary>Runs the effects of the expression in a new scope, as <c>Scope.Within</c> does.</summary>
-    member inline _.Run<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> IGrowsInto<'Scope, 'Inner>>
+    member inline _.Run<'Outer, 'Inner, 'a, 'err when 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (code: EffectCode<'Inner, 'a, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         Scope<'Scope>.Within(eff.Run code)
@@ -148,8 +145,7 @@ type CompletableScopeCreatingEffectBuilder<'Scope when 'Scope :> CompletableScop
     /// Runs the effects of the expression in a new scope, completing it if they succeed, as
     /// <c>CompletingScope.Within</c> does.
     /// </summary>
-    member inline _.Run<'Outer, 'Inner, 'a, 'err
-        when 'Outer :> IGrowsInto<'Scope, 'Inner>>
+    member inline _.Run<'Outer, 'Inner, 'a, 'err when 'Outer :> IGrowsInto<'Scope, 'Inner>>
         (code: EffectCode<'Inner, 'a, 'a, 'err>)
         : Effect<'Outer, 'a, 'err> =
         CompletingScope<'Scope>.Within(eff.Run code)

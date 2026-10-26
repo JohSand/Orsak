@@ -108,6 +108,9 @@ type EnvironmentServiceCfg =
     /// environment with a provider of 'Scope: implemented with the extend function of 'Inner. `innerBase` is the
     /// environment 'Inner extends, filled in once all the environments of the file are known.
     | GrowsInto of interfaceType: string list * scopeType: string list * inner: string * innerBase: string list
+    /// ScopeProvider<CancellationScope> of an environment that provides an ICancellationProvider: implemented by
+    /// beginning scopes nested in its source, so a scope begun in a scope is cancelled with it, and needs no field.
+    | NestsCancellationScope of interfaceType: string list * scopeType: string list
 
 /// <exclude/>
 // `providers` and `services` include those of any inherited [<GenEnvironment>] interfaces.

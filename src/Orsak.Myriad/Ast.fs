@@ -318,7 +318,8 @@ type private Inherited =
 let private serviceFieldName =
     function
     | BeginsScope(fieldName = field) -> Some field
-    | GrowsInto _ -> None
+    | GrowsInto _
+    | NestsCancellationScope _ -> None
 
 /// The generic interfaces a [<GenEnvironment>] interface may inherit: those of Orsak's scopes.
 let private serviceCfg (fail: string -> EnvironmentServiceCfg) (ids: LongIdent) (typeArgs: SynType list) =
@@ -346,7 +347,11 @@ let private serviceCfg (fail: string -> EnvironmentServiceCfg) (ids: LongIdent) 
 /// begin, begins it with a ScopeProvider<'Scope>, qualified as its IGrowsInto is.
 let private withImpliedScopes (services: EnvironmentServiceCfg list) =
     let begun =
-        services |> List.choose (function BeginsScope(scopeType = scope) -> Some scope | _ -> None)
+        services
+        |> List.choose (function
+            | BeginsScope(scopeType = scope)
+            | NestsCancellationScope(scopeType = scope) -> Some scope
+            | GrowsInto _ -> None)
 
     services
     |> List.collect (function
@@ -355,6 +360,22 @@ let private withImpliedScopes (services: EnvironmentServiceCfg list) =
             [ BeginsScope(provider, scope, Writer.trimI (List.last scope) + "Scope"); grows ]
         | service -> [ service ])
     |> List.distinct
+
+let private isCancellationScope (scope: string list) = List.last scope = "CancellationScope"
+
+let private isCancellationProvider (provider: EnvironmentProviderCfg) =
+    List.last provider.providerType = "ICancellationProvider"
+
+/// An environment that provides an ICancellationProvider begins its CancellationScopes nested in its source, rather
+/// than with a ScopeProvider of its own, which in an environment grown in a scope would begin them at the root.
+let private withNestedCancellationScopes (providers: EnvironmentProviderCfg list) (services: EnvironmentServiceCfg list) =
+    if providers |> List.exists isCancellationProvider then
+        services
+        |> List.map (function
+            | BeginsScope(interfaceType, scope, _) when isCancellationScope scope -> NestsCancellationScope(interfaceType, scope)
+            | service -> service)
+    else
+        services
 
 /// `declared` holds the file's [<GenEnvironment>] interfaces by name, so an inherited one is resolved to its providers.
 let rec private resolveEnvironment
@@ -411,6 +432,7 @@ let rec private resolveEnvironment
             | InheritedEnvironment(_, environment) -> environment.services)
         |> List.distinct
         |> withImpliedScopes
+        |> withNestedCancellationScopes providers
 
     if providers.IsEmpty then
         fail "must inherit at least one provider interface."
@@ -455,7 +477,7 @@ let private completeGrowth (environments: EnvironmentCfg list) (environment: Env
                 // a CancellationScope is a CancellationTokenSource, which ICancellationProvider provides
                 let provides (provider: EnvironmentProviderCfg) =
                     List.last provider.effectType = List.last scope
-                    || List.last scope = "CancellationScope" && List.last provider.providerType = "ICancellationProvider"
+                    || isCancellationScope scope && isCancellationProvider provider
 
                 match inner.extends with
                 | Some extends ->

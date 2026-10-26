@@ -38,6 +38,15 @@ type CancellationScope private (parent: CancellationToken) =
         scope.registration <- token.UnsafeRegister((fun s -> (s :?> CancellationScope).Cancel()), scope)
         scope
 
+    /// <summary>
+    /// Begins a scope nested in <paramref name="source"/>: the <c>BeginScope</c> of an environment whose
+    /// <see cref="T:Orsak.ICancellationProvider"/> is that source, such as one grown in a scope, so that a scope begun
+    /// in a scope is cancelled with it. Myriad's <c>[&lt;GenEnvironment&gt;]</c> implements it so.
+    /// </summary>
+    /// <param name="source">The source whose cancellation cancels the scope.</param>
+    static member NestedIn(source: CancellationTokenSource) =
+        ValueTask<CancellationScope>(CancellationScope.LinkedTo source.Token)
+
     /// <summary>Unlinks the scope from its parent token, then disposes the source.</summary>
     override this.Dispose(disposing: bool) =
         if disposing then
@@ -53,6 +62,12 @@ type CancellationScope private (parent: CancellationToken) =
         member this.DisposeAsync() =
             this.Dispose()
             ValueTask.CompletedTask
+
+type CancellationScopeBuilder() = inherit ScopeCreatingEffectBuilder<CancellationScope>()
+
+[<AutoOpen>]
+module CancellationScopeBuilder =
+    let cancellableEff = CancellationScopeBuilder()
 
 /// <summary>
 /// Creates <see cref="T:Orsak.ICancellationProvider"/>s, for an environment that doesn't begin cancellation scopes,
@@ -105,16 +120,10 @@ module CancellationScope =
 /// the scope.
 /// </summary>
 module Cancellation =
-    /// A scope begun in a scope is linked to its source, so that cancelling a scope cancels the scopes in it: an
-    /// environment grown in a scope forwards BeginScope to the root, whose scopes are linked to the root's token.
-    let private beginScope (outer: 'Outer :> ScopeProvider<CancellationScope>) =
-        match box outer with
-        | :? ICancellationProvider as p -> ValueTask<_>(CancellationScope.LinkedTo p.Source.Token)
-        | _ -> outer.BeginScope()
-
     /// <summary>
     /// Runs <paramref name="body"/> in a new cancellation scope, disposed when <paramref name="body"/> ends. In an
-    /// environment that is in a scope already, the new scope is nested in it.
+    /// environment that is in a scope already, the new scope is nested in it, when the environment begins it so, with
+    /// <c>CancellationScope.NestedIn</c>.
     /// </summary>
     /// <param name="body">The effect to run in the scope, an effect of the grown environment.</param>
     /// <example>
@@ -131,7 +140,7 @@ module Cancellation =
         (body: Effect<'Inner, 'a, 'e>)
         : Effect<'Outer, 'a, 'e> =
         mkEffect (fun (outer: 'Outer) -> vtask {
-            use! scope = beginScope outer
+            use! scope = outer.BeginScope()
 
             match! body.Run(outer.Grow scope) with
             | Ok a -> return Ok a
@@ -164,7 +173,7 @@ module Cancellation =
         (body: Effect<'Inner, 'a, 'e>)
         : Effect<'Outer, 'a, 'e> =
         mkEffect (fun (outer: 'Outer) -> vtask {
-            use! scope = beginScope outer
+            use! scope = outer.BeginScope()
 
             let clock =
                 match box outer with
