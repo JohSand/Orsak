@@ -695,6 +695,7 @@ module WrapOnce =
         /// Creates an effect from a function.
         /// </summary>
         /// <param name="f">The effect creation function</param>
+        [<CompiledName("CreateAsync")>]
         static member Create(f: 'a -> Async<'b>) : Effect<'a, 'b, _> =
             mkEffect (fun a -> vtask {
                 let! b = f a
@@ -705,6 +706,7 @@ module WrapOnce =
         /// Creates an effect from a function returning Result.
         /// </summary>
         /// <param name="f">The effect creation function</param>
+        [<CompiledName("CreateResult")>]
         static member Create(f: 'a -> Result<'b, 'e>) : Effect<'a, 'b, 'e> = mkEffect (f >> ValueTask.FromResult)
 
         /// <summary>
@@ -723,6 +725,7 @@ module WrapOnce =
         ///   </code>
         /// </example>
         /// <param name="f">The effect creation function</param>
+        [<CompiledName("CreateTask")>]
         static member Create(f: 'a -> Task<'b>) : Effect<'a, 'b, _> =
             mkEffect (fun a -> vtask {
                 let! b = f a
@@ -733,6 +736,7 @@ module WrapOnce =
         /// Creates an effect from a function.
         /// </summary>
         /// <param name="f">The effect creation function</param>
+        [<CompiledName("CreateValueTask")>]
         static member Create(f: 'a -> ValueTask<'b>) : Effect<'a, 'b, _> =
             mkEffect (fun a -> vtask {
                 let! b = f a

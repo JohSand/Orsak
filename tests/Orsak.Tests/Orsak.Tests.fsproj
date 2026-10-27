@@ -39,6 +39,7 @@
         <Compile Include="MyriadTests.fs"/>
         <Compile Include="EndpointRoutingTests.fs"/>
         <Compile Include="OpenApiInferenceTests.fs"/>
+        <Compile Include="QuotationTests.fs"/>
         <Compile Include="ScalingEffectJobTests.fs"/>
         <Compile Include="ScalingJobBuilderTests.fs" MyriadInlineGeneration="true" />
         <Compile Include="CancellationScopeTests.fs" MyriadInlineGeneration="true" Condition="'$(TargetFramework)' != 'NET6.0'" />

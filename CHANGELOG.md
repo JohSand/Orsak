@@ -20,6 +20,7 @@ Orsak.Myriad: with MyriadInlineGeneration, code is generated to be appended to t
 ### Fixed
 Issue where bound effects could be not rerun properly
 Effect.forever and Effect.retryWhile (and so Effect.retryTimes) no longer overflow the stack when the effect fails synchronously many times in a row: they are loops now, instead of nesting a run per failure
+Effects written in a quotation, such as a route handler lambda or a scaling job's work, can use `let!`, `return!`, `for`, `while` and `Effect.Create`: each overload of the builders has a compiled name of its own, so deserializing the quotation can bind it
 Orsak.Myriad `[<GenEffects>]`: a configured `ProviderName` now names the generated provider, not just the constraint on the effect functions
 Orsak.Myriad `[<GenEffects>]`: module names only trim one leading `I` (`IInventory` generates `Inventory`, not `nventory`)
 Orsak.Myriad `[<GenEffects>]`: an input declared as `module A.B` generates into `namespace A`, instead of a `namespace A.B` that clashes with the module

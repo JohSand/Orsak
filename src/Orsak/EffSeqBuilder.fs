@@ -597,12 +597,14 @@ module MediumPriority =
                         dispensation.Dispose())
             )
 
+        [<CompiledName("ForSeq")>]
         member inline this.For(sequence: seq<'TElement>, body: 'TElement -> EffSeqCode<'Env, 'T, 'Err>) =
             this.Using(
                 sequence.GetEnumerator(),
                 fun e -> this.While(e.MoveNext, (fun sm -> (body e.Current).Invoke(&sm)))
             )
 
+        [<CompiledName("YieldFromSeq")>]
         member inline this.YieldFrom(source: seq<'T>) : EffSeqCode<'Env, 'T, 'Err> = this.For(source, this.Yield)
 
         member inline this.For(source: #IAsyncEnumerable<'TElement>, body: 'TElement -> EffSeqCode<'Env, 'T, 'Err>) =
@@ -614,6 +616,7 @@ module MediumPriority =
                     )
                     .Invoke(&sm))
 
+        [<CompiledName("ForEffSeq")>]
         member inline this.For(source: EffSeq<'Env, 'TElement, 'Err>, body: 'TElement -> EffSeqCode<'Env, 'T, 'Err>) =
             EffSeqCode<'Env, 'T, 'Err>(fun sm ->
                 this
@@ -633,6 +636,7 @@ module MediumPriority =
                     .Invoke(&sm))
 
 
+        [<CompiledName("YieldFromAsyncEnumerable")>]
         member inline this.YieldFrom(source: IAsyncEnumerable<'T>) =
             this.For(source, (fun v -> this.Yield(v)))
 
@@ -694,6 +698,7 @@ module MediumPriority =
                 else
                     EffSeqBuilder.BindDynamic(&sm, task, continuation))
 
+        [<CompiledName("YieldFromEffect")>]
         member inline this.YieldFrom(eff: Effect<'Env, 'T, 'Err>) : EffSeqCode<'Env, 'T, 'Err> =
             this.Bind<'Env, 'T, 'T, 'Err>(eff, this.Yield)
 
@@ -725,6 +730,7 @@ module HighPrioritySeq =
                 false
 #warnon "3513"
 
+        [<CompiledName("BindTask")>]
         member inline _.Bind(task: Task<'T>, [<InlineIfLambda>] continuation: 'T -> EffSeqCode<'Env, 'U, 'Err>) =
             EffSeqCode<'Env, 'U, 'Err>(fun sm ->
                 if __useResumableCode<obj> then
@@ -745,6 +751,7 @@ module HighPrioritySeq =
                 else
                     EffSeqBuilder.BindDynamic(&sm, task, continuation))
 
+        [<CompiledName("BindAsync")>]
         member inline this.Bind
             (
                 computation: Async<'T>,
@@ -752,6 +759,7 @@ module HighPrioritySeq =
             ) =
             this.Bind(Async.StartAsTask(computation), continuation)
 
+        [<CompiledName("BindResult")>]
         member inline this.Bind
             (
                 result: Result<'T, 'Err>,
