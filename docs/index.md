@@ -31,6 +31,7 @@ Where to go next:
 * [Resilience](resilience.html): retrying, backing off, timing out and keeping background work alive.
 * [Effect sequences](effect-sequences.html): streaming results, such as pages from an API, as effects.
 * [Web APIs](web-apis.html): running effects in web APIs, with minimal APIs, Giraffe, Oxpecker and Orsak.AspNetCore.
+* [OpenAPI](openapi.html): describing the endpoints of Orsak.AspNetCore in OpenAPI documents, with Orsak.AspNetCore.OpenApi.
 * [Testing](testing.html): running effects with environments of fakes, including the clock.
 * [Scopes](scopes.html): running effects in transactions and other scopes, with an environment that grows.
 * [Generating code](myriad.html): generating effects and environments from interfaces with Orsak.Myriad.
