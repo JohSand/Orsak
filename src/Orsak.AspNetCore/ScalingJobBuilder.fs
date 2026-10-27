@@ -197,9 +197,10 @@ type ScalingJobBuilder(name: string option) =
                     :> IHostedService
         }
 #if NET8_0_OR_GREATER
-/// A job whose environment is extended with a cancellation scope for each run of its work, by `extend`: usually an
-/// environment's Extend member, such as one Myriad generates, as in `scalingJob2 env.Extend { ... }`.
-type ScalingJobBuilder2<'r>(extend: CancellationTokenSource -> 'r) =
+/// A prototype, not yet public: a job whose environment is extended with a cancellation scope for each run of its
+/// work, by `extend`: usually an environment's Extend member, such as one Myriad generates, as in
+/// `scalingJob2 env.Extend { ... }`.
+type internal ScalingJobBuilder2<'r>(extend: CancellationTokenSource -> 'r) =
     inherit ScalingJobBuilder(None)
 
     member _.Run(spec: ScalingJobSpec<unit -> Effect<'r, unit, 'err>, EnvironmentNotSet, WorkloadNotSet>) =
@@ -236,7 +237,9 @@ type ScalingJobBuilder2<'r>(extend: CancellationTokenSource -> 'r) =
                     :> IHostedService
         }
 
-type ScalingJobBuilder3<'root, 'inner when 'root :> IGrowsInto<CancellationScope, 'inner>>
+/// A prototype, not yet public: a job whose root environment, created from the worker's token, grows into the
+/// environment of each run of its work, in a cancellation scope of its own.
+type internal ScalingJobBuilder3<'root, 'inner when 'root :> IGrowsInto<CancellationScope, 'inner>>
     (f: CancellationToken -> 'root) =
     inherit ScalingJobBuilder(None)
 
@@ -274,7 +277,7 @@ module ScalingJob =
     /// A job with a name of its own
     let namedScalingJob name = ScalingJobBuilder(Some name)
 #if NET8_0_OR_GREATER
-    let scalingJob2 extend = ScalingJobBuilder2(extend)
+    let internal scalingJob2 extend = ScalingJobBuilder2(extend)
 #endif
     type IServiceCollection with
         member services.AddScalingJob(job: ScalingJobDefinition) =
