@@ -25,6 +25,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Orsak.AspNetCore", "src\Ors
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Orsak.Myriad", "src\Orsak.Myriad\Orsak.Myriad.fsproj", "{0DEF649B-FEAC-40D5-BB4C-D88B0885E47C}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Orsak.AspNetCore.OpenApi", "src\Orsak.AspNetCore.OpenApi\Orsak.AspNetCore.OpenApi.fsproj", "{A646C2C1-6288-447D-AF03-EA53133D0A8A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{0DEF649B-FEAC-40D5-BB4C-D88B0885E47C}.Release|x64.Build.0 = Release|Any CPU
 		{0DEF649B-FEAC-40D5-BB4C-D88B0885E47C}.Release|x86.ActiveCfg = Release|Any CPU
 		{0DEF649B-FEAC-40D5-BB4C-D88B0885E47C}.Release|x86.Build.0 = Release|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Debug|x64.Build.0 = Debug|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Debug|x86.Build.0 = Debug|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Release|x64.ActiveCfg = Release|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Release|x64.Build.0 = Release|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Release|x86.ActiveCfg = Release|Any CPU
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -92,6 +106,7 @@ Global
 		{2434C300-6997-4035-8ABA-B80491C283C7} = {ACBEE43C-7A88-4FB1-9B06-DB064D22B29F}
 		{6FE77668-E21E-4D92-AF78-2520677C3241} = {C397A34C-84F1-49E7-AEBC-2F9F2B196216}
 		{0DEF649B-FEAC-40D5-BB4C-D88B0885E47C} = {C397A34C-84F1-49E7-AEBC-2F9F2B196216}
+		{A646C2C1-6288-447D-AF03-EA53133D0A8A} = {C397A34C-84F1-49E7-AEBC-2F9F2B196216}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {DBE9E517-B720-4756-AA7D-FF3644E47C71}

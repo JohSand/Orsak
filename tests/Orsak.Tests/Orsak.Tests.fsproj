@@ -39,6 +39,7 @@
         <Compile Include="MyriadTests.fs"/>
         <Compile Include="EndpointRoutingTests.fs"/>
         <Compile Include="OpenApiInferenceTests.fs"/>
+        <Compile Include="OpenApiTests.fs" Condition="'$(TargetFramework)' == 'net10.0'"/>
         <Compile Include="ScalingEffectJobTests.fs"/>
         <Compile Include="ScalingJobBuilderTests.fs" MyriadInlineGeneration="true" />
         <Compile Include="CancellationScopeTests.fs" MyriadInlineGeneration="true" Condition="'$(TargetFramework)' != 'NET6.0'" />
@@ -76,5 +77,6 @@
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj"/>
         <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj"/>
         <ProjectReference Include="..\..\src\Orsak.Myriad\Orsak.Myriad.fsproj"/>
+        <ProjectReference Include="..\..\src\Orsak.AspNetCore.OpenApi\Orsak.AspNetCore.OpenApi.fsproj" Condition="'$(TargetFramework)' == 'net10.0'"/>
     </ItemGroup>
 </Project>
