@@ -136,6 +136,8 @@ type EffectRunnerExtensions =
                 conventions = id
             |}
 
+        let endpoint = endpoint.WithMetadata(EffectType typeof< ^Eff>)
+
         match shape.Method with
         | Some mi -> endpoint.WithMetadata(HandlingMethod mi)
         | None -> endpoint
