@@ -140,3 +140,26 @@ let ``A literal %% takes no route value, and %s values are unescaped`` () = task
     do! invoke endpoint [ "name", "a%2Fb"; "size", "3" ]
     Assert.Equal(box "a/b:3", result.Value)
 }
+
+/// The metadata of an endpoint, once mapped.
+let metadataOf (endpoint: Endpoint) =
+    let app = Microsoft.AspNetCore.Builder.WebApplication.CreateSlimBuilder().Build()
+    app.MapEffectEndpoints [ endpoint ]
+    let mapped = (app :> IEndpointRouteBuilder).DataSources |> Seq.collect _.Endpoints |> Seq.exactlyOne
+    mapped.Metadata
+
+[<Fact>]
+let ``RouteGet and RouteGet2 add the type of the handler's effect, also for a lambda`` () =
+    let runner, _ = recording ()
+
+    let effectTypes = [
+        for endpoint in [
+            runner.RouteGet("/tupled/%s/%i", describeTupled)
+            runner.RouteGet2("/items/%s/%i", describe)
+            runner.RouteGet2("/one/%i", fun (n: int) -> eff { return n })
+        ] do
+            let (EffectType t) = (metadataOf endpoint).GetMetadata<EffectType>()
+            t
+    ]
+
+    Assert.Equal<Type list>([ typeof<Effect<unit, string, string>>; typeof<Effect<unit, string, string>>; typeof<Effect<unit, int, string>> ], effectTypes)
