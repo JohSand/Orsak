@@ -16,6 +16,7 @@ Orsak.Myriad: an environment may grow into a `CancellationScope` by adding an `I
 Orsak.AspNetCore: endpoints carry `EffectType` metadata, the type of the effect their handler creates, also for a handler that is a lambda
 Orsak.AspNetCore: a runner implementing `IDescribeResponses` describes the responses of each endpoint from the type of its effect, as `ResponseDescription` metadata, which is an `IProducesResponseTypeMetadata` for ApiExplorer and OpenAPI generators
 Orsak.AspNetCore.OpenApi (.NET 10): `options.AddEffectEndpoints()` adds the endpoints mapped with `MapEffectEndpoints` to Microsoft.AspNetCore.OpenApi's documents, described from their routes, handlers, XML docs and metadata, explicit metadata first
+Orsak.AspNetCore.OpenApi: `options.AddFSharpSchemas()` describes options, value options, lists, sets and maps as System.Text.Json writes them: an option is its value or null and not required, and a list, set or map is never null
 Orsak.Myriad: `[<GenEnvironment>]` generates a `create` function for an interface that inherits provider interfaces, and `run` and `runOrFail` functions that run an effect in the created environment, see README
 Orsak.Myriad: with MyriadInlineGeneration, code is generated to be appended to the file itself, e.g. an ad hoc environment in a `rec` test file. Detected automatically from Myriad 1.1; with Myriad 1.0, set `Inline = true` on `[<GenEffects>]` and `[<GenEnvironment>]`, see README
 

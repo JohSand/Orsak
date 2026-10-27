@@ -6,6 +6,7 @@
     <ItemGroup>
         <Compile Include="XmlDocs.fs" />
         <Compile Include="EffectEndpoints.fs" />
+        <Compile Include="FSharpSchemas.fs" />
     </ItemGroup>
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
