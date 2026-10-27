@@ -165,6 +165,56 @@ module private EffectOperation =
 
             { r with Description = Some description })
 
+    /// The reference id the generator gives a schema, from `OpenApiOptions.CreateSchemaReferenceId`: the type's name for
+    /// a complex type, and none for a primitive, which stays inline.
+    let private referenceId (schema: OpenApiSchema) =
+        match schema.Metadata with
+        | null -> None
+        | metadata ->
+            match metadata.TryGetValue "x-schema-id" with
+            | true, (:? string as id) when id <> "" -> Some id
+            | _ -> None
+
+    /// Registers `schema`, and the schemas in it, as components of the document, by their reference ids, as the
+    /// generator does its own, and returns a reference to it. A schema without a reference id is returned as it is,
+    /// with the schemas in it registered. A component that is already registered, such as one the generator registered,
+    /// is kept.
+    let rec referenced (document: OpenApiDocument) (schema: IOpenApiSchema) : IOpenApiSchema =
+        match schema with
+        | :? OpenApiSchema as s ->
+            let walk (child: IOpenApiSchema) =
+                if isNull child then child else referenced document child
+
+            let walkAll (children: IList<IOpenApiSchema>) =
+                if not (isNull children) then
+                    for i in 0 .. children.Count - 1 do
+                        children[i] <- walk children[i]
+
+            if not (isNull s.Properties) then
+                for key in List.ofSeq s.Properties.Keys do
+                    s.Properties[key] <- walk s.Properties[key]
+
+            s.Items <- walk s.Items
+            s.AdditionalProperties <- walk s.AdditionalProperties
+            walkAll s.AllOf
+            walkAll s.AnyOf
+            walkAll s.OneOf
+
+            match referenceId s with
+            | Some id ->
+                if isNull document.Components then
+                    document.Components <- OpenApiComponents()
+
+                if isNull document.Components.Schemas then
+                    document.Components.Schemas <- Dictionary<string, IOpenApiSchema>()
+
+                if not (document.Components.Schemas.ContainsKey id) then
+                    document.Components.Schemas[id] <- s
+
+                OpenApiSchemaReference(id, document) :> IOpenApiSchema
+            | None -> s
+        | _ -> schema
+
     let create
         (context: OpenApiDocumentTransformerContext)
         (document: OpenApiDocument)
@@ -245,6 +295,7 @@ module private EffectOperation =
                 match r.BodyType with
                 | Some body ->
                     let! schema = context.GetOrCreateSchemaAsync(body, null, cancellationToken)
+                    let schema = referenced document schema
                     response.Content <- Dictionary<string, OpenApiMediaType>()
 
                     let contentTypes =
@@ -271,7 +322,8 @@ module private EffectOperation =
 /// <item>the responses in the metadata, such as those the runner describes with
 /// <see cref="T:Orsak.AspNetCore.IDescribeResponses"/>, or <c>Produces</c>, described by the docs'
 /// <c>&lt;response code="..."&gt;</c> and <c>&lt;returns&gt;</c>. Without a success response, the operation has a
-/// 200 with the effect's result as its body.</item>
+/// 200 with the effect's result as its body. Their schemas are components of the document, referred to by the
+/// ids of <c>OpenApiOptions.CreateSchemaReferenceId</c>, as the generator's own are.</item>
 /// </list>
 /// </summary>
 /// <remarks>
