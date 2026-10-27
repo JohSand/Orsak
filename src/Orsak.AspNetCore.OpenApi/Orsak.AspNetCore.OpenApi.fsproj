@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>net10.0</TargetFrameworks>
+        <RootNamespace>Orsak.AspNetCore.OpenApi</RootNamespace>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="XmlDocs.fs" />
+        <Compile Include="EffectEndpoints.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="FSharp.Core" Version="8.0.300" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+    </ItemGroup>
+</Project>
