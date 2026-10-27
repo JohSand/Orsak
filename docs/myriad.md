@@ -2,7 +2,7 @@
 title: Generating code
 category: Guides
 categoryindex: 3
-index: 7
+index: 8
 ---
 
 # Generating code with Orsak.Myriad
