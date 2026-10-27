@@ -1,0 +1,369 @@
+﻿{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Orsak.Tests | v1",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/orders/{orderId}": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Gets an order, with its lines.",
+        "description": "The lines are in the order they were added. See OrderLine.",
+        "operationId": "getOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The id of the order.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No order has the id."
+          }
+        }
+      },
+      "delete": {
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/lines/{line}": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Gets a line of an order.",
+        "operationId": "getOrderLine",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "line",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderLine"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/{customer}/orders": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Lists the orders of a customer. <param name=\"customer\">The customer's id.</param>",
+        "operationId": "ListCustomerOrders",
+        "parameters": [
+          {
+            "name": "customer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Order"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ping": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/customers/{customer}/orders": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Lists the orders of a customer. <param name=\"customer\">The customer's id.</param>",
+        "operationId": "listOrders",
+        "parameters": [
+          {
+            "name": "customer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Order"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/orders/{orderId}": {
+      "get": {
+        "tags": [
+          "Explicit"
+        ],
+        "summary": "Gets an order, described explicitly",
+        "description": "The lines are in the order they were added. See OrderLine.",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The id of the order.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No order has the id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The order is locked"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FSharpOptionOfstring": {
+        "type": "string"
+      },
+      "Order": {
+        "required": [
+          "id",
+          "customer",
+          "lines",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "customer": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            }
+          },
+          "note": {
+            "$ref": "#/components/schemas/FSharpOptionOfstring"
+          }
+        }
+      },
+      "OrderLine": {
+        "required": [
+          "sku",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Orders"
+    },
+    {
+      "name": "Explicit"
+    }
+  ]
+}

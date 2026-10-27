@@ -140,3 +140,76 @@ let ``A literal %% takes no route value, and %s values are unescaped`` () = task
     do! invoke endpoint [ "name", "a%2Fb"; "size", "3" ]
     Assert.Equal(box "a/b:3", result.Value)
 }
+
+/// The metadata of an endpoint, once mapped.
+let metadataOf (endpoint: Endpoint) =
+    let app = Microsoft.AspNetCore.Builder.WebApplication.CreateSlimBuilder().Build()
+    app.MapEffectEndpoints [ endpoint ]
+    let mapped = (app :> IEndpointRouteBuilder).DataSources |> Seq.collect _.Endpoints |> Seq.exactlyOne
+    mapped.Metadata
+
+[<Fact>]
+let ``RouteGet and RouteGet2 add the type of the handler's effect, also for a lambda`` () =
+    let runner, _ = recording ()
+
+    let effectTypes = [
+        for endpoint in [
+            runner.RouteGet("/tupled/%s/%i", describeTupled)
+            runner.RouteGet2("/items/%s/%i", describe)
+            runner.RouteGet2("/one/%i", fun (n: int) -> eff { return n })
+        ] do
+            let (EffectType t) = (metadataOf endpoint).GetMetadata<EffectType>()
+            t
+    ]
+
+    Assert.Equal<Type list>([ typeof<Effect<unit, string, string>>; typeof<Effect<unit, string, string>>; typeof<Effect<unit, int, string>> ], effectTypes)
+
+/// A runner that describes its responses: the effect's result as a 200, and its string error as a 400.
+type DescribingRunner =
+    | Describing
+
+    static member inline ( *>> )(_: Effect<unit, 'a, string>, Describing) : RequestDelegate =
+        RequestDelegate(fun _ -> Threading.Tasks.Task.CompletedTask)
+
+    interface IDescribeResponses with
+        member _.Responses effectType =
+            match effectType.GetGenericArguments() with
+            | [| _; result; error |] -> [
+                ResponseDescription.Json(200, result)
+                ResponseDescription.Json(400, error, "The request was invalid")
+              ]
+            | _ -> []
+
+let responsesOf (endpoint: Endpoint) = [
+    for r in (metadataOf endpoint).GetOrderedMetadata<Metadata.IProducesResponseTypeMetadata>() ->
+        r.StatusCode, Option.ofObj r.Type, List.ofSeq r.ContentTypes
+]
+
+[<Fact>]
+let ``a runner describing its responses gives them to each endpoint, from the type of its effect`` () =
+    let json = [ "application/json" ]
+
+    let responses = [
+        responsesOf (Describing.RouteGet("/tupled/%s/%i", describeTupled))
+        responsesOf (Describing.RouteGet2("/one/%i", fun (n: int) -> eff { return n }))
+    ]
+
+    Assert.Equal<(int * Type option * string list) list list>(
+        [
+            [ 200, Some typeof<string>, json; 400, Some typeof<string>, json ]
+            [ 200, Some typeof<int>, json; 400, Some typeof<string>, json ]
+        ],
+        responses
+    )
+
+[<Fact>]
+let ``responses added to an endpoint come after those its runner describes`` () =
+    let endpoint =
+        Describing.RouteGet2("/one/%i", fun (n: int) -> eff { return n }).WithMetadata(ResponseDescription.Empty(404, "Not found"))
+
+    Assert.Equal<int list>([ 200; 400; 404 ], responsesOf endpoint |> List.map (fun (code, _, _) -> code))
+
+[<Fact>]
+let ``a runner that doesn't describe its responses gives an endpoint none`` () =
+    let runner, _ = recording ()
+    Assert.Empty(responsesOf (runner.RouteGet2("/items/%s/%i", describe)))

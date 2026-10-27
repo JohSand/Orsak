@@ -1,0 +1,58 @@
+﻿GET /orders/{orderId:int}
+  operationId: getOrder
+  tag: Orders
+  summary: Gets an order, with its lines.
+  description: The lines are in the order they were added. See OrderLine.
+  parameter orderId, in path, integer (int32): The id of the order.
+  success: Order
+  success description: The order.
+  error: OrderError
+    case OrderNotFound of orderId: Int32: No order has the id.
+    case LineNotFound of orderId: Int32, line: Int32: The order has no line with the number.
+    case Forbidden: The caller may not see the order.
+  response 404: No order has the id.
+  environment: Unit
+
+GET /orders/{orderId:int}/lines/{line:int}
+  operationId: getOrderLine
+  tag: Orders
+  summary: Gets a line of an order.
+  parameter orderId, in path, integer (int32)
+  parameter line, in path, integer (int32)
+  success: OrderLine
+  error: OrderError
+    case OrderNotFound of orderId: Int32: No order has the id.
+    case LineNotFound of orderId: Int32, line: Int32: The order has no line with the number.
+    case Forbidden: The caller may not see the order.
+  environment: Unit
+
+GET /customers/{customer:guid}/orders
+  operationId: ListCustomerOrders
+  tag: Orders
+  summary: Lists the orders of a customer. <param name="customer">The customer's id.</param>
+  parameter customer, in path, string (uuid)
+  success: FSharpList<Order>
+  error: OrderError
+    case OrderNotFound of orderId: Int32: No order has the id.
+    case LineNotFound of orderId: Int32, line: Int32: The order has no line with the number.
+    case Forbidden: The caller may not see the order.
+  environment: Unit
+
+GET /ping
+  operationId: ping
+  tag: Orders
+  success: String
+  error: OrderError
+    case OrderNotFound of orderId: Int32: No order has the id.
+    case LineNotFound of orderId: Int32, line: Int32: The order has no line with the number.
+    case Forbidden: The caller may not see the order.
+  environment: Unit
+
+DELETE /orders/{orderId:int}
+  parameter orderId, in path, integer (int32)
+  success: Order
+  error: OrderError
+    case OrderNotFound of orderId: Int32: No order has the id.
+    case LineNotFound of orderId: Int32, line: Int32: The order has no line with the number.
+    case Forbidden: The caller may not see the order.
+  environment: Unit

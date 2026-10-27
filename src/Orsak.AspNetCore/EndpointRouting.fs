@@ -23,6 +23,95 @@ open FSharp.Core.Operators.NonStructuralComparison
 type HandlingMethod = HandlingMethod of MethodInfo
 
 /// <summary>
+/// Endpoint metadata with the type of the effect the route handler creates, such as
+/// <c>Effect&lt;AppEnv, Order, OrderError&gt;</c>: known for every endpoint, also one handled by a lambda, which has
+/// no <see cref="T:Orsak.AspNetCore.HandlingMethod"/>.
+/// </summary>
+/// <remarks>
+/// It is whatever the runner's <c>*>></c> operator takes, so not necessarily an <c>Effect</c>.
+/// </remarks>
+type EffectType = EffectType of Type
+
+/// <summary>
+/// A response an endpoint can give: its status code, the type of its body, if it has one, and what it means. As
+/// endpoint metadata, it is an <see cref="T:Microsoft.AspNetCore.Http.Metadata.IProducesResponseTypeMetadata"/>, which
+/// ApiExplorer and OpenAPI generators read.
+/// </summary>
+type ResponseDescription =
+    {
+        /// <summary>The status code of the response.</summary>
+        StatusCode: int
+        /// <summary>The type of the response's body, if it has one.</summary>
+        BodyType: Type option
+        /// <summary>The content types of the body.</summary>
+        ContentTypes: string list
+        /// <summary>What the response means, such as "No order has the id".</summary>
+        Description: string option
+    }
+
+    /// <summary>A response without a body.</summary>
+    /// <param name="statusCode">The status code of the response</param>
+    /// <param name="description">What the response means</param>
+    static member Empty(statusCode: int, ?description: string) = {
+        StatusCode = statusCode
+        BodyType = None
+        ContentTypes = []
+        Description = description
+    }
+
+    /// <summary>A response with a JSON body of type <paramref name="bodyType"/>.</summary>
+    /// <param name="statusCode">The status code of the response</param>
+    /// <param name="bodyType">The type of the body</param>
+    /// <param name="description">What the response means</param>
+    static member Json(statusCode: int, bodyType: Type, ?description: string) = {
+        StatusCode = statusCode
+        BodyType = Some bodyType
+        ContentTypes = [ "application/json" ]
+        Description = description
+    }
+
+    interface Metadata.IProducesResponseTypeMetadata with
+        member this.StatusCode = this.StatusCode
+        member this.Type = Option.toObj this.BodyType
+        member this.ContentTypes = this.ContentTypes
+
+/// <summary>
+/// A runner that describes the responses it gives, for OpenAPI: only the runner knows how an effect's result and errors
+/// become responses. When the runner of an endpoint implements it, the endpoint gets the responses as metadata.
+/// </summary>
+/// <example>
+/// <code lang="fsharp">
+/// type Runner =
+///     | RunWith of (HttpContext -> AppEnv)
+///
+///     static member ( *>> )(effect: Effect&lt;AppEnv, 'a, AppError&gt;, RunWith createEnv) = ...
+///
+///     interface IDescribeResponses with
+///         member _.Responses effectType =
+///             match effectType.GetGenericArguments() with
+///             | [| _; result; _ |] -> [
+///                 ResponseDescription.Json(200, result)
+///                 ResponseDescription.Json(404, typeof&lt;ProblemDetails&gt;, "Not found")
+///               ]
+///             | _ -> []
+/// </code>
+/// </example>
+type IDescribeResponses =
+    /// <summary>
+    /// The responses of an endpoint whose handler creates an effect of type <paramref name="effectType"/>, such as
+    /// <c>Effect&lt;AppEnv, Order, OrderError&gt;</c>.
+    /// </summary>
+    /// <param name="effectType">The type of the effect, as in <see cref="T:Orsak.AspNetCore.EffectType"/></param>
+    abstract Responses: effectType: Type -> ResponseDescription list
+
+/// <summary>
+/// Endpoint metadata with the responses the endpoint's runner describes, which the endpoint also has as
+/// <see cref="T:Orsak.AspNetCore.ResponseDescription"/>s: so an OpenAPI generator can rank them below the
+/// endpoint's own, such as its XML docs.
+/// </summary>
+type RunnerResponses = RunnerResponses of ResponseDescription list
+
+/// <summary>
 /// An endpoint created by one of the <c>Route*</c> methods, such as <c>RouteGet</c>, to be mapped with
 /// <c>MapEffectEndpoints</c>. Its methods add conventions, as on ASP.NET Core's endpoint convention builders.
 /// </summary>
@@ -101,6 +190,18 @@ type Endpoint =
 
 /// <exclude/>
 module Helpers =
+    /// The metadata every endpoint gets: the type of its effect, and the responses its runner describes, if it does.
+    /// Added before the endpoint's conventions, so explicit metadata comes after it.
+    let withEffectMetadata (runner: obj) (effectType: Type) (endpoint: Endpoint) =
+        let endpoint = endpoint.WithMetadata(EffectType effectType)
+
+        match runner with
+        | :? IDescribeResponses as describer ->
+            match describer.Responses effectType with
+            | [] -> endpoint
+            | responses -> endpoint.WithMetadata([| yield! Seq.map box responses; box (RunnerResponses responses) |])
+        | _ -> endpoint
+
     let private unEscape (s: string) =
         s.Replace("%2F", "/").Replace("%2f", "/")
 
@@ -269,6 +370,8 @@ type EffectRunnerExtensions =
                     requestDelegate = createEndpointDelegate eff names (routeValueParsers path.Value) this
                     conventions = id
                 |}
+
+        let endpoint = withEffectMetadata (box this) typeof<'Eff> endpoint
 
         match shape.Method with
         | Some mi -> endpoint.WithMetadata(HandlingMethod mi)
