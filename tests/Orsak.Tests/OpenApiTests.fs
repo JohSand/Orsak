@@ -73,3 +73,31 @@ let ``AddEffectEndpoints describes effect endpoints, from their routes, handlers
     let! _ = Verifier.Verify(json, extension = "json")
     ()
 }
+
+/// A record of the F# types the schema transformer describes.
+type Shapes = {
+    Name: string
+    Nickname: string option
+    Age: int option
+    Height: float voption
+    Line: Orders.OrderLine option
+    Line2: Orders.OrderLine
+    Tags: string list
+    Scores: int array
+    Labels: Set<string>
+    Counts: Map<string, int>
+}
+
+let getShapes () : Effect<unit, Shapes, Orders.OrderError> =
+    eff { return Unchecked.defaultof<Shapes> }
+
+[<Fact>]
+let ``AddFSharpSchemas describes options, lists, sets and maps as System.Text.Json writes them`` () = task {
+    let! json =
+        documentOf (fun o -> o.AddEffectEndpoints().AddFSharpSchemas() |> ignore) [
+            Describing.RouteGet2("/shapes", getShapes)
+        ]
+
+    let! _ = Verifier.Verify(json, extension = "json")
+    ()
+}
