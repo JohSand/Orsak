@@ -105,6 +105,13 @@ type IDescribeResponses =
     abstract Responses: effectType: Type -> ResponseDescription list
 
 /// <summary>
+/// Endpoint metadata with the responses the endpoint's runner describes, which the endpoint also has as
+/// <see cref="T:Orsak.AspNetCore.ResponseDescription"/>s: so an OpenAPI generator can rank them below the
+/// endpoint's own, such as its XML docs.
+/// </summary>
+type RunnerResponses = RunnerResponses of ResponseDescription list
+
+/// <summary>
 /// An endpoint created by one of the <c>Route*</c> methods, such as <c>RouteGet</c>, to be mapped with
 /// <c>MapEffectEndpoints</c>. Its methods add conventions, as on ASP.NET Core's endpoint convention builders.
 /// </summary>
@@ -192,7 +199,7 @@ module Helpers =
         | :? IDescribeResponses as describer ->
             match describer.Responses effectType with
             | [] -> endpoint
-            | responses -> endpoint.WithMetadata([| for r in responses -> box r |])
+            | responses -> endpoint.WithMetadata([| yield! Seq.map box responses; box (RunnerResponses responses) |])
         | _ -> endpoint
 
     let private unEscape (s: string) =
