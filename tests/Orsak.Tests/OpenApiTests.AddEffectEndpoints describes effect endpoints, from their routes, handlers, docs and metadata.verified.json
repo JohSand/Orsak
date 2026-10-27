@@ -31,59 +31,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "required": [
-                    "id",
-                    "customer",
-                    "lines",
-                    "note"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "pattern": "^-?(?:0|[1-9]\\d*)$",
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "format": "int32"
-                    },
-                    "customer": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "lines": {
-                      "type": [
-                        "null",
-                        "array"
-                      ],
-                      "items": {
-                        "required": [
-                          "sku",
-                          "quantity"
-                        ],
-                        "type": "object",
-                        "properties": {
-                          "sku": {
-                            "type": [
-                              "null",
-                              "string"
-                            ]
-                          },
-                          "quantity": {
-                            "pattern": "^-?(?:0|[1-9]\\d*)$",
-                            "type": [
-                              "integer",
-                              "string"
-                            ],
-                            "format": "int32"
-                          }
-                        }
-                      }
-                    },
-                    "note": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Order"
                 }
               }
             }
@@ -111,59 +59,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "required": [
-                    "id",
-                    "customer",
-                    "lines",
-                    "note"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "pattern": "^-?(?:0|[1-9]\\d*)$",
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "format": "int32"
-                    },
-                    "customer": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "lines": {
-                      "type": [
-                        "null",
-                        "array"
-                      ],
-                      "items": {
-                        "required": [
-                          "sku",
-                          "quantity"
-                        ],
-                        "type": "object",
-                        "properties": {
-                          "sku": {
-                            "type": [
-                              "null",
-                              "string"
-                            ]
-                          },
-                          "quantity": {
-                            "pattern": "^-?(?:0|[1-9]\\d*)$",
-                            "type": [
-                              "integer",
-                              "string"
-                            ],
-                            "format": "int32"
-                          }
-                        }
-                      }
-                    },
-                    "note": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Order"
                 }
               }
             }
@@ -204,27 +100,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "required": [
-                    "sku",
-                    "quantity"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "sku": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "quantity": {
-                      "pattern": "^-?(?:0|[1-9]\\d*)$",
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "format": "int32"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OrderLine"
                 }
               }
             }
@@ -258,59 +134,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "required": [
-                      "id",
-                      "customer",
-                      "lines",
-                      "note"
-                    ],
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "pattern": "^-?(?:0|[1-9]\\d*)$",
-                        "type": [
-                          "integer",
-                          "string"
-                        ],
-                        "format": "int32"
-                      },
-                      "customer": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "lines": {
-                        "type": [
-                          "null",
-                          "array"
-                        ],
-                        "items": {
-                          "required": [
-                            "sku",
-                            "quantity"
-                          ],
-                          "type": "object",
-                          "properties": {
-                            "sku": {
-                              "type": [
-                                "null",
-                                "string"
-                              ]
-                            },
-                            "quantity": {
-                              "pattern": "^-?(?:0|[1-9]\\d*)$",
-                              "type": [
-                                "integer",
-                                "string"
-                              ],
-                              "format": "int32"
-                            }
-                          }
-                        }
-                      },
-                      "note": {
-                        "type": "string"
-                      }
-                    }
+                    "$ref": "#/components/schemas/Order"
                   }
                 }
               }
@@ -365,59 +189,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "required": [
-                      "id",
-                      "customer",
-                      "lines",
-                      "note"
-                    ],
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "pattern": "^-?(?:0|[1-9]\\d*)$",
-                        "type": [
-                          "integer",
-                          "string"
-                        ],
-                        "format": "int32"
-                      },
-                      "customer": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "lines": {
-                        "type": [
-                          "null",
-                          "array"
-                        ],
-                        "items": {
-                          "required": [
-                            "sku",
-                            "quantity"
-                          ],
-                          "type": "object",
-                          "properties": {
-                            "sku": {
-                              "type": [
-                                "null",
-                                "string"
-                              ]
-                            },
-                            "quantity": {
-                              "pattern": "^-?(?:0|[1-9]\\d*)$",
-                              "type": [
-                                "integer",
-                                "string"
-                              ],
-                              "format": "int32"
-                            }
-                          }
-                        }
-                      },
-                      "note": {
-                        "type": "string"
-                      }
-                    }
+                    "$ref": "#/components/schemas/Order"
                   }
                 }
               }
@@ -428,42 +200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "title": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "status": {
-                      "pattern": "^-?(?:0|[1-9]\\d*)$",
-                      "type": [
-                        "null",
-                        "integer",
-                        "string"
-                      ],
-                      "format": "int32"
-                    },
-                    "detail": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "instance": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    }
-                  }
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -496,59 +233,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "required": [
-                    "id",
-                    "customer",
-                    "lines",
-                    "note"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "pattern": "^-?(?:0|[1-9]\\d*)$",
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "format": "int32"
-                    },
-                    "customer": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "lines": {
-                      "type": [
-                        "null",
-                        "array"
-                      ],
-                      "items": {
-                        "required": [
-                          "sku",
-                          "quantity"
-                        ],
-                        "type": "object",
-                        "properties": {
-                          "sku": {
-                            "type": [
-                              "null",
-                              "string"
-                            ]
-                          },
-                          "quantity": {
-                            "pattern": "^-?(?:0|[1-9]\\d*)$",
-                            "type": [
-                              "integer",
-                              "string"
-                            ],
-                            "format": "int32"
-                          }
-                        }
-                      }
-                    },
-                    "note": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Order"
                 }
               }
             }
@@ -558,48 +243,116 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "title": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "status": {
-                      "pattern": "^-?(?:0|[1-9]\\d*)$",
-                      "type": [
-                        "null",
-                        "integer",
-                        "string"
-                      ],
-                      "format": "int32"
-                    },
-                    "detail": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "instance": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    }
-                  }
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
           },
           "409": {
             "description": "The order is locked"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FSharpOptionOfstring": {
+        "type": "string"
+      },
+      "Order": {
+        "required": [
+          "id",
+          "customer",
+          "lines",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "customer": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            }
+          },
+          "note": {
+            "$ref": "#/components/schemas/FSharpOptionOfstring"
+          }
+        }
+      },
+      "OrderLine": {
+        "required": [
+          "sku",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }
