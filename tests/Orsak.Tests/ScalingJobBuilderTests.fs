@@ -65,8 +65,7 @@ let ``namedScalingJob keeps its own name`` () =
 
     job.Name =! "counting"
 
-/// Records the source of each run's environment. A function passed by name: `work` takes a quotation, which can't
-/// hold an eff expression written in place.
+/// Records the source of each run's environment.
 let recordSources (sources: System.Collections.Concurrent.ConcurrentQueue<CancellationTokenSource>) () = eff {
     let! source = Effect.Create(fun (p: IJobTestEnvironment) -> p.Source)
     sources.Enqueue source

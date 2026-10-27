@@ -3475,6 +3475,7 @@ module Medium =
 #warnon "3513"
 
         [<NoEagerConstraintApplication>]
+        [<CompiledName("BindEffect")>]
         member inline _.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 eff: Effect<'Env, 'TResult1, 'Err>,
@@ -3508,6 +3509,7 @@ module Medium =
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation))
 
+        [<CompiledName("BindValueTask")>]
         member inline this.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 task: ValueTask<'TResult1>,
@@ -3533,6 +3535,7 @@ module Medium =
                 else
                     EffBuilder.BindDynamic(&sm, task, continuation))
 
+        [<CompiledName("BindTask")>]
         member inline this.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 t: Task<'TResult1>,
@@ -3540,6 +3543,7 @@ module Medium =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(ValueTask<_>(task = t), continuation)
 
+        [<CompiledName("BindAsync")>]
         member inline this.Bind<'Env, 'TOverall, 'TResult1, 'TResult2, 'Err>
             (
                 a: Async<'TResult1>,
@@ -3547,6 +3551,7 @@ module Medium =
             ) : EffectCode<'Env, 'TOverall, 'TResult2, 'Err> =
             this.Bind(Async.StartAsTask a, continuation)
 
+        [<CompiledName("BindResult")>]
         member inline _.Bind(result: Result<'T, 'Err>, [<InlineIfLambda>] f: 'T -> EffectCode<_, 'TOverall, 'T2, _>) =
             EffectCode<'Env, 'TOverall, 'T2, 'Err>(fun sm ->
                 match result with
@@ -3555,13 +3560,16 @@ module Medium =
                     sm.Data.Result <- Error e
                     true)
 
+        [<CompiledName("ReturnFromEffect")>]
         member inline this.ReturnFrom(task: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.Bind(task, (fun (t: 'T) -> this.Return t))
 
 
+        [<CompiledName("ReturnFromAsync")>]
         member inline this.ReturnFrom(a: Async<'T>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.Bind(Async.StartAsTask a, (fun (t: 'T) -> this.Return t))
 
+        [<CompiledName("ReturnFromResult")>]
         member inline this.ReturnFrom(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             EffectCode<'Env, 'T, _, 'Err>(fun sm ->
                 sm.Data.Result <- result
@@ -3570,6 +3578,7 @@ module Medium =
         /// Tail-call-optimised return!  for Effect values.
         /// Checks the thread-local Trampoline before running the inner effect so that
         /// deeply tail-recursive eff {} blocks do not grow the call stack without bound.
+        [<CompiledName("ReturnFromFinalEffect")>]
         member inline _.ReturnFromFinal(effect: Effect<'Env, 'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             EffectCode<'Env, 'T, 'T, 'Err>(fun sm ->
                 if __useResumableCode<obj> then
@@ -3603,14 +3612,17 @@ module Medium =
                     EffBuilder.ReturnFromFinalDynamic(&sm, effect))
 
         /// Fallback: return! on Result is not recursive, no trampoline needed.
+        [<CompiledName("ReturnFromFinalResult")>]
         member inline this.ReturnFromFinal(result: Result<'T, 'Err>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.ReturnFrom(result)
 
         /// Fallback: return! on Async is not recursive, no trampoline needed.
+        [<CompiledName("ReturnFromFinalAsync")>]
         member inline this.ReturnFromFinal(a: Async<'T>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.ReturnFrom(a)
 
         /// Fallback: do! on Task in tail position (e.g. the last do! in a CE body).
+        [<CompiledName("ReturnFromFinalTask")>]
         member inline this.ReturnFromFinal(task: Task) : EffectCode<'Env, unit, unit, 'Err> =
             this.Bind(task, fun () -> this.Return())
 
@@ -3624,6 +3636,7 @@ module Medium =
         //-------------------------------------------------------------------------------
         // Extra for and while
         //-------------------------------------------------------------------------------
+        [<CompiledName("ForAsyncEnumerable")>]
         member inline this.For(s: IAsyncEnumerable<'a>, [<InlineIfLambda>] f1) =
             this.Delay(fun () ->
                 this.Using(
@@ -3657,6 +3670,7 @@ module Medium =
                         )
                 ))
 
+        [<CompiledName("ForConfiguredAsyncEnumerable")>]
         member inline this.For(s: ConfiguredCancelableAsyncEnumerable<'a>, [<InlineIfLambda>] f) =
             this.Delay(fun () ->
                 this.Using(
@@ -3689,6 +3703,7 @@ module Medium =
                         )
                 ))
 
+        [<CompiledName("WhileEffect")>]
         member inline this.While
             (
                 [<InlineIfLambda>] condition: unit -> Effect<'Env, bool, 'Err>,
@@ -3719,6 +3734,7 @@ module Medium =
                         )
                 ))
 
+        [<CompiledName("WhileValueTask")>]
         member inline this.While
             (
                 [<InlineIfLambda>] condition: unit -> ValueTask<bool>,
@@ -3735,6 +3751,7 @@ module Medium =
                 body
             )
 
+        [<CompiledName("ForSeq")>]
         member inline this.For(s: IEnumerable<'a>, [<InlineIfLambda>] f1: 'a -> EffectCode<'Env, 'TOverall, unit, 'Err>) =
             this.Delay(fun () ->
                 this.Using(
@@ -3750,6 +3767,7 @@ module Medium =
                         )
                 ))
 
+        [<CompiledName("ForStruct2")>]
         member inline this.For
             (
                 (a, b): struct ('a * 'a),
@@ -3757,6 +3775,7 @@ module Medium =
             ) =
             this.Delay(fun () -> this.Combine(f a, f b))
 
+        [<CompiledName("ForStruct3")>]
         member inline this.For
             (
                 (a, b, c): struct ('a * 'a * 'a),
@@ -3764,6 +3783,7 @@ module Medium =
             ) =
             this.Delay(fun () -> this.Combine(this.Combine(f a, f b), f c))
 
+        [<CompiledName("ForStruct4")>]
         member inline this.For
             (
                 (a, b, c, d): struct ('a * 'a * 'a * 'a),
@@ -3771,6 +3791,7 @@ module Medium =
             ) =
             this.Delay(fun () -> this.Combine(this.Combine(this.Combine(f a, f b), f c), f d))
 
+        [<CompiledName("ForStruct5")>]
         member inline this.For
             (
                 (a, b, c, d, e): struct ('a * 'a * 'a * 'a * 'a),
@@ -3778,6 +3799,7 @@ module Medium =
             ) =
             this.Delay(fun () -> this.Combine(this.Combine(this.Combine(this.Combine(f a, f b), f c), f d), f e))
 
+        [<CompiledName("ForStruct6")>]
         member inline this.For
             (
                 (a, b, c, d, e, f): struct ('a * 'a * 'a * 'a * 'a * 'a),
@@ -3789,6 +3811,7 @@ module Medium =
                     fn f
                 ))
 
+        [<CompiledName("ForStruct7")>]
         member inline this.For
             (
                 (a, b, c, d, e, f, g): struct ('a * 'a * 'a * 'a * 'a * 'a * 'a),

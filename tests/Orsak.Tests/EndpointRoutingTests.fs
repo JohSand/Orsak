@@ -163,3 +163,44 @@ let ``RouteGet and RouteGet2 add the type of the handler's effect, also for a la
     ]
 
     Assert.Equal<Type list>([ typeof<Effect<unit, string, string>>; typeof<Effect<unit, string, string>>; typeof<Effect<unit, int, string>> ], effectTypes)
+
+[<Fact>]
+let ``RouteGet2 takes a lambda that returns an effect with return!`` () = task {
+    let runner, result = recording ()
+    let endpoint = runner.RouteGet2("/one/%i", fun (n: int) -> eff { return! describe "n" n })
+
+    do! invoke endpoint [ "n", "5" ]
+    Assert.Equal(box "n:5", result.Value)
+}
+
+[<Fact>]
+let ``RouteGet2 takes a lambda that returns a result with return!`` () = task {
+    let runner, result = recording ()
+    let endpoint = runner.RouteGet2("/one/%i", fun (n: int) -> eff { return! (Ok $"ok:{n}": Result<string, string>) })
+
+    do! invoke endpoint [ "n", "5" ]
+    Assert.Equal(box "ok:5", result.Value)
+}
+
+[<Fact>]
+let ``RouteGet2 takes a lambda that binds an effect with let!`` () = task {
+    let runner, result = recording ()
+
+    let endpoint =
+        runner.RouteGet2("/one/%i", fun (n: int) -> eff {
+            let! described = describe "n" n
+            return described + "!"
+        })
+
+    do! invoke endpoint [ "n", "5" ]
+    Assert.Equal(box "n:5!", result.Value)
+}
+
+[<Fact>]
+let ``RouteGet takes a lambda that returns an effect with return!`` () = task {
+    let runner, result = recording ()
+    let endpoint = runner.RouteGet("/one/%i", fun (n: int) -> eff { return! describe "n" n })
+
+    do! invoke endpoint [ "n", "5" ]
+    Assert.Equal(box "n:5", result.Value)
+}
