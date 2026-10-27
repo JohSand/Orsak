@@ -23,6 +23,16 @@ open FSharp.Core.Operators.NonStructuralComparison
 type HandlingMethod = HandlingMethod of MethodInfo
 
 /// <summary>
+/// Endpoint metadata with the type of the effect the route handler creates, such as
+/// <c>Effect&lt;AppEnv, Order, OrderError&gt;</c>: known for every endpoint, also one handled by a lambda, which has
+/// no <see cref="T:Orsak.AspNetCore.HandlingMethod"/>.
+/// </summary>
+/// <remarks>
+/// It is whatever the runner's <c>*>></c> operator takes, so not necessarily an <c>Effect</c>.
+/// </remarks>
+type EffectType = EffectType of Type
+
+/// <summary>
 /// An endpoint created by one of the <c>Route*</c> methods, such as <c>RouteGet</c>, to be mapped with
 /// <c>MapEffectEndpoints</c>. Its methods add conventions, as on ASP.NET Core's endpoint convention builders.
 /// </summary>
@@ -269,6 +279,8 @@ type EffectRunnerExtensions =
                     requestDelegate = createEndpointDelegate eff names (routeValueParsers path.Value) this
                     conventions = id
                 |}
+
+        let endpoint = endpoint.WithMetadata(EffectType typeof<'Eff>)
 
         match shape.Method with
         | Some mi -> endpoint.WithMetadata(HandlingMethod mi)

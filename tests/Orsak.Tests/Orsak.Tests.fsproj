@@ -5,6 +5,8 @@
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <NoWarn>0057; 0988</NoWarn>
         <LangVersion>preview</LangVersion>
+        <!-- read by OpenApiInferenceTests, as an application's would be -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
     <!-- ForLoopTests.fs deliberately defines a non-inline function accepting/returning resumable
          code (FS3501) to force the dynamic path for testing without needing an SDK swap. That's
@@ -36,6 +38,8 @@
         <Compile Include="GrowingScopeTests.fs"/>
         <Compile Include="MyriadTests.fs"/>
         <Compile Include="EndpointRoutingTests.fs"/>
+        <Compile Include="OpenApiInferenceTests.fs"/>
+        <Compile Include="QuotationTests.fs"/>
         <Compile Include="ScalingEffectJobTests.fs"/>
         <Compile Include="ScalingJobBuilderTests.fs" MyriadInlineGeneration="true" />
         <Compile Include="CancellationScopeTests.fs" MyriadInlineGeneration="true" Condition="'$(TargetFramework)' != 'NET6.0'" />
