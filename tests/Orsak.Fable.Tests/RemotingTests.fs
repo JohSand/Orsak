@@ -16,6 +16,10 @@ type Order = {
     Codes: int array
 }
 
+type Tree =
+    | Leaf
+    | Node of int * Tree list
+
 type Shape =
     | Empty
     | Circle of radius: float
@@ -25,9 +29,10 @@ let format = JsonFormat.Instance :> IWireFormat
 
 /// Inline, so the type is known on Fable, which erases generic arguments at run time.
 let inline writesAndReads (expected: string) (value: 'T) = task {
-    let text = Encoding.UTF8.GetString(format.EncodeResult(box value, typeof<'T>))
+    let codec = format.CodecFor typeof<'T>
+    let text = Encoding.UTF8.GetString(codec.Encode(box value))
     equal expected text
-    let back = format.DecodeResult(Encoding.UTF8.GetBytes text, typeof<'T>) :?> 'T
+    let back = codec.Decode(Encoding.UTF8.GetBytes text) :?> 'T
     equal value back
 }
 
@@ -75,4 +80,7 @@ let tests = [
         writesAndReads "\"quote \\\" backslash \\\\ line\\n åäö \\u0001\"" "quote \" backslash \\ line\n åäö \u0001")
 
     test "Orsak.Remoting's JSON of unit" (fun () -> writesAndReads "null" ())
+
+    test "Orsak.Remoting's JSON of a type that contains itself" (fun () ->
+        writesAndReads """{"Node":[1,["Leaf",{"Node":[2,[]]}]]}""" (Node(1, [ Leaf; Node(2, []) ])))
 ]

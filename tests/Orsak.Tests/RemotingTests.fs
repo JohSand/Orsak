@@ -1,6 +1,7 @@
 /// Orsak.Remoting on .NET: the JSON it writes, and calls through MapRemote on a test server, with the client and its
-/// HttpClient transport. The JSON is also checked on Fable, in Orsak.Fable.Tests, which must write the same text.
-module Orsak.Tests.RemotingTests
+/// HttpClient transport, through the proxy [<GenRemote>] generates, appended to this file. The JSON is also checked on
+/// Fable, in Orsak.Fable.Tests, which must write the same text.
+module rec Orsak.Tests.RemotingTests
 
 open System
 open System.Net
@@ -27,6 +28,7 @@ type PlaceError =
     | EmptyOrder
     | UnknownProduct of string
 
+[<GenRemote>]
 type ITestApi =
     abstract Echo: Order -> Task<Order>
     abstract Place: Order -> Task<Result<int, PlaceError>>
@@ -60,45 +62,14 @@ type TestApi() =
 
         member _.Fail() = failwith "a secret in the message"
 
-/// The proxy, as a generator would write it: each member's name and types.
-type TestApiProxy(client: RemoteClient) =
-    let call name (args: obj array) types (resultType: Type) = client.Call("ITestApi", name, args, types, resultType)
+/// A type that contains itself.
+type Tree =
+    | Leaf
+    | Node of int * Tree list
 
-    interface ITestApi with
-        member _.Echo order = task {
-            let! r = call "Echo" [| box order |] [| typeof<Order> |] typeof<Order>
-            return unbox r
-        }
-
-        member _.Place order = task {
-            let! r = call "Place" [| box order |] [| typeof<Order> |] typeof<Result<int, PlaceError>>
-            return unbox r
-        }
-
-        member _.Add(a, b) = task {
-            let! r = call "Add" [| box a; box b |] [| typeof<int>; typeof<int> |] typeof<int>
-            return unbox r
-        }
-
-        member _.Twice n = async {
-            let! r = call "Twice" [| box n |] [| typeof<int> |] typeof<int> |> Async.AwaitTask
-            return unbox r
-        }
-
-        member _.Thrice n = ValueTask<int>(task {
-            let! r = call "Thrice" [| box n |] [| typeof<int> |] typeof<int>
-            return unbox r
-        })
-
-        member _.Record message = task {
-            let! _ = call "Record" [| box message |] [| typeof<string> |] typeof<unit>
-            ()
-        }
-
-        member _.Fail() = task {
-            let! r = call "Fail" [| box () |] [| typeof<unit> |] typeof<int>
-            return unbox r
-        }
+/// A contract with a type JsonFormat can't write: a Map.
+type IUnsupportedApi =
+    abstract Totals: unit -> Task<Map<string, int>>
 
 /// A test server mapping ITestApi to the implementation, and a proxy calling it.
 let serve (api: TestApi) = task {
@@ -110,7 +81,7 @@ let serve (api: TestApi) = task {
     do! app.StartAsync()
     let http = app.GetTestClient()
     let client = RemoteClient("http://localhost", "/api", JsonFormat.Instance, HttpClientTransport(http))
-    return app, http, TestApiProxy(client) :> ITestApi
+    return app, http, TestApiProxy.create client
 }
 
 let apples = {
@@ -120,7 +91,7 @@ let apples = {
 }
 
 let json (value: 'T) =
-    Encoding.UTF8.GetString((JsonFormat.Instance :> IWireFormat).EncodeResult(box value, typeof<'T>))
+    Encoding.UTF8.GetString((JsonFormat.Instance :> IWireFormat).CodecFor(typeof<'T>).Encode(box value))
 
 [<Fact>]
 let ``JsonFormat writes a record with a list and an option as JSON`` () =
@@ -143,7 +114,7 @@ let ``JsonFormat writes and reads numbers in the invariant culture`` () =
         Globalization.CultureInfo.CurrentCulture <- Globalization.CultureInfo("sv-SE")
         Assert.Equal("1.5", json 1.5)
 
-        let back = (JsonFormat.Instance :> IWireFormat).DecodeResult(Encoding.UTF8.GetBytes "1.5", typeof<float>)
+        let back = (JsonFormat.Instance :> IWireFormat).CodecFor(typeof<float>).Decode(Encoding.UTF8.GetBytes "1.5")
         Assert.Equal(1.5, unbox<float> back)
     finally
         Globalization.CultureInfo.CurrentCulture <- culture
@@ -206,7 +177,61 @@ let ``a request in a format the server doesn't have is answered 415`` () = task 
 let ``a server that can't be reached is a RemoteCallException`` () = task {
     use http = new HttpClient()
     let client = RemoteClient("http://localhost:1", "/api", JsonFormat.Instance, HttpClientTransport(http))
-    let api = TestApiProxy(client) :> ITestApi
+    let api = TestApiProxy.create client
     let! _ = Assert.ThrowsAsync<RemoteCallException>(fun () -> api.Echo apples :> Task)
     ()
 }
+
+[<Fact>]
+let ``a type the format can't write fails when the proxy's member is made, naming the type`` () =
+    use http = new HttpClient()
+    let client = RemoteClient("http://localhost", "/api", JsonFormat.Instance, HttpClientTransport(http))
+    let e = Assert.ThrowsAny<exn>(fun () -> client.Member("IUnsupportedApi", "Totals", [| typeof<unit> |], typeof<Map<string, int>>) |> ignore)
+    Assert.Contains("FSharpMap", e.Message)
+
+[<Fact>]
+let ``a type the format can't write fails when MapRemote maps the member`` () =
+    let builder = WebApplication.CreateBuilder()
+    builder.WebHost.UseTestServer() |> ignore
+    use app = builder.Build()
+
+    let e =
+        Assert.ThrowsAny<exn>(fun () ->
+            app.MapRemote<IUnsupportedApi>("/api", [ JsonFormat.Instance ], fun _ -> Unchecked.defaultof<_>) |> ignore)
+
+    Assert.Contains("FSharpMap", e.Message)
+
+[<Fact>]
+let ``a type that contains itself has a codec`` () =
+    Assert.Equal("""{"Node":[1,["Leaf",{"Node":[2,[]]}]]}""", json (Node(1, [ Leaf; Node(2, []) ])))
+//------------------------------------------------------------------------------
+//        This code was generated by myriad.
+//        Changes to this file will be lost when the code is regenerated.
+//------------------------------------------------------------------------------
+
+
+
+module TestApiProxy =
+    let create (client: Orsak.Remoting.RemoteClient) : ITestApi =
+        let echo = client.Member("ITestApi", "Echo", [| typeof<Order> |], typeof<Order>)
+
+        let place =
+            client.Member("ITestApi", "Place", [| typeof<Order> |], typeof<Result<int, PlaceError>>)
+
+        let add =
+            client.Member("ITestApi", "Add", [| typeof<int>; typeof<int> |], typeof<int>)
+
+        let twice = client.Member("ITestApi", "Twice", [| typeof<int> |], typeof<int>)
+        let thrice = client.Member("ITestApi", "Thrice", [| typeof<int> |], typeof<int>)
+        let record = client.Member("ITestApi", "Record", [| typeof<string> |], typeof<unit>)
+        let fail = client.Member("ITestApi", "Fail", [| typeof<unit> |], typeof<int>)
+
+        { new ITestApi with
+            member _.Echo a = echo.Task [| box a |]
+            member _.Place a = place.Task [| box a |]
+            member _.Add(a, b) = add.Task [| box a; box b |]
+            member _.Twice a = twice.Async [| box a |]
+            member _.Thrice a = thrice.ValueTask [| box a |]
+            member _.Record a = record.UnitTask [| box a |]
+            member _.Fail() = fail.Task [| box () |]
+        }

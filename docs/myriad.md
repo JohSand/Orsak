@@ -345,3 +345,11 @@ Face.countBeans 1 "" |> Effect.run runner
 ```
 
 The effects can be given in any order.
+
+## Remote proxies
+
+`[<GenRemote>]`, from Orsak.Remoting, on an interface generates a proxy that calls its members on a server, as a module
+named after the interface, such as `OrderApiProxy` for `IOrderApi`, with a `create` function taking a `RemoteClient`.
+[Remoting](remoting.html) shows the contract, the server and the client. In a project Fable compiles too, as a contract
+shared with a Fable client is, Orsak.Myriad's references are for .NET only, as Fable compiles the generated code as it
+is.
