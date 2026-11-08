@@ -76,5 +76,7 @@ let workflow () = eff {
 // 7. IAsyncEnumerable
 let asyncEnumerable (xs: Collections.Generic.IAsyncEnumerable<int>) = xs.GetAsyncEnumerator()
 
-// 8. ValueTask
+// 8. ValueTask: not supported, so only compiled with --define VALUETASK
+#if VALUETASK
 let valueTask () = ValueTask<int>(1)
+#endif
