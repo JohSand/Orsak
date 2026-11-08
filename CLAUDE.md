@@ -24,6 +24,8 @@ dotnet test --project tests/Orsak.Tests/Orsak.Tests.fsproj --no-build -c Release
 dotnet pack --configuration Release --output ./nupkg
 ```
 
+How a change is made is in "Working on a change" in `CONTRIBUTING.md`: branch names, what a pull request includes (tests, XML docs, docs pages, a changelog line), a feature's stages (spike in `experiments/`, internal prototype, `[<Experimental>]`, stable, `[<Obsolete>]`), breaking changes (package validation against the latest release, `CompatibilitySuppressions.xml`), and framework-specific code. Follow it.
+
 Releases are made with `scripts/release.sh <version>`, from `CHANGELOG.md`; see "Releasing" in `CONTRIBUTING.md`. Record user-visible changes under `## [Unreleased]` there. Pushes to `main` publish prereleases to GitHub Packages, and only tags publish to nuget.org.
 
 `dotnet test` runs on Microsoft.Testing.Platform (set in `global.json`), so options go to the test runner directly: `--filter-method`, `--filter-class`, `--filter-query`, not VSTest's `--filter`, which is rejected.
