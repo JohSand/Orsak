@@ -2,6 +2,7 @@ module App
 
 open System.Threading.Tasks
 open Orsak
+open Orsak.Remoting
 
 type IGreeter =
     abstract Greet: string -> string
@@ -20,7 +21,11 @@ let greetAll names : Effect<Greeter, string list, string> = eff {
 
 task {
     match! greetAll [ "Fable"; "Node" ] |> Effect.run (Greeter()) with
-    | Ok greetings -> printfn "%A" greetings
+    | Ok greetings ->
+        printfn "%A" greetings
+        // Orsak.Remoting, from its package: the greetings in its JSON
+        let json = (JsonFormat.Instance :> IWireFormat).EncodeResult(box greetings, typeof<string list>)
+        printfn "%s" (System.Text.Encoding.UTF8.GetString json)
     | Error e -> printfn "failed: %s" e
 }
 |> ignore

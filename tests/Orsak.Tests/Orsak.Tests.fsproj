@@ -41,6 +41,7 @@
         <Compile Include="OpenApiInferenceTests.fs"/>
         <Compile Include="QuotationTests.fs"/>
         <Compile Include="FSharpPlusTests.fs"/>
+        <Compile Include="RemotingTests.fs"/>
         <Compile Include="OpenApiTests.fs" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net10.0'))"/>
         <Compile Include="ScalingEffectJobTests.fs"/>
         <Compile Include="ScalingJobBuilderTests.fs" MyriadInlineGeneration="true" />
@@ -56,6 +57,13 @@
         <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3"/>
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3"/>
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.4.0"/>
+    </ItemGroup>
+    <!-- an in-memory server for RemotingTests.fs, of the target's ASP.NET Core -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+        <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.33"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+        <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.14"/>
     </ItemGroup>
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="9.0.303"/>
@@ -74,6 +82,7 @@
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj"/>
         <ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj"/>
         <ProjectReference Include="..\..\src\Orsak.Myriad\Orsak.Myriad.fsproj"/>
+        <ProjectReference Include="..\..\src\Orsak.Remoting.AspNetCore\Orsak.Remoting.AspNetCore.fsproj"/>
         <ProjectReference Include="..\..\src\Orsak.AspNetCore.OpenApi\Orsak.AspNetCore.OpenApi.fsproj" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net10.0'))"/>
     </ItemGroup>
 </Project>

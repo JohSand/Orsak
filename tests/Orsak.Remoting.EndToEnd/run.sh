@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the spike end to end: starts the .NET server, then runs the client against it, compiled with Fable on Node.js,
+# Orsak.Remoting end to end: starts the .NET server, then runs the client against it, compiled with Fable on Node.js,
 # and on .NET, and stops the server. Fails unless both clients print what's expected.
 set -euo pipefail
 cd "$(dirname "$0")"

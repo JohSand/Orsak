@@ -16,6 +16,8 @@ Supported frameworks
 | Orsak.AspNetCore | `net8.0`, `net10.0` | FSharp.Core 8.0.300 or later |
 | Orsak.AspNetCore.OpenApi | `net10.0` | Microsoft.AspNetCore.OpenApi 10 |
 | Orsak.Myriad | `net8.0` | FSharp.Core 9, Myriad 1.1 (see [Generating code](myriad.html)) |
+| Orsak.Remoting | `net8.0`, `net10.0`, and Fable (JavaScript) | FSharp.Core 8.0.300 or later, Fable.Core 5 |
+| Orsak.Remoting.AspNetCore | `net8.0`, `net10.0` | FSharp.Core 8.0.300 or later |
 
 Orsak.Myriad runs at build time, in Myriad, so its target is the runtime the build needs, not the one the application
 runs on. Orsak.AspNetCore.OpenApi targets only .NET 10, as Microsoft.AspNetCore.OpenApi 10 does.

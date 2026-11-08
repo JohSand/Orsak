@@ -83,6 +83,8 @@ A Myriad plugin that generates effect boilerplate from interface definitions. An
 
 `Orsak` also compiles with Fable, for JavaScript (experimental): `Effect` and `eff` from `src/Orsak/Fable/`, and the `Effect` module from the shared `Effect.fs`, whose .NET-only parts are behind `#if !FABLE_COMPILER`. When changing `Effect.fs`, `Fable/` or the `Effect` operators, run the shared tests on both, as in "Fable" in `CONTRIBUTING.md`.
 
+`Orsak.Remoting` (client and pluggable wire format, `IWireFormat`, with `JsonFormat`; same sources on .NET and Fable) and `Orsak.Remoting.AspNetCore` (`MapRemote`) let a client call an interface's members on a server. `experiments/Remoting/README.md` has the design and why it isn't built on Fable.Remoting. Its JSON must be the same text on .NET and Fable: `tests/Orsak.Fable.Tests/RemotingTests.fs` checks that, and `tests/Orsak.Remoting.EndToEnd/run.sh` runs a server with both clients.
+
 ## Key Conventions
 
 - All async work uses `ValueTask` (not `Task`) for allocation efficiency — preserve this when adding new features.

@@ -7,6 +7,6 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Shared\Shared.fsproj" />
-        <ProjectReference Include="..\Remoting.AspNetCore\Remoting.AspNetCore.fsproj" />
+        <ProjectReference Include="..\..\..\src\Orsak.Remoting.AspNetCore\Orsak.Remoting.AspNetCore.fsproj" />
     </ItemGroup>
 </Project>

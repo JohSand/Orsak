@@ -36,5 +36,6 @@ Where to go next:
 * [Scopes](scopes.html): running effects in transactions and other scopes, with an environment that grows.
 * [Generating code](myriad.html): generating effects and environments from interfaces with Orsak.Myriad.
 * [Fable](fable.html): effects in F# compiled to JavaScript, with what differs from .NET, and what is .NET only.
+* [Remoting](remoting.html): calling the members of an interface on a server, from Fable or .NET, with Orsak.Remoting.
 * [Supported frameworks](supported-frameworks.html): the .NET versions each package targets, and how that changes.
 * The [API reference](reference/index.html).

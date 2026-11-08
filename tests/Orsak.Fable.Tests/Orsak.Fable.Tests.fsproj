@@ -11,9 +11,11 @@
         <Compile Include="Runner.fs" />
         <Compile Include="EffTests.fs" />
         <Compile Include="EffectModuleTests.fs" />
+        <Compile Include="RemotingTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
+        <ProjectReference Include="..\..\src\Orsak.Remoting\Orsak.Remoting.fsproj" />
     </ItemGroup>
 </Project>

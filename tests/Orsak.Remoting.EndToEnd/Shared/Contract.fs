@@ -1,6 +1,6 @@
-/// The contract shared by the server and the Fable client: an Orsak interface describing the side effect, its
+/// The contract shared by the server and the clients: an Orsak interface describing the side effect, its
 /// provider, and the effects created from it, as Orsak.Myriad's [<GenEffects>] would write them. The proxy at the end is
-/// what a generator would write too, and is written by hand in this spike.
+/// what a generator would write too, and is written by hand here.
 module Remoting.Shared.Contract
 
 open System.Threading.Tasks
