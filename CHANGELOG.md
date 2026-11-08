@@ -92,7 +92,7 @@ Yielding after binding results in effSeq
 
 ### Fixed
 Too large allocation in WhenAll
-For loops over IAsyncEnumerable
+A for loop over an IAsyncEnumerable no longer makes the whole expression return unit
 
 ## [0.4.0] - 2023-09-19
 
