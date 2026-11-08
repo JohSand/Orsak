@@ -1,16 +1,11 @@
 ﻿name: Build and Test
 
-on: 
+on:
+  # Every pull request runs the workflow, as its jobs are required checks, which a workflow that doesn't run never
+  # reports; the changes job skips them when only docs or samples change, and a skipped job passes a required check.
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - 'docs/**'
-      - 'samples/**'
-      - 'experiments/**'
-      - 'README.md'
-      - 'CHANGELOG.md'
-      - '.github/workflows/docs.yml'
 
   push:
     tags:
@@ -25,7 +20,38 @@ on:
       - 'CHANGELOG.md'
       - '.github/workflows/docs.yml'
 jobs:
+  # Whether a pull request changes what the jobs below build and test: not when it only changes the paths a push to
+  # main ignores, above. A push always does, as the trigger has filtered it already.
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Find what changed
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE" HEAD)
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -qvE '^(docs/|samples/|experiments/|README\.md$|CHANGELOG\.md$|\.github/workflows/docs\.yml$)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build-and-test:
+    needs: changes
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -115,6 +141,8 @@ jobs:
     # (non-statically-reduced) fallback implementations under CI coverage on their own. Without
     # this job those code paths only ever get exercised by accident, which is how the SDK
     # 10.0.400 F# compiler regression went unnoticed for as long as it did.
+    needs: changes
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -156,6 +184,8 @@ jobs:
   # Node.js; a Fable app compiled against the packed Orsak and Orsak.Remoting packages, as a user's project would be;
   # and Orsak.Remoting end to end, a server called by a client compiled with Fable and by one on .NET.
   fable:
+    needs: changes
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
