@@ -14,6 +14,10 @@
 *.dbproj merge=union
 *.sh text eol=lf
 
+# Verify compares snapshots byte for byte, and requires them to have \n line endings
+*.verified.txt text eol=lf
+*.verified.json text eol=lf
+
 # Standard to msysgit
 *.doc diff=astextplain
 *.DOC diff=astextplain

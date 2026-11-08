@@ -284,3 +284,6 @@ docs/.generated/
 
 # Test reports from dotnet test --results-directory
 test-results/
+
+# Verify writes the output of a failing snapshot test next to the snapshot
+*.received.*
