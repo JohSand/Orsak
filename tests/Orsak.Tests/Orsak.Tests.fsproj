@@ -40,6 +40,7 @@
         <Compile Include="EndpointRoutingTests.fs"/>
         <Compile Include="OpenApiInferenceTests.fs"/>
         <Compile Include="QuotationTests.fs"/>
+        <Compile Include="FSharpPlusTests.fs"/>
         <Compile Include="OpenApiTests.fs" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net10.0'))"/>
         <Compile Include="ScalingEffectJobTests.fs"/>
         <Compile Include="ScalingJobBuilderTests.fs" MyriadInlineGeneration="true" />
@@ -60,6 +61,8 @@
         <PackageReference Update="FSharp.Core" Version="9.0.303"/>
         <PackageReference Include="Ben.Demystifier" Version="0.4.1"/>
         <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0"/>
+        <!-- FSharpPlus finds the Effect type's operators, FSharpPlusTests.fs checks that it can -->
+        <PackageReference Include="FSharpPlus" Version="1.9.1"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1"/>
         <PackageReference Include="Unquote" Version="7.0.1"/>
         <PackageReference Include="Myriad.Sdk" Version="1.1.0" />
