@@ -60,35 +60,49 @@ members may return a `Task`, a `ValueTask` or an `Async`, of a value or of none.
 
 ## The client
 
-The client's environment provides the interface with a proxy, which calls the server through a `RemoteClient`:
+`[<GenRemote>]`, from Orsak.Remoting, on the contract's interface has Orsak.Myriad generate its proxy: the contract's
+project references Orsak.Myriad, as for its other generators (see [Generating code](myriad.html)).
+
+
+```fsharp
+[<GenRemote>]
+type IOrderApi =
+    abstract Place: Order -> Task<Result<OrderId, PlaceError>>
+    abstract History: customer: string -> Task<Order list>
+```
+
+The client's environment provides the interface with the proxy, which calls the server through a `RemoteClient`:
 
 ```fsharp
 let client = RemoteClient("https://shop.example", "/api", JsonFormat.Instance, FetchTransport())
 
 type ClientEnv() =
+    let orderApi = OrderApiProxy.create client
+
     interface IOrderApiProvider with
-        member _.OrderApi = OrderApiProxy(client)
+        member _.OrderApi = orderApi
 
 orderAndReview order |> Effect.run (ClientEnv())
 ```
 
 `FetchTransport` sends with `fetch`, in the browser and on Node.js; on .NET, `HttpClientTransport` sends with an
-`HttpClient`. The proxy calls the client with each member's name and types, as Fable erases generic arguments at run
-time:
+`HttpClient`. The generated proxy makes the codecs of each member once, with its types, as Fable erases generic
+arguments at run time, and calls them for each call:
 
 ```fsharp
-type OrderApiProxy(client: RemoteClient) =
-    interface IOrderApi with
-        member _.Place order = task {
-            let! result =
-                client.Call("IOrderApi", "Place", [| box order |], [| typeof<Order> |], typeof<Result<OrderId, PlaceError>>)
+module OrderApiProxy =
+    let create (client: Orsak.Remoting.RemoteClient) : IOrderApi =
+        let place = client.Member("IOrderApi", "Place", [| typeof<Order> |], typeof<Result<OrderId, PlaceError>>)
+        let history = client.Member("IOrderApi", "History", [| typeof<string> |], typeof<Order list>)
 
-            return unbox result
-        }
-        // ... and each other member
+        { new IOrderApi with
+            member _.Place a = place.Task [| box a |]
+            member _.History a = history.Task [| box a |] }
 ```
 
-The proxy is written by hand for now; Orsak.Myriad will generate it from the interface.
+So a type the format can't write fails when the proxy is made, naming the type, and `MapRemote` fails the same way when
+it maps the endpoints, as the server starts, rather than either failing on a call. A Fable project compiles the
+generated code as it is: Myriad runs when .NET builds the contract's project, not when Fable compiles it.
 
 ## Errors
 
@@ -115,6 +129,7 @@ Maps, sets and dates aren't supported yet, nor an option of an option: `Some Non
 
 ## Other formats
 
-A format is an `IWireFormat`: a content type, and the encoding and decoding of a call's arguments and result, given
-their types. A binary format, such as MessagePack, would be another implementation. The server serves the formats it is
+A format is an `IWireFormat`: a content type, and the codecs it makes for a member's arguments and result, given their
+types, `ArgumentsCodecFor` and `CodecFor`, each made once and used for every call. A binary format, such as MessagePack,
+would be another implementation. The server serves the formats it is
 given, choosing by the request's content type, and answers 415 to a content type it has no format for.

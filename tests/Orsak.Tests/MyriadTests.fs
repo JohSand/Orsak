@@ -114,6 +114,18 @@ module Ast =
 
     let generateEnvironment s = generateEnvironmentWith Map.empty s
 
+    let generateRemote s =
+        let context = {
+            GeneratorContext.ConfigKey = None
+            ConfigGetter = fun _ -> []
+            InputFilename = ""
+            ProjectContext = None
+            AdditionalParameters = Map.empty
+        }
+
+        let ast, _ = parse s
+        RemoteAst.parse context ast |> RemoteSyntax.create |> format
+
 module MyriadTests =
 
     [<Theory>]
@@ -215,6 +227,36 @@ module MyriadTests =
 
         ()
     }
+
+    [<Theory>]
+    [<InlineData(23)>]
+    let ``RemoteGen creates the expected output`` (i: int) = task {
+        let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
+
+        use resource =
+            assm.GetManifestResourceStream($"Orsak.Tests.TestData.Effects.Myriad.%02i{i}.fsx")
+
+        use reader = new StreamReader(resource)
+        let txt = reader.ReadToEnd()
+        let result = Ast.generateRemote txt
+
+        let settings = VerifySettings()
+        settings.UseDirectory("TestDataVerified")
+        settings.UseFileName($"Effects.Myriad.%02i{i}")
+
+        let! _result =
+            Verifier.Verify(target = System.String.Join(System.Environment.NewLine, txt, result), extension = "fsx", settings = settings)
+
+        ()
+    }
+
+    [<Theory>]
+    [<InlineData("abstract Place: int -> int", "must return a Task, a ValueTask or an Async")>]
+    [<InlineData("abstract Count: Task<int>", "must be a method")>]
+    let ``RemoteGen rejects members it can't call remotely`` (body: string, expected: string) =
+        let source = $"[<GenRemote>]\ntype IApi =\n    {body}\n"
+        let error = Assert.Throws<exn>(fun () -> Ast.generateRemote source |> ignore)
+        Assert.Contains(expected, error.Message)
 
     [<Theory>]
     [<InlineData("inherit IProvide<IFoo>", "can only inherit non-generic provider interfaces")>]

@@ -5,6 +5,7 @@
 ### Added
 Fable support for JavaScript: `Effect`, `eff` and the `Effect` module, from the `Orsak` package, which carries the sources Fable compiles. Effects run on `Task`, which Fable compiles to promises, and `fanOut`, effect sequences, the base effects, resilience and scopes are .NET only, see the Fable guide (experimental)
 Orsak.Remoting and Orsak.Remoting.AspNetCore: a client, compiled with Fable or on .NET, calls the members of an interface on an ASP.NET Core server, which serves them with `MapRemote`. The wire format is pluggable, `IWireFormat`, and JSON is the first, the same on .NET and Fable; the contract's errors cross as values, and a failed call raises `RemoteCallException`, see the Remoting guide (experimental)
+Orsak.Myriad: `[<GenRemote>]` generates the proxy of a remote interface, which makes the codecs of each member once, so a type the format can't write fails when the proxy is made, as `MapRemote` does when it maps the endpoints (experimental)
 
 ### Fixed
 `return!` of a `Task<'T>` in an `eff` returns the task's value, instead of `unit`, and can be used in a `try` block too

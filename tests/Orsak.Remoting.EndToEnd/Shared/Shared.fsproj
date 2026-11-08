@@ -1,13 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <!-- The contract, compiled by the .NET server and, with Fable, by the client -->
+    <!-- The contract, compiled by the .NET server and clients and, with Fable, by the Fable client -->
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="Contract.fs" />
+        <Compile Include="Contract.fs" MyriadInlineGeneration="true" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\..\src\Orsak\Orsak.fsproj" />
         <ProjectReference Include="..\..\..\src\Orsak.Remoting\Orsak.Remoting.fsproj" />
     </ItemGroup>
+    <!-- Orsak.Myriad generates the proxy into Contract.fs when .NET builds this project; Fable compiles the result, and
+         neither runs Myriad nor can compile Orsak.Myriad, so none of this is for Fable -->
+    <ItemGroup Condition="'$(FABLE_COMPILER)' != 'true'">
+        <PackageReference Include="Myriad.Sdk" Version="1.1.0" PrivateAssets="all" />
+        <PackageDownload Include="Myriad" Version="[1.1.0]" />
+        <ProjectReference Include="..\..\..\src\Orsak.Myriad\Orsak.Myriad.fsproj" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+    <Import Project="..\..\..\src\Orsak.Myriad\build\Orsak.Myriad.InTest.props" Condition="'$(FABLE_COMPILER)' != 'true'" />
 </Project>

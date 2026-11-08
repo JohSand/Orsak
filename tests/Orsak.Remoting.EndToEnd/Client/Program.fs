@@ -20,7 +20,7 @@ let transport: IRemoteTransport =
 #endif
 
 let remote baseUrl : IOrderApi =
-    OrderApiProxy(RemoteClient(baseUrl, "/api", JsonFormat.Instance, transport))
+    OrderApiProxy.create (RemoteClient(baseUrl, "/api", JsonFormat.Instance, transport))
 
 // a customer of its own on each platform, as both run against the same server
 let customer =

@@ -18,21 +18,30 @@ open Orsak.Remoting
 [<Extension>]
 type RemoteEndpoints =
 
+    /// The type of the value a member returns: that of its Task, ValueTask or Async, unit for a Task of none, or itself.
+    static member private ResultType(returnType: Type) =
+        let generic = if returnType.IsGenericType then returnType.GetGenericTypeDefinition() else null
+
+        if generic = typedefof<Task<obj>> || generic = typedefof<ValueTask<obj>> || generic = typedefof<Async<obj>> then
+            returnType.GetGenericArguments()[0]
+        elif typeof<Task>.IsAssignableFrom returnType || returnType = typeof<Void> then
+            typeof<unit>
+        else
+            returnType
+
     /// The value a member returned, awaited: a Task, a ValueTask or an Async of a value, a Task of none, or a value.
-    static member private Await(returnType: Type, returned: obj) : Task<obj * Type> = task {
+    static member private Await(returnType: Type, returned: obj) : Task<obj> = task {
         let generic = if returnType.IsGenericType then returnType.GetGenericTypeDefinition() else null
 
         if generic = typedefof<Async<obj>> then
-            let resultType = returnType.GetGenericArguments()[0]
-
             let started =
                 typeof<Async>
                     .GetMethod("StartAsTask")
-                    .MakeGenericMethod(resultType)
+                    .MakeGenericMethod(returnType.GetGenericArguments())
                     // its two optional parameters, None
                     .Invoke((null: obj), [| returned; (null: obj); (null: obj) |])
 
-            return! RemoteEndpoints.Await(typedefof<Task<obj>>.MakeGenericType resultType, started)
+            return! RemoteEndpoints.Await(typedefof<Task<obj>>.MakeGenericType(returnType.GetGenericArguments()), started)
         elif generic = typedefof<ValueTask<obj>> then
             let task = returnType.GetMethod("AsTask").Invoke(returned, [||])
             return! RemoteEndpoints.Await(typedefof<Task<obj>>.MakeGenericType(returnType.GetGenericArguments()), task)
@@ -42,39 +51,48 @@ type RemoteEndpoints =
                 do! t
 
                 if generic = typedefof<Task<obj>> then
-                    return returnType.GetProperty("Result").GetValue(returned), returnType.GetGenericArguments()[0]
+                    return returnType.GetProperty("Result").GetValue(returned)
                 else
-                    return box (), typeof<unit>
-            | _ when returnType = typeof<Void> -> return box (), typeof<unit>
-            | _ -> return returned, returnType
+                    return box ()
+            | _ when returnType = typeof<Void> -> return box ()
+            | _ -> return returned
     }
 
     static member private Handle<'Api>
         (m: MethodInfo, formats: IWireFormat list, create: HttpContext -> 'Api)
         : RequestDelegate =
+        // the codecs of each format, made once, when the endpoint is mapped: a type a format can't write fails here
         let argTypes = m.GetParameters() |> Array.map (fun p -> p.ParameterType)
+        let resultType = RemoteEndpoints.ResultType m.ReturnType
+
+        let codecs = [
+            for f in formats -> f, f.ArgumentsCodecFor argTypes, f.CodecFor resultType
+        ]
 
         RequestDelegate(fun ctx -> task {
             let contentType = string ctx.Request.ContentType
 
-            match formats |> List.tryFind (fun f -> contentType.StartsWith(f.ContentType, StringComparison.OrdinalIgnoreCase)) with
+            match
+                codecs
+                |> List.tryFind (fun (f, _, _) -> contentType.StartsWith(f.ContentType, StringComparison.OrdinalIgnoreCase))
+            with
             | None -> ctx.Response.StatusCode <- StatusCodes.Status415UnsupportedMediaType
-            | Some format ->
-                let! result =
+            | Some(format, arguments, result) ->
+                let! response =
                     task {
                         try
                             use body = new MemoryStream()
                             do! ctx.Request.Body.CopyToAsync(body, ctx.RequestAborted)
-                            let args = format.DecodeArguments(body.ToArray(), argTypes)
+                            let args = arguments.Decode(body.ToArray())
                             let returned = m.Invoke(create ctx, args)
-                            let! value, resultType = RemoteEndpoints.Await(m.ReturnType, returned)
-                            return Ok(format.EncodeResult(value, resultType))
+                            let! value = RemoteEndpoints.Await(m.ReturnType, returned)
+                            return Ok(result.Encode value)
                         with e ->
                             let e = match e with :? TargetInvocationException as t when not (isNull t.InnerException) -> t.InnerException | e -> e
                             return Error e
                     }
 
-                match result with
+                match response with
                 | Ok body ->
                     ctx.Response.ContentType <- format.ContentType
                     do! ctx.Response.Body.WriteAsync(body, ctx.RequestAborted)
@@ -96,7 +114,8 @@ type RemoteEndpoints =
     /// </summary>
     /// <remarks>
     /// The members may return a Task, a ValueTask or an Async, of a value or of none. Reflection finds them, so nothing is
-    /// generated for the server.
+    /// generated for the server. The formats' codecs for each member are made here, once, so a type a format can't
+    /// write fails when the endpoints are mapped, as the application starts, rather than on a call.
     /// </remarks>
     /// <param name="endpoints">The endpoints to add to</param>
     /// <param name="prefix">The path the members' routes start with, such as <c>/api</c></param>

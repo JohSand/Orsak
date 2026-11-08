@@ -14,6 +14,7 @@
 	  <Compile Include="EffectGen.fs" />
 	  <Compile Include="RunnerGen.fs" />
 	  <Compile Include="EnvironmentGen.fs" />
+	  <Compile Include="RemoteGen.fs" />
 	</ItemGroup>
 
 	<ItemGroup>

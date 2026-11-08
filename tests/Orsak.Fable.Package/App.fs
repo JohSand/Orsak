@@ -24,7 +24,7 @@ task {
     | Ok greetings ->
         printfn "%A" greetings
         // Orsak.Remoting, from its package: the greetings in its JSON
-        let json = (JsonFormat.Instance :> IWireFormat).EncodeResult(box greetings, typeof<string list>)
+        let json = (JsonFormat.Instance :> IWireFormat).CodecFor(typeof<string list>).Encode(box greetings)
         printfn "%s" (System.Text.Encoding.UTF8.GetString json)
     | Error e -> printfn "failed: %s" e
 }
