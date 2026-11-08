@@ -1,7 +1,4 @@
 {
   "private": true,
-  "type": "module",
-  "dependencies": {
-    "xhr2": "0.2.1"
-  }
+  "type": "module"
 }
