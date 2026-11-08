@@ -53,3 +53,11 @@ echo
 "$root/scripts/changelog-section.sh" "$version" "$changelog"
 echo
 echo "To publish it: git push origin main $version"
+
+# the breaks they record are against the previous release, and the next release is validated against this one
+suppressions=$(git ls-files 'src/*/CompatibilitySuppressions.xml')
+if [ -n "$suppressions" ]; then
+    echo
+    echo "Once $version is published, delete the files recording its breaking changes, in a commit of their own:"
+    echo "$suppressions" | sed 's/^/  /'
+fi

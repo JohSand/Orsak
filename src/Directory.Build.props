@@ -35,6 +35,12 @@
 	<PropertyGroup Condition="'$(OrsakReleaseNotesFile)' != '' And Exists('$(OrsakReleaseNotesFile)')">
 		<PackageReleaseNotes>$([System.IO.File]::ReadAllText('$(OrsakReleaseNotesFile)'))</PackageReleaseNotes>
 	</PropertyGroup>
+	<!-- Package validation: when PackageValidationBaselineVersion is given, as CI gives the latest release, dotnet pack
+	     fails on a change to the public API that breaks code compiled against that release. An intended break is
+	     recorded in the project's CompatibilitySuppressions.xml; see "Breaking changes" in CONTRIBUTING.md. -->
+	<PropertyGroup Condition="'$(PackageValidationBaselineVersion)' != ''">
+		<EnablePackageValidation>true</EnablePackageValidation>
+	</PropertyGroup>
 	<!-- Enabling reproducible builds -->
 	<ItemGroup>
 		<PackageReference Include="DotNet.ReproducibleBuilds" Version="2.0.5">

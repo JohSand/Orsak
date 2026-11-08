@@ -74,9 +74,15 @@ jobs:
         with:
             files: test-results/**/*.trx
 
+      # Also for pull requests: packing validates each package against the latest release, the newest version tag
+      # before this commit's own, so a change that breaks code compiled against it fails here unless it is recorded
+      # as intended (see "Breaking changes" in CONTRIBUTING.md).
       - name: Pack NuGet package
-        if: ${{ success() && github.event_name != 'pull_request' }}
-        run: dotnet pack --configuration Release --output ./nupkg -p:OrsakReleaseNotesFile="$RUNNER_TEMP/release-notes.md"
+        run: |
+          baseline=$(git describe --tags --abbrev=0 --match '[0-9]*.[0-9]*.[0-9]*' --exclude "$GITHUB_REF_NAME" HEAD)
+          echo "Validating against $baseline"
+          dotnet pack --configuration Release --output ./nupkg \
+            -p:OrsakReleaseNotesFile="$RUNNER_TEMP/release-notes.md" -p:PackageValidationBaselineVersion="$baseline"
 
       # Downloads every source file the packed assemblies' PDBs refer to, from GitHub at this commit, and checks
       # it against the PDB's checksum, so that a package whose Source Link doesn't resolve isn't published.

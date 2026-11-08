@@ -29,11 +29,103 @@ Keep the name of the function a test is about as it is written, as in ``` ``addD
 Tests of asynchronous code should have a timeout, as in `[<Fact(Timeout = 10_000)>]`, so a hang fails the test
 instead of the run.
 
+## Working on a change
+
+### Branches and pull requests
+
+* Work on a branch from an up-to-date `main`, one topic to a branch, named for its kind: `feature/<topic>`,
+  `fix/<topic>`, `docs/<topic>`, or `spike/<topic>` for an experiment that isn't meant to be merged as it is.
+* Keep a branch up to date by rebasing it on `main`, rather than merging `main` into it. Pull requests are merged with
+  "Rebase and merge", so each commit lands on `main` as it is: write its message as a sentence saying what it does,
+  with the reason in the body.
+* The title of a pull request is listed in the release notes on GitHub, so write it as a sentence too.
+* A larger change to the public API starts with an issue, or a spike, to settle the design before the code.
+* Once a branch is merged, delete it, on GitHub and locally. Work that is set aside instead is kept as a tag rather
+  than a branch: `git tag archive/<branch> <branch>`, then `git branch -D <branch>`.
+
+### What a change includes
+
+A pull request that changes something users notice comes with:
+
+* tests of it;
+* XML doc comments on new public API, with an example for what users call directly, and `<exclude/>` on what is public
+  only for technical reasons, such as builder members, so the API reference leaves it out;
+* the documentation page about it, new or updated, building with `--strict` (see [Documentation](#documentation));
+* a line in `CHANGELOG.md` under `## [Unreleased]`, in the section for its kind: `### Added`, `### Changed`,
+  `### Deprecated`, `### Removed` or `### Fixed`. A line for a breaking change starts with `**Breaking:**`. Changes
+  users don't notice, such as to tests, CI or internals, need no line.
+
+The template for pull requests lists these.
+
+### A feature's stages
+
+1. **Spike.** An experiment that answers a question, such as whether a design works or what it costs, in a folder of
+   its own under `experiments/`, outside the packages. Its `README.md` records what was found, so the answer outlives
+   the branch.
+2. **Prototype.** In the library, but `internal`, and tested through `InternalsVisibleTo`, as `scalingJob2` was. A
+   prototype is not in the changelog.
+3. **Experimental.** Public, but marked `[<Experimental("...")>]`, so using it warns (FS0057), and `<exclude/>`, so the
+   API reference leaves it out. It may change in any release. Its changelog line ends with `(experimental)`.
+4. **Stable.** The attribute and the `<exclude/>` are removed, and it is documented. From here, it follows semver,
+   which package validation checks.
+5. **Deprecated.** Marked `[<Obsolete("Use ... instead")>]`, with a line under `### Deprecated`. It stays at least
+   until the next release that may break, a minor one before 1.0 and a major one after, and is then removed, with a
+   line under `### Removed`.
+
+### Breaking changes
+
+CI packs the packages for every pull request, and validates each against the latest release: a change to the public
+API that breaks code compiled against that release, such as a removed or changed member, fails the build. To check
+locally, pack with the latest release as the baseline:
+
+```bash
+dotnet pack -c Release -p:PackageValidationBaselineVersion=0.8.0
+```
+
+An intended break is recorded, with the change, in the project's `CompatibilitySuppressions.xml`, which this writes:
+
+```bash
+dotnet pack src/Orsak -c Release -p:PackageValidationBaselineVersion=0.8.0 -p:ApiCompatGenerateSuppressionFile=true
+```
+
+Check that the file lists only the intended breaks, mark the changelog line `**Breaking:**`, and delete the file once
+the release with the break is published, as the next release is validated against that one.
+
+Package validation compares compiled signatures, so some breaks are left to review:
+
+* a change in behavior;
+* a change to an `inline` function or a builder member, whose code is compiled into the assemblies of its users;
+* a change to the code Orsak.Myriad generates, which its snapshot tests show.
+
+A new package has no release to be validated against, so its project sets
+`<DisablePackageBaselineValidation>true</DisablePackageBaselineValidation>` until its first release.
+
+### Framework-specific code
+
+[Supported frameworks](https://johsand.github.io/Orsak/supported-frameworks.html) has the policy for which .NET
+versions the packages target. Within it:
+
+* Code for a newer target goes in a file of its own, included with
+  `Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0'))"`. `#if` is for small
+  differences inside a function whose signature is the same on every target.
+* A newer target only adds API: an API that exists on several targets behaves the same on all of them.
+* `inline` functions and builder members are compiled into their users' code, so their implementation is the same on
+  every target. A different mechanism, such as runtime async, gets a name of its own, as a new builder beside `eff`.
+* The tests target the same frameworks, with the same conditions.
+
+### Design
+
+* Side effects are described with interfaces, provided by the environment, and errors with the `'e` type, not
+  exceptions. Asynchronous code uses `ValueTask`.
+* Overloads, and SRTP witnesses, cost type-checking time wherever they are used, in users' code too: keep a member
+  to about ten overloads, and prefer interfaces to SRTP where both work.
+* A change made for performance is measured with the benchmarks in `benchmarks/`, before and after.
+
 ## Releasing
 
 `CHANGELOG.md` is the release notes. Add a line under `## [Unreleased]` with each change users will notice, and a
 release moves those lines to a section of its own. Versions follow semver, and before 1.0 a breaking change, such as
-dropping a target framework, raises the minor version.
+dropping a target framework, raises the minor version (see [Breaking changes](#breaking-changes)).
 
 To release, from an up-to-date `main` with a clean working tree:
 
