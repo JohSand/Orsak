@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+`return!` of a `Task<'T>` in an `eff` returns the task's value, instead of `unit`, and can be used in a `try` block too
+
 ## [0.8.0] - 2026-11-08
 
 ### Changed
