@@ -22,7 +22,8 @@ expected='placed: Ok N, notes Some ring twice
 without a note: Ok N
 empty: Error EmptyOrder
 unknown: Error UnknownProduct plum
-unreachable: raised RemoteCallException'
+unreachable: raised RemoteCallException, status none
+anonymous: raised RemoteCallException, status 401'
 
 check() {
     local name=$1 actual=$2

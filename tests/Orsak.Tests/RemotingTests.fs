@@ -169,8 +169,20 @@ let ``an exception on the server is raised as a RemoteCallException, without its
     let! app, _, api = serve (TestApi())
     use _ = app
     let! e = Assert.ThrowsAsync<RemoteCallException>(fun () -> api.Fail() :> Task)
-    Assert.Contains("500", e.Message)
+    Assert.Equal(Some 500, e.StatusCode)
     Assert.DoesNotContain("secret", e.Message)
+}
+
+[<Fact(Timeout = 10_000)>]
+let ``arguments that can't be read are answered 400, and the member isn't called`` () = task {
+    let testApi = TestApi()
+    let! app, http, _ = serve testApi
+    use _ = app
+    use content = new StringContent("""["not", "a string and a list"]""")
+    content.Headers.ContentType <- Headers.MediaTypeHeaderValue.Parse (JsonFormat.Instance :> IWireFormat).ContentType
+    let! response = http.PostAsync("/api/ITestApi/Record", content)
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
+    Assert.Empty testApi.Recorded
 }
 
 [<Fact(Timeout = 10_000)>]
@@ -184,12 +196,12 @@ let ``a request in a format the server doesn't have is answered 415`` () = task 
 }
 
 [<Fact(Timeout = 10_000)>]
-let ``a server that can't be reached is a RemoteCallException`` () = task {
+let ``a server that can't be reached is a RemoteCallException, without a status`` () = task {
     use http = new HttpClient()
     let client = RemoteClient("http://localhost:1", "/api", JsonFormat.Instance, HttpClientTransport(http))
     let api = TestApiProxy.create client
-    let! _ = Assert.ThrowsAsync<RemoteCallException>(fun () -> api.Echo apples :> Task)
-    ()
+    let! e = Assert.ThrowsAsync<RemoteCallException>(fun () -> api.Echo apples :> Task)
+    Assert.Equal(None, e.StatusCode)
 }
 
 [<Fact>]

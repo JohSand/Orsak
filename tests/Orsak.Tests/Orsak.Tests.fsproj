@@ -42,6 +42,7 @@
         <Compile Include="QuotationTests.fs"/>
         <Compile Include="FSharpPlusTests.fs"/>
         <Compile Include="RemotingTests.fs" MyriadInlineGeneration="true" />
+        <Compile Include="RemotingAuthTests.fs" MyriadInlineGeneration="true" />
         <Compile Include="WireEncodingTests.fs" />
         <Compile Include="OpenApiTests.fs" Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net10.0'))"/>
         <Compile Include="ScalingEffectJobTests.fs"/>

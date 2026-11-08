@@ -16,6 +16,8 @@
         <PackageReference Include="Myriad.Sdk" Version="1.1.0" PrivateAssets="all" />
         <PackageDownload Include="Myriad" Version="[1.1.0]" />
         <ProjectReference Include="..\..\..\src\Orsak.Myriad\Orsak.Myriad.fsproj" ReferenceOutputAssembly="false" />
+        <!-- for the contract's ASP.NET Core attributes, which Fable doesn't see: see Contract.fs -->
+        <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="10.0.14" />
     </ItemGroup>
     <Import Project="..\..\..\src\Orsak.Myriad\build\Orsak.Myriad.InTest.props" Condition="'$(FABLE_COMPILER)' != 'true'" />
 </Project>
