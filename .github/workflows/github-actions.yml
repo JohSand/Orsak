@@ -47,6 +47,18 @@ jobs:
           dotnet gitversion /updateprojectfiles /output json > $HOME/version.json
           echo "GITVERSION=$(jq -c . < $HOME/version.json)" >> $GITHUB_ENV
 
+      # The packages' release notes: a tag's section of CHANGELOG.md, so a tag without notes fails here, before
+      # anything is published, and the Unreleased section for the prereleases from main.
+      - name: Extract the release notes
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            scripts/changelog-section.sh "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+          else
+            scripts/changelog-section.sh Unreleased > "$RUNNER_TEMP/release-notes.md" \
+              || echo "See https://github.com/JohSand/Orsak/blob/main/CHANGELOG.md" > "$RUNNER_TEMP/release-notes.md"
+          fi
+
       - name: Restore NuGet packages
         run: dotnet restore
 
@@ -64,7 +76,7 @@ jobs:
 
       - name: Pack NuGet package
         if: ${{ success() && github.event_name != 'pull_request' }}
-        run: dotnet pack --configuration Release --output ./nupkg
+        run: dotnet pack --configuration Release --output ./nupkg -p:OrsakReleaseNotesFile="$RUNNER_TEMP/release-notes.md"
 
       # Downloads every source file the packed assemblies' PDBs refer to, from GitHub at this commit, and checks
       # it against the PDB's checksum, so that a package whose Source Link doesn't resolve isn't published.
@@ -80,9 +92,13 @@ jobs:
             done
           done
 
-      - name: Push generated package to GitHub registry
+      - name: Upload the packages
         if: ${{ success() && github.event_name != 'pull_request' }}
-        run: dotnet nuget push "**/*.nupkg" -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: nupkg/*.nupkg
+          if-no-files-found: error
 
   build-and-test-dynamic-path:
     # Resumable-code state machines (eff {}, effSeq {}, ...) are normally reduced to a real
@@ -129,3 +145,55 @@ jobs:
         with:
             check_name: Dynamic Path Test Results
             files: test-results/**/*.trx
+
+  # Publishes the packages once both test jobs pass. A push to main publishes prereleases to GitHub Packages; a tag,
+  # made by scripts/release.sh, publishes the release to nuget.org and then creates its GitHub release, with the notes
+  # of its section of CHANGELOG.md followed by GitHub's list of merged pull requests.
+  publish:
+    if: ${{ github.event_name == 'push' }}
+    needs: [build-and-test, build-and-test-dynamic-path]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # the GitHub release
+      packages: write # GitHub Packages
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: packages
+          path: nupkg
+
+      - name: Push the prereleases to GitHub Packages
+        if: ${{ github.ref_type == 'branch' }}
+        run: >
+          dotnet nuget push "nupkg/*.nupkg" --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --skip-duplicate
+
+      - name: Check that the packages have the tag's version
+        if: ${{ github.ref_type == 'tag' }}
+        run: |
+          for package in Orsak Orsak.AspNetCore Orsak.Myriad; do
+            test -f "nupkg/$package.$GITHUB_REF_NAME.nupkg" || { echo "nupkg/$package.$GITHUB_REF_NAME.nupkg is missing"; ls nupkg; exit 1; }
+          done
+
+      - name: Push the release to nuget.org
+        if: ${{ github.ref_type == 'tag' }}
+        run: >
+          dotnet nuget push "nupkg/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Create the GitHub release
+        if: ${{ github.ref_type == 'tag' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/changelog-section.sh "$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+          gh release create "$GITHUB_REF_NAME" nupkg/*.nupkg --verify-tag --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" --generate-notes

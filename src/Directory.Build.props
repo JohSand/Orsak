@@ -30,6 +30,11 @@
 		<None Include="..\..\LICENSE.txt" Pack="true" PackagePath=""/>
 		<None Include="..\..\docs\content\img\orsak.png" Pack="true" PackagePath="\"/>
 	</ItemGroup>
+	<!-- CI passes the version's section of CHANGELOG.md, extracted by scripts/changelog-section.sh, as the packages'
+	     release notes -->
+	<PropertyGroup Condition="'$(OrsakReleaseNotesFile)' != '' And Exists('$(OrsakReleaseNotesFile)')">
+		<PackageReleaseNotes>$([System.IO.File]::ReadAllText('$(OrsakReleaseNotesFile)'))</PackageReleaseNotes>
+	</PropertyGroup>
 	<!-- Enabling reproducible builds -->
 	<ItemGroup>
 		<PackageReference Include="DotNet.ReproducibleBuilds" Version="2.0.5">
