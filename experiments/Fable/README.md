@@ -1,7 +1,7 @@
 # Fable support: what it would take
 
 The question: can Orsak's effects be used from F# compiled to JavaScript with [Fable](https://fable.io), and in what
-form. Tried with Fable 5.27.0, installed as a local tool in this folder (`dotnet tool restore`).
+form. Tried with Fable 5.27.0, a local tool of the repository (`dotnet tool restore`).
 
 ## Orsak's sources as they are (`AsIs/`)
 
@@ -63,6 +63,19 @@ The type test is the trap: `isClock` compiles to `return false`, and returns it 
 run time, in `Time.delay` (`:? ICancellationProvider`) and `Cancellation.timeout` (`:? ITimeProvider`). On Fable these
 would never find the cancellation source or the clock, silently. A Fable implementation must not rely on such tests.
 
+## Choosing files for Fable (`Conditional/`)
+
+Fable sets the MSBuild property `FABLE_COMPILER` when it reads a project, so one project file can compile different
+files for .NET and Fable. `Lib.fsproj` includes `Which.Net.fs` when it isn't set, and `Which.Fable.fs` when it is:
+
+```bash
+dotnet run --project Conditional/App                                    # compiled by .NET
+dotnet fable Conditional/App --outDir Conditional/out && node Conditional/out/App.js   # compiled by Fable
+```
+
+That holds for a project reference. Whether it also holds for a project in a package's `fable/` folder is for the
+packaging step to check.
+
 ## What follows
 
 A Fable implementation of the core, beside the .NET one:
@@ -94,3 +107,34 @@ A Fable implementation of the core, beside the .NET one:
    and run on Node.js.
 4. **Packaging and CI:** the Fable sources in the package's `fable/` folder, and a CI job that compiles and runs the
    Fable tests.
+
+## Step 1: Effect and eff
+
+Done on `feature/fable`, in `src/Orsak/Fable/`: `EffectBuilder.fs` has `Effect`, `AsyncResult`, `EffectDelegate`,
+`eff` and `mkEffect`, and `Effect.fs` has `Effect.run`, `Effect.runOrFail`, `Effect.Create` and `Effect.Error`.
+`Orsak.fsproj` compiles them, with `Marker.fs`, instead of the .NET files when `FABLE_COMPILER` is set.
+
+`tests/Orsak.Fable.Tests` tests them with a small runner of its own, as xunit can't run on Fable. The same tests run
+on .NET, against the .NET implementation, and on Node.js, against the Fable one, and pass on both (23):
+
+```bash
+dotnet run --project tests/Orsak.Fable.Tests -c Release
+dotnet fable tests/Orsak.Fable.Tests -o tests/Orsak.Fable.Tests/out && node tests/Orsak.Fable.Tests/out/Program.js
+```
+
+Not in Fable's `eff` yet:
+
+* applicative `and!` (`Bind2` to `Bind7`, `MergeSources`), and the `Effect` type's operators (`Map`, `>>=`, `<*>`);
+* `for` over `IAsyncEnumerable`, and over the struct tuples the .NET builder unrolls;
+* `use` of an `IAsyncDisposable`, and `use!`;
+* the stack-safe `return!` of the .NET builder's trampoline: on Fable, a `return!` in a recursive effect chains
+  promises instead, which doesn't grow the stack, as a while loop of 100,000 iterations shows, but holds memory.
+
+Found on the way:
+
+* **A bug on .NET:** `eff { return! Task.FromResult 1 }` returns `Ok ()`, not `Ok 1`. In tail position, `return!` of a
+  `Task<'T>` resolves to `ReturnFromFinal(task: Task)`, for tasks without a value, and drops the value. Binding it with
+  `let!` first returns it. The shared tests leave tasks out of `return!` until it's fixed; the Fable builder returns
+  the value.
+* `Task.FromException` compiles with Fable, to an import that Fable's library doesn't have, and fails when the module
+  loads on Node.js. The tests make a faulted task with `task { }` instead.

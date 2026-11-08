@@ -4,7 +4,14 @@
 		<RootNamespace>Orsak</RootNamespace>
 	</PropertyGroup>
 
-	<ItemGroup>
+	<!-- Fable sets FABLE_COMPILER, and compiles the implementation in Fable/ instead, as it can't translate resumable
+	     code or ValueTask; see experiments/Fable/README.md -->
+	<ItemGroup Condition="'$(FABLE_COMPILER)' == 'true'">
+		<Compile Include="Marker.fs" />
+		<Compile Include="Fable\EffectBuilder.fs" />
+		<Compile Include="Fable\Effect.fs" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(FABLE_COMPILER)' != 'true'">
 		<Compile Include="Marker.fs" />
 		<Compile Include="ValueTaskBuilder.fs" />
 		<Compile Include="Trampoline.fs" />
