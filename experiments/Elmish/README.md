@@ -73,10 +73,43 @@ The tests print each check. The server then serves this app rather than the samp
 the server's project folder). The program also ran on Node.js, compiled with Fable, against the server: the real Elmish
 loop and remote calls, with a view logging each model. The page itself wasn't clicked through in a browser.
 
-## Left for later
+## As a feature
 
-* **A package or a recipe:** the adapter is small enough for the docs to show, as for encodings, rather than an
-  Orsak.Elmish package to keep in step with Elmish.
-* **Commands in flight:** they run at once, so an older `Loaded` can arrive after a newer one; the busy flag only hides
-  it. Cancelling a command needs the cancellation Orsak.Remoting doesn't have yet.
-* **Subscriptions:** Elmish's `Sub`, such as a timer or a server push, as effects.
+What the spike suggests building, for when it's picked up.
+
+**The feature:** Orsak effects as the commands of an Elmish app, so that `update` runs against any environment and a
+test runs its commands against fakes. It goes with Orsak.Remoting, whose proxies are the environment of a Fable client,
+but works for any effect.
+
+**Settled by the spike:**
+
+* **A command is `Effect<'r, 'msg, 'msg>`:** the effect's value and its error are both messages. The contract's errors
+  become messages in `update`, with `Effect.changeError`, and exceptions in the adapter, with `onException`, once for
+  the app.
+* **`update` is generic in the environment,** and the program is given it once. `update` needs neither Elmish nor the
+  environment, so it compiles and is tested on .NET.
+* **A recipe in the docs, not a package:** the adapter, `Cmd.ofEffects` and `Program.mkWithEffects`, is about 25 lines,
+  for an app to copy, as encodings are for formats, rather than an Orsak.Elmish package to keep in step with Elmish's
+  releases. Worth revisiting if cancellation or subscriptions make it much larger.
+* **Nothing in Orsak changes:** the spike needed no new API, and Elmish's `Effect<'msg>` doesn't clash with Orsak's.
+
+**To build it:**
+
+1. **A tested home for the recipe:** move the app into `samples/` (a second client of the remoting sample, or its own
+   sample), and run its tests, `Tests/Program.fs`, in CI's fable job, with Fable compiling the app, so the code the
+   docs show can't go stale.
+2. **A docs page,** Elmish, linked from the Fable and Remoting guides: the command type, the adapter, an `update`, and
+   the test loop, `settle`, which a project copies into its own tests.
+3. **Check it with a view library:** the spike draws on the DOM itself. An app with Feliz or Fable.Elmish.React, and
+   npm with a bundler, should need no change to the commands; that's untested.
+4. **Elmish 4 and 5:** both define `Cmd<'msg>` as a list of `Dispatch<'msg> -> unit`, so the adapter should work with
+   either; the spike used 5.0.2 only.
+
+**Open, and needing a design first:**
+
+* **Commands in flight:** they run at once, so an older `Loaded` can arrive after a newer one, which the busy flag
+  only hides. Either messages carry which request they answer, so `update` drops a stale one, which works now; or a
+  command is cancelled when a newer one replaces it, which needs the cancellation Orsak.Remoting doesn't have yet (a
+  token through `ICancellationProvider` to `fetch`'s `AbortController`).
+* **Subscriptions:** Elmish's `Sub`, such as a timer or a server push, as effects. A stream of messages would be an
+  `EffectSeq`, which Orsak's Fable build doesn't have; a subscription that dispatches from an effect would work today.
