@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Orsak's own source files, unchanged, compiled with Fable to see what it can't translate -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>preview</LangVersion>
+        <NoWarn>3511;0057</NoWarn>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="..\..\..\src\Orsak\Marker.fs" Link="Marker.fs" />
+        <Compile Include="..\..\..\src\Orsak\ValueTaskBuilder.fs" Link="ValueTaskBuilder.fs" />
+        <Compile Include="..\..\..\src\Orsak\Trampoline.fs" Link="Trampoline.fs" />
+        <Compile Include="..\..\..\src\Orsak\EffectBuilder.fs" Link="EffectBuilder.fs" />
+        <Compile Include="..\..\..\src\Orsak\EffSeqBuilder.fs" Link="EffSeqBuilder.fs" />
+        <Compile Include="..\..\..\src\Orsak\Effect.fs" Link="Effect.fs" />
+        <Compile Include="..\..\..\src\Orsak\BaseEffects.fs" Link="BaseEffects.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="8.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    </ItemGroup>
+</Project>

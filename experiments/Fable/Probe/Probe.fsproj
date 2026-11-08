@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- One small file per question: which building blocks Fable can translate -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="Probe.fs" />
+    </ItemGroup>
+</Project>

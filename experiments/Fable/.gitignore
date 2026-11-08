@@ -1,0 +1,4 @@
+# Fable output and its copies of library sources
+out/
+fable_modules/
+fable.log
