@@ -37,6 +37,7 @@ type ITestApi =
     abstract Thrice: int -> ValueTask<int>
     abstract Record: string -> Task
     abstract Fail: unit -> Task<int>
+    abstract Answer: unit -> Task<int>
 
 type TestApi() =
     member val Recorded = ResizeArray<string>()
@@ -61,6 +62,7 @@ type TestApi() =
             Task.CompletedTask
 
         member _.Fail() = failwith "a secret in the message"
+        member _.Answer() = Task.FromResult 42
 
 /// A type that contains itself.
 type Tree =
@@ -139,6 +141,14 @@ let ``a contract's errors come back as values`` () = task {
     Assert.Equal<Result<int, PlaceError>>(Ok 1, placed)
     Assert.Equal<Result<int, PlaceError>>(Error EmptyOrder, empty)
     Assert.Equal<Result<int, PlaceError>>(Error(UnknownProduct "plum"), unknown)
+}
+
+[<Fact(Timeout = 10_000)>]
+let ``a member taking unit is called`` () = task {
+    let! app, _, api = serve (TestApi())
+    use _ = app
+    let! answer = api.Answer()
+    Assert.Equal(42, answer)
 }
 
 [<Fact(Timeout = 10_000)>]
@@ -224,7 +234,8 @@ module TestApiProxy =
         let twice = client.Member("ITestApi", "Twice", [| typeof<int> |], typeof<int>)
         let thrice = client.Member("ITestApi", "Thrice", [| typeof<int> |], typeof<int>)
         let record = client.Member("ITestApi", "Record", [| typeof<string> |], typeof<unit>)
-        let fail = client.Member("ITestApi", "Fail", [| typeof<unit> |], typeof<int>)
+        let fail = client.Member("ITestApi", "Fail", [||], typeof<int>)
+        let answer = client.Member("ITestApi", "Answer", [||], typeof<int>)
 
         { new ITestApi with
             member _.Echo a = echo.Task [| box a |]
@@ -233,5 +244,6 @@ module TestApiProxy =
             member _.Twice a = twice.Async [| box a |]
             member _.Thrice a = thrice.ValueTask [| box a |]
             member _.Record a = record.UnitTask [| box a |]
-            member _.Fail() = fail.Task [| box () |]
+            member _.Fail() = fail.Task [||]
+            member _.Answer() = answer.Task [||]
         }

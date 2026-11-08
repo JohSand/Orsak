@@ -31,7 +31,7 @@ module OrderApiProxy =
         let scale =
             client.Member("IOrderApi", "Scale", [| typeof<int>; typeof<int> |], typeof<int>)
 
-        let count = client.Member("IOrderApi", "Count", [| typeof<unit> |], typeof<int>)
+        let count = client.Member("IOrderApi", "Count", [||], typeof<int>)
         let thrice = client.Member("IOrderApi", "Thrice", [| typeof<int> |], typeof<int>)
 
         let record =
@@ -41,7 +41,7 @@ module OrderApiProxy =
             member _.Place a = place.Task [| box a |]
             member _.Add(a, b) = add.Task [| box a; box b |]
             member _.Scale a b = scale.Task [| box a; box b |]
-            member _.Count() = count.Async [| box () |]
+            member _.Count() = count.Async [||]
             member _.Thrice a = thrice.ValueTask [| box a |]
             member _.Record a = record.UnitTask [| box a |]
         }

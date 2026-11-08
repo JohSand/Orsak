@@ -97,7 +97,7 @@ module RemoteAst =
             match curried signature with
             | [ arg ], returns when isUnitType arg ->
                 let call, resultType = result interfaceName name returns
-                Some { name = name; arguments = NoArguments; argumentTypes = [ longType [ "unit" ] ]; resultType = resultType; call = call }
+                Some { name = name; arguments = NoArguments; argumentTypes = []; resultType = resultType; call = call }
             | [ arg ], returns ->
                 let call, resultType = result interfaceName name returns
 
@@ -196,7 +196,7 @@ module RemoteSyntax =
 
         let boxed =
             match m.arguments with
-            | NoArguments -> [ app (longExpr [ "box" ]) unitExpr ]
+            | NoArguments -> []
             | _ -> [ for n in names -> app (longExpr [ "box" ]) (longExpr [ n ]) ]
 
         let callName =
