@@ -10,6 +10,7 @@
     <ItemGroup>
         <Compile Include="Runner.fs" />
         <Compile Include="EffTests.fs" />
+        <Compile Include="EffectModuleTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
     <ItemGroup>
