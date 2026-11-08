@@ -307,12 +307,14 @@ let tests = [
         equal (Ok 2) second
     })
 
-    // Not <*> yet: on both, its type parameters are the Effect type's own, so for a function from 'a to 'b it expects
-    // the function to return the type it is applied to, and it can't be used. A bug of its own.
-    test "the Effect operators map and bind" (fun () -> task {
+    test "the Effect operators map, bind and apply" (fun () -> task {
         let! mapped = runUnit (Effect.Map(value 1, fun a -> a + 1))
         let! bound = runUnit (value 1 >>= (fun a -> value (a + 2)))
+        let! applied = runUnit (value (fun a b -> a + b) <*> value 1 <*> value 3)
+        let! errors = runUnit (fail "a" <*> (fail "b": Effect<unit, int, string>))
         equal (Ok 2) mapped
         equal (Ok 3) bound
+        equal (Ok 4) applied
+        equal (Error "ab": Result<int, string>) errors
     })
 ]

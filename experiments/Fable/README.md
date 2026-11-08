@@ -172,6 +172,7 @@ Found on the way:
   .NET, a task without a value is bound by a `Bind` generic over awaitables (SRTP on `GetAwaiter`), in a
   lower-priority extension, whose value's type comes from the awaiter. On Fable, the constraint only types it, and
   the task is awaited as a promise.
-* **A bug on .NET and Fable:** the `Effect` type's `<*>` can't be used. Its type parameters are the type's own, as it
-  is declared in `type Effect<'R, 'T, 'E> with`, so applied to a function from `'a` to `'b`, it expects the function
-  to return the function's own type. The shared tests leave it out until it's fixed.
+* **A bug on .NET, since fixed:** the `Effect` type's `<*>`, which FSharpPlus uses, couldn't be used since 0.6.0. `Effect`
+  is declared as `Effect<'r, 'a, 'e>`, so in its members those names are the type's own parameters, and `<*>` used
+  them. It was fixed on `main`, in `fix/applicative-operator`, and in the Fable copy of the operators, which had the
+  same names; the shared tests cover it.

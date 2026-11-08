@@ -322,7 +322,8 @@ type Effect<'R, 'T, 'E> with
         }
 
     (* applicative *)
-    static member inline (<*>)(f: Effect<'r, 'b -> 'a, _>, e: Effect<'r, 'b, _>) =
+    // Type variables of its own, as on .NET: in Effect's members, 'r, 'a and 'e are the type's own parameters
+    static member inline (<*>)(f: Effect<'env, 'arg -> 'res, _>, e: Effect<'env, 'arg, _>) : Effect<'env, 'res, _> =
         eff {
             let! fn = f
             and! a = e
