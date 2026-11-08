@@ -156,6 +156,7 @@ jobs:
     permissions:
       contents: write # the GitHub release
       packages: write # GitHub Packages
+      id-token: write # nuget.org Trusted Publishing
     steps:
       - uses: actions/checkout@v7
 
@@ -183,10 +184,19 @@ jobs:
             test -f "nupkg/$package.$GITHUB_REF_NAME.nupkg" || { echo "nupkg/$package.$GITHUB_REF_NAME.nupkg is missing"; ls nupkg; exit 1; }
           done
 
+      # Trusted Publishing: exchanges the job's OIDC token for an API key valid for an hour, under the nuget.org policy
+      # for this repository and workflow file, github-actions.yml, so no API key is stored as a secret
+      - name: Log in to nuget.org
+        if: ${{ github.ref_type == 'tag' }}
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: johannesosandgren
+
       - name: Push the release to nuget.org
         if: ${{ github.ref_type == 'tag' }}
         run: >
-          dotnet nuget push "nupkg/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}"
+          dotnet nuget push "nupkg/*.nupkg" --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Create the GitHub release

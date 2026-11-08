@@ -53,6 +53,11 @@ build and test workflow, which, once both test jobs pass:
 A tag without a section in `CHANGELOG.md` fails the workflow before anything is published.
 `scripts/changelog-section.sh <version>` prints a version's notes, as the workflow reads them.
 
+The workflow publishes to nuget.org with [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing),
+so no API key is stored. Its policy on nuget.org is for owner `JohSand`, repository `Orsak` and workflow file
+`github-actions.yml`, without an environment. Renaming the workflow file needs the policy changed with it, and the
+policy must allow publishing new packages for a release that adds one.
+
 ### Prereleases
 
 Every push to `main` that changes the code publishes prerelease packages, versioned by GitVersion, such as
