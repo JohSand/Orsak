@@ -36,6 +36,13 @@
         "dotnet-gitversion"
       ],
       "rollForward": false
+    },
+    "fable": {
+      "version": "5.27.0",
+      "commands": [
+        "fable"
+      ],
+      "rollForward": false
     }
   }
 }
