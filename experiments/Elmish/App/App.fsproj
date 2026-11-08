@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- The Elmish app, compiled with Fable into ../wwwroot/app, against the remoting sample's contract and server -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="Todos.fs" />
+        <Compile Include="OrsakElmish.fs" />
+        <Compile Include="Main.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Fable.Elmish" Version="5.0.2" />
+        <PackageReference Include="Fable.Browser.Dom" Version="2.20.0" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\samples\Remoting\Shared\Shared.fsproj" />
+    </ItemGroup>
+</Project>
