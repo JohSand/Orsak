@@ -115,7 +115,7 @@ Done on `feature/fable`, in `src/Orsak/Fable/`: `EffectBuilder.fs` has `Effect`,
 `Orsak.fsproj` compiles them, with `Marker.fs`, instead of the .NET files when `FABLE_COMPILER` is set.
 
 `tests/Orsak.Fable.Tests` tests them with a small runner of its own, as xunit can't run on Fable. The same tests run
-on .NET, against the .NET implementation, and on Node.js, against the Fable one, and pass on both (23):
+on .NET, against the .NET implementation, and on Node.js, against the Fable one, and pass on both (24):
 
 ```bash
 dotnet run --project tests/Orsak.Fable.Tests -c Release
@@ -132,9 +132,8 @@ Not in Fable's `eff` yet:
 
 Found on the way:
 
-* **A bug on .NET:** `eff { return! Task.FromResult 1 }` returns `Ok ()`, not `Ok 1`. In tail position, `return!` of a
-  `Task<'T>` resolves to `ReturnFromFinal(task: Task)`, for tasks without a value, and drops the value. Binding it with
-  `let!` first returns it. The shared tests leave tasks out of `return!` until it's fixed; the Fable builder returns
-  the value.
+* **A bug on .NET, since fixed:** `eff { return! Task.FromResult 1 }` returned `Ok ()`, not `Ok 1`, as `return!` of a
+  `Task<'T>` in tail position resolved to the overload for tasks without a value. It was fixed on `main`, in
+  `fix/return-from-task`, and the shared tests cover `return!` of a task, also in a `try` block.
 * `Task.FromException` compiles with Fable, to an import that Fable's library doesn't have, and fails when the module
   loads on Node.js. The tests make a faulted task with `task { }` instead.
