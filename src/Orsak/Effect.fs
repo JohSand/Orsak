@@ -353,6 +353,60 @@ module Effect =
     /// customerIds |> Seq.map fetchCustomer |> Effect.parLimited 4
     /// </code>
     /// </example>
+#if FABLE_COMPILER
+    // Fable: JavaScript runs one thing at a time, so the workers take turns at their awaits, without atomics, and
+    // Task.WhenAll isn't in Fable's library: the workers are awaited in turn, and the first exception is raised once
+    // all have finished, as Task.WhenAll does.
+    let parLimited (limit: int) (s: Effect<'r, 'a, 'e> seq) : Effect<'r, 'a list, 'e> =
+        if limit < 1 then
+            raise (ArgumentOutOfRangeException(nameof limit, "At least one effect must be allowed to run."))
+
+        mkEffect (fun (env: 'r) -> task {
+            let effects = Array.ofSeq s
+            let results = Array.zeroCreate effects.Length
+            let errors: 'e voption array = Array.create effects.Length ValueNone
+            let next = ref -1
+            let failed = ref false
+
+            let take () =
+                next.Value <- next.Value + 1
+                next.Value
+
+            let worker () = task {
+                let mutable i = take ()
+
+                while i < effects.Length && not failed.Value do
+                    try
+                        match! effects[i].Run env with
+                        | Ok a -> results[i] <- a
+                        | Error err ->
+                            errors[i] <- ValueSome err
+                            failed.Value <- true
+                    with e ->
+                        failed.Value <- true
+                        raise e
+
+                    i <- take ()
+            }
+
+            let workers = [| for _ in 1 .. min limit effects.Length -> worker () |]
+            let mutable exn = None
+
+            for w in workers do
+                try
+                    do! w
+                with e ->
+                    if exn.IsNone then
+                        exn <- Some e
+
+            match exn with
+            | Some e -> return raise e
+            | None ->
+                match errors |> Array.tryPick (function ValueSome err -> Some err | ValueNone -> None) with
+                | Some err -> return Error err
+                | None -> return Ok(List.ofArray results)
+        })
+#else
     let parLimited (limit: int) (s: Effect<'r, 'a, 'e> seq) : Effect<'r, 'a list, 'e> =
         if limit < 1 then
             raise (ArgumentOutOfRangeException(nameof limit, limit, "At least one effect must be allowed to run."))
@@ -390,6 +444,7 @@ module Effect =
             | Some err -> return Error err
             | None -> return Ok(List.ofArray results)
         })
+#endif
 
     /// <summary>
     /// Applies <paramref name="f"/> to each effect, and executes the results in parallel, at most
@@ -419,6 +474,64 @@ module Effect =
     ///For a more generic implementation, consider FSharpPlus
     let inline sequence (eff: Effect<'r, 'a, 'e> array) = traverse id eff
 
+#if FABLE_COMPILER
+    // Fable: Task.WhenAny and WaitAsync aren't in Fable's library, so the first task to complete settles a
+    // TaskCompletionSource, whose promise ignores the later ones.
+    let internal whenAny (tasks: Task<'a> list) : Task<'a> =
+        let first = TaskCompletionSource<'a>()
+
+        for t in tasks do
+            task {
+                try
+                    let! a = t
+                    first.SetResult a
+                with e ->
+                    first.SetException e
+            }
+            |> ignore
+
+        first.Task
+
+    /// <summary>
+    /// Configures an effect to fail after a given amount of time, unless it has already succeeded.
+    /// The original effect still executes.
+    /// </summary>
+    let timeout (ts: TimeSpan) onTimeout (eff: Effect<_, _, _>) =
+        mkEffect (fun rEnv -> task {
+            // cancelled once the effect completes, which clears the timer, so it doesn't keep Node.js running
+            use stop = new CancellationTokenSource()
+
+            let timedOut = task {
+                try
+                    do! Task.Delay(int ts.TotalMilliseconds, stop.Token)
+                with _ ->
+                    ()
+
+                return Error onTimeout
+            }
+
+            let! result = whenAny [ eff.Run rEnv; timedOut ]
+            stop.Cancel()
+            return result
+        })
+
+    /// <summary>
+    /// Completes successfully when <paramref name="ct"/> is cancelled, without waiting for the effect to finish. The
+    /// effect is not cancelled: it keeps running, and its result is ignored.
+    /// </summary>
+    let withCancellation (ct: CancellationToken) (eff: Effect<_, unit, _>) =
+        mkEffect (fun rEnv -> task {
+            let cancelled = TaskCompletionSource<Result<unit, _>>()
+            use _ = ct.Register(fun () -> cancelled.SetResult(Ok()))
+            return! whenAny [ eff.Run rEnv; cancelled.Task ]
+        })
+
+    /// <summary>
+    /// Races two effects against each other, returning the result of the winner.
+    /// </summary>
+    let race (eff1: Effect<_, _, _>) (eff2: Effect<_, _, _>) =
+        mkEffect (fun rEnv -> whenAny [ eff1.Run rEnv; eff2.Run rEnv ])
+#else
     /// <summary>
     /// Configures an effect to fail after a given amount of time, unless it has already succeeded.
     /// The original effect still executes.
@@ -469,6 +582,7 @@ module Effect =
             let! winner = Task.WhenAny(t1, t2)
             return! winner
         })
+#endif
 
     /// <summary>
     /// Runs the effect <paramref name="time"/> times, one after another. It stops at the first failure.
@@ -516,6 +630,8 @@ module Effect =
             do! e
     }
 
+#if !FABLE_COMPILER
+    // .NET only: it distributes an IAsyncEnumerable over channels, neither of which Fable has.
     /// <summary>
     /// Distributes the items of <paramref name="s"/> over <paramref name="size"/> workers, in turn, and runs the effect
     /// created by <paramref name="f"/> for each worker, on the items it is given. The workers run concurrently, and the
@@ -596,6 +712,7 @@ module Effect =
 
             return ()
         }
+#endif
 
 
 /// <summary>
@@ -637,6 +754,9 @@ type Effect =
     /// </summary>
     /// <param name="f">The effect creation function</param>
     static member Create(f: 'a -> Task<Result<'b, 'e>>) =
+#if FABLE_COMPILER
+        mkEffect f
+#else
         mkEffect (fun a -> ValueTask<_>(task = f a))
 
     /// <summary>
@@ -644,12 +764,16 @@ type Effect =
     /// </summary>
     /// <param name="f">The effect creation function</param>
     static member Create(f: 'a -> ValueTask<Result<'b, 'e>>) = mkEffect f
+#endif
 
     /// <summary>
     /// Creates an effect from a function.
     /// </summary>
     /// <param name="f">The effect creation function</param>
     static member Create(f: 'a -> Async<Result<'b, 'e>>) =
+#if FABLE_COMPILER
+        mkEffect (fun a -> Async.StartAsTask(f a))
+#else
         mkEffect (fun a -> ValueTask<_>(task = Async.StartAsTask(f a)))
 
 /// <summary>
@@ -662,6 +786,7 @@ type EffSeq =
     /// <param name="f">Creates the sequence from the environment</param>
     static member Create(f: 'r -> IAsyncEnumerable<Result<'a, 'e>>) =
         EffSeq.Effect(EffectSeqDelegate(fun r -> f r))
+#endif
 
 /// <exclude/>
 [<AutoOpen>]
@@ -674,6 +799,9 @@ module WrapTwice =
         /// Creates an effect from a function.
         /// </summary>
         static member Create<'a, 'b, 'e>(f: 'a -> 'b) : Effect<'a, 'b, 'e> =
+#if FABLE_COMPILER
+            mkEffect (f >> Ok >> Task.FromResult)
+#else
             mkEffect (f >> Ok >> ValueTask.FromResult)
 
 
@@ -683,6 +811,7 @@ module WrapTwice =
             let! s = mkEffect (f >> Ok >> ValueTask.FromResult)
             yield! s
         }
+#endif
 
 /// <exclude/>
 [<AutoOpen>]
@@ -697,17 +826,29 @@ module WrapOnce =
         /// <param name="f">The effect creation function</param>
         [<CompiledName("CreateAsync")>]
         static member Create(f: 'a -> Async<'b>) : Effect<'a, 'b, _> =
+#if FABLE_COMPILER
+            mkEffect (fun a -> task {
+                let! b = Async.StartAsTask(f a)
+                return Ok b
+            })
+#else
             mkEffect (fun a -> vtask {
                 let! b = f a
                 return Ok b
             })
+#endif
 
         /// <summary>
         /// Creates an effect from a function returning Result.
         /// </summary>
         /// <param name="f">The effect creation function</param>
         [<CompiledName("CreateResult")>]
-        static member Create(f: 'a -> Result<'b, 'e>) : Effect<'a, 'b, 'e> = mkEffect (f >> ValueTask.FromResult)
+        static member Create(f: 'a -> Result<'b, 'e>) : Effect<'a, 'b, 'e> =
+#if FABLE_COMPILER
+            mkEffect (f >> Task.FromResult)
+#else
+            mkEffect (f >> ValueTask.FromResult)
+#endif
 
         /// <summary>
         /// Creates an effect from a function.
@@ -727,6 +868,12 @@ module WrapOnce =
         /// <param name="f">The effect creation function</param>
         [<CompiledName("CreateTask")>]
         static member Create(f: 'a -> Task<'b>) : Effect<'a, 'b, _> =
+#if FABLE_COMPILER
+            mkEffect (fun a -> task {
+                let! b = f a
+                return Ok b
+            })
+#else
             mkEffect (fun a -> vtask {
                 let! b = f a
                 return Ok b
@@ -742,3 +889,4 @@ module WrapOnce =
                 let! b = f a
                 return Ok b
             })
+#endif

@@ -124,7 +124,7 @@ dotnet fable tests/Orsak.Fable.Tests -o tests/Orsak.Fable.Tests/out && node test
 
 Not in Fable's `eff` yet:
 
-* applicative `and!` (`Bind2` to `Bind7`, `MergeSources`), and the `Effect` type's operators (`Map`, `>>=`, `<*>`);
+* applicative `and!` and the `Effect` type's operators, until step 2;
 * `for` over `IAsyncEnumerable`, and over the struct tuples the .NET builder unrolls;
 * `use` of an `IAsyncDisposable`, and `use!`;
 * the stack-safe `return!` of the .NET builder's trampoline: on Fable, a `return!` in a recursive effect chains
@@ -137,3 +137,41 @@ Found on the way:
   `fix/return-from-task`, and the shared tests cover `return!` of a task, also in a `try` block.
 * `Task.FromException` compiles with Fable, to an import that Fable's library doesn't have, and fails when the module
   loads on Node.js. The tests make a faulted task with `task { }` instead.
+
+## Step 2: the Effect module
+
+Fable compiles the `Effect` module from the same `Effect.fs` as .NET, rather than a copy: most of it is written with
+`eff` alone. What .NET only has is behind `#if !FABLE_COMPILER`, with a Fable version in the `#else` where there is
+one. The Fable builder gained what the module calls: `Recover`, `TryRecover`, `ChangeError`, `WhenAll`, and `and!`
+through `MergeSources`; and the `Effect` type's operators, copied, as they must be in the type's own file to be
+intrinsic.
+
+| Functions | On Fable |
+|---|---|
+| `run`, `runOrFail`, `ret`, `bind`, `join`, `map`, `map2`, `recover`, `tryRecover`, `onError`, `asResult`, `forever`, `repeatWhileTrue`, `retry`, `retryIf`, `retryWhile`, `retryTimes`, `changeError`, `bindNewError`, `resolveEnvironment`, `withEnvironment`, `zip`, `joinResult`, `resultJoin`, `joinTask`, `taskJoin`, `traverse`, `sequence`, `repeatTimes`, `repeatUntil`, `repeatUntilCancellation`, `repeatForever` | The same code as .NET |
+| `whenAll`, `par_`, `par`, `mapPar` | The same code, on the Fable builder's `WhenAll`, which, as .NET's, starts every effect, then awaits them in turn, and fails with the first error in their order |
+| `parLimited`, `mapParLimited` | A Fable version of the same algorithm: the workers take turns at their awaits, without atomics, and are awaited in turn, raising the first exception once all have finished, as `Task.WhenAll` does |
+| `timeout`, `withCancellation`, `race` | Fable versions: the first task to complete settles a `TaskCompletionSource`. `timeout` cancels its timer when the effect completes first, as `WaitAsync` does, so it doesn't keep Node.js running |
+| `fanOut` | .NET only: it distributes an `IAsyncEnumerable` over channels, neither of which Fable has |
+| `Effect.Create` of a `ValueTask`, and `EffSeq` | .NET only |
+
+JavaScript runs one thing at a time, so on Fable the concurrent functions run their effects concurrently, interleaved
+at their awaits, but never in parallel. What they return is the same.
+
+The shared tests (`EffectModuleTests.fs`) cover the module, and pass on .NET and Node.js (51 with step 1's).
+
+Found on the way:
+
+* **Fable's library lacks `Task.WhenAll`, `Task.WhenAny`, and the three-argument `ArgumentOutOfRangeException`.** Each
+  compiles, to an import that isn't there, so the module fails to load on Node.js, as `Task.FromException` does.
+  `Concurrency/` shows them, behind `#if`, and what is there instead: `Task.Delay` with a token, which clears its
+  timer when cancelled, `TaskCompletionSource`, whose promise settles once, and `CancellationToken.Register`.
+* **A `Bind` for `Task` beside one for `Task<'T>` makes `return!` ambiguous.** A `Task<'T>` is a `Task`, so both
+  apply, with continuations of `'T` and of `unit`, and F# checks the continuation before choosing, with the bound
+  value's type unknown: `let! r = someTask in return! r` fails to compile, with the regular F# compiler too. As on
+  .NET, a task without a value is bound by a `Bind` generic over awaitables (SRTP on `GetAwaiter`), in a
+  lower-priority extension, whose value's type comes from the awaiter. On Fable, the constraint only types it, and
+  the task is awaited as a promise.
+* **A bug on .NET and Fable:** the `Effect` type's `<*>` can't be used. Its type parameters are the type's own, as it
+  is declared in `type Effect<'R, 'T, 'E> with`, so applied to a function from `'a` to `'b`, it expects the function
+  to return the function's own type. The shared tests leave it out until it's fixed.
