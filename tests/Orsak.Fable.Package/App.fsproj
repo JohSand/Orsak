@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <!-- A Fable app referencing Orsak as a package, as users would, rather than as a project -->
+    <!-- A Fable app referencing Orsak and Orsak.Remoting as packages, as users would, rather than as projects -->
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
@@ -10,5 +10,6 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Orsak" Version="$(OrsakVersion)" />
+        <PackageReference Include="Orsak.Remoting" Version="$(OrsakVersion)" />
     </ItemGroup>
 </Project>

@@ -17,12 +17,20 @@ let orderAndReview order = eff {
 
 runs on the client as it would against a fake in a test, while the work happens on the server.
 
+## Where it went
+
+The spike became the packages Orsak.Remoting (`src/Orsak.Remoting`: the format, client and transports) and
+Orsak.Remoting.AspNetCore (`src/Orsak.Remoting.AspNetCore`: `MapRemote`), with `docs/remoting.md` as their guide. Its
+end-to-end run is `tests/Orsak.Remoting.EndToEnd/run.sh`, and its JSON checks are in
+`tests/Orsak.Fable.Tests/RemotingTests.fs` and `tests/Orsak.Tests/RemotingTests.fs`. This README records the design
+and the findings that led to it.
+
 ## The design
 
 A protocol of Orsak's own, with the wire format pluggable, in plain F# that .NET and Fable both compile, and no
 dependencies but Fable.Core, for `fetch`:
 
-* **`IWireFormat`** (`Remoting/Protocol.fs`): a content type, and the encoding and decoding of a call's arguments
+* **`IWireFormat`** (`Protocol.fs`): a content type, and the encoding and decoding of a call's arguments
   and result, given their types. Fable erases generic arguments at run time, so the types are passed, not found from
   the values. JSON is the first format; a binary one, such as MessagePack, would be another implementation.
 * **`JsonFormat`** (`Json.fs`, `JsonCodec.fs`): F# values to a JSON tree by reflection, which .NET and Fable both have
@@ -33,15 +41,15 @@ dependencies but Fable.Core, for `fetch`:
 * **The transport**: a POST for each member, at `{prefix}/{interface}/{member}`, of its arguments as an array, answered
   by its result. `FetchTransport` on Fable, which Node.js has too, `HttpClientTransport` on .NET. A failure that isn't
   the contract's, an unreachable server or an error status, raises `RemoteCallException`.
-* **`RemoteClient`**: what a proxy calls, with each member's name and types. `OrderApiProxy` in `Shared/Contract.fs`
+* **`RemoteClient`**: what a proxy calls, with each member's name and types. `OrderApiProxy` in the end-to-end test's `Shared/Contract.fs`
   is the proxy, written by hand: a generator would write it from the interface.
-* **`MapRemote`** (`Remoting.AspNetCore/`, .NET only): maps each member of an interface to an endpoint by reflection,
+* **`MapRemote`** (.NET only): maps each member of an interface to an endpoint by reflection,
   reads the arguments in the format of the request's content type, calls the implementation made for the request,
   awaits its task, and writes the result. A content type it has no format for is answered 415.
 
 ## Running it
 
-`run.sh` starts the server, runs the client against it compiled with Fable on Node.js, and on .NET, which compiles the
+The end-to-end test's `run.sh` starts the server, runs the client against it compiled with Fable on Node.js, and on .NET, which compiles the
 same client, and compares what both print:
 
 ```text
@@ -56,7 +64,7 @@ placed: Ok N, notes Some ring twice
 ...
 ```
 
-`CodecTests/` checks the JSON for each kind of value, and the round trip back, with `dotnet run` and on Node.js:
+The JSON tests check the JSON for each kind of value, and the round trip back, with `dotnet run` and on Node.js:
 the text is the same on both, which is what lets the two sides understand each other.
 
 ```text
@@ -78,12 +86,13 @@ the text is the same on both, which is what lets the two sides understand each o
 
 ## Left for later
 
+The packages did three things the spike left: an exception in an implementation is logged and answered 500 with a body
+of the server's own, members returning `Async` and `ValueTask` are awaited too, and `MapRemote` returns the endpoints'
+group, so authorization applies to all of them. Still to do:
+
 * **Generating the proxy** with Orsak.Myriad, from the interface, beside the effects `[<GenEffects>]` generates.
 * **More types:** maps, sets, dates; and `Some None`, which an option written as its value or null can't tell from
   `None`.
-* **Server errors:** an exception in an implementation is answered 500, with ASP.NET Core's body, which may say too
-  much outside development. The server should answer a body of its own.
-* **Members returning `Async`,** which `MapRemote` doesn't await yet: only `Task` and `Task<'T>`.
 * **Cancellation:** a client's token to `fetch`'s `AbortController`, and the request's `RequestAborted` on the server.
 * **Versioning:** client and server deployed apart; snapshot tests of a contract's JSON would show a change.
 * **Caching the reflection** per type, rather than reflecting on each call.

@@ -153,7 +153,8 @@ jobs:
             files: test-results/**/*.trx
 
   # Orsak's Fable implementation: the tests both implementations share, run on .NET and, compiled with Fable, on
-  # Node.js, and a Fable app compiled against the packed Orsak package, as a user's project would be.
+  # Node.js; a Fable app compiled against the packed Orsak and Orsak.Remoting packages, as a user's project would be;
+  # and Orsak.Remoting end to end, a server called by a client compiled with Fable and by one on .NET.
   fable:
     runs-on: ubuntu-24.04
     steps:
@@ -180,8 +181,11 @@ jobs:
           dotnet fable tests/Orsak.Fable.Tests -o tests/Orsak.Fable.Tests/out
           node tests/Orsak.Fable.Tests/out/Program.js
 
-      - name: Compile a Fable app against the package, and run it on Node.js
+      - name: Compile a Fable app against the packages, and run it on Node.js
         run: tests/Orsak.Fable.Package/test-package.sh
+
+      - name: Call a server with Orsak.Remoting, from Fable on Node.js and from .NET
+        run: tests/Orsak.Remoting.EndToEnd/run.sh
 
   # Publishes the packages once the test jobs pass. A push to main publishes prereleases to GitHub Packages; a tag,
   # made by scripts/release.sh, publishes the release to nuget.org and then creates its GitHub release, with the notes
@@ -217,7 +221,7 @@ jobs:
       - name: Check that the packages have the tag's version
         if: ${{ github.ref_type == 'tag' }}
         run: |
-          for package in Orsak Orsak.AspNetCore Orsak.AspNetCore.OpenApi Orsak.Myriad; do
+          for package in Orsak Orsak.AspNetCore Orsak.AspNetCore.OpenApi Orsak.Myriad Orsak.Remoting Orsak.Remoting.AspNetCore; do
             test -f "nupkg/$package.$GITHUB_REF_NAME.nupkg" || { echo "nupkg/$package.$GITHUB_REF_NAME.nupkg is missing"; ls nupkg; exit 1; }
           done
 

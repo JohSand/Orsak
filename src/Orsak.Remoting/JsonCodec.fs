@@ -28,9 +28,9 @@ module JsonCodec =
         elif t = typeof<int> || t = typeof<float> then JNumber(number value)
         elif t = typeof<int64> || t = typeof<decimal> || t = typeof<Guid> then JString(string value)
         elif t.IsArray then JArray [ for item in (value :?> IEnumerable) -> encode (t.GetElementType()) item ]
-        elif isGeneric typedefof<list<_>> t then
+        elif isGeneric typedefof<list<obj>> t then
             JArray [ for item in (value :?> IEnumerable) -> encode (t.GetGenericArguments()[0]) item ]
-        elif isGeneric typedefof<option<_>> t then
+        elif isGeneric typedefof<option<obj>> t then
             let inner = t.GetGenericArguments()[0]
 #if FABLE_COMPILER
             match unbox<obj option> value with
@@ -85,7 +85,7 @@ module JsonCodec =
             values |> Array.iteri (fun i v -> array.SetValue(v, i))
             box array
 #endif
-        | JArray items when isGeneric typedefof<list<_>> t ->
+        | JArray items when isGeneric typedefof<list<obj>> t ->
             let element = t.GetGenericArguments()[0]
             let values = [ for item in items -> decode element item ]
 #if FABLE_COMPILER
@@ -96,7 +96,7 @@ module JsonCodec =
             let empty = FSharpValue.MakeUnion(cases[0], [||])
             List.foldBack (fun v tail -> FSharpValue.MakeUnion(cases[1], [| v; tail |])) values empty
 #endif
-        | _ when isGeneric typedefof<option<_>> t ->
+        | _ when isGeneric typedefof<option<obj>> t ->
             match json with
             | JNull -> null
             | _ ->

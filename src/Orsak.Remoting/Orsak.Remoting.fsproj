@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>net8.0; net10.0</TargetFrameworks>
+		<RootNamespace>Orsak.Remoting</RootNamespace>
+		<Description>Calls the members of an interface on a server, from .NET or Fable: the wire format, pluggable, and the client.</Description>
+		<!-- a new package: nothing to validate against until its first release -->
+		<DisablePackageBaselineValidation>true</DisablePackageBaselineValidation>
+	</PropertyGroup>
+
+	<!-- The same files on .NET and Fable, which compiles the transport with fetch rather than an HttpClient -->
+	<ItemGroup>
+		<Compile Include="Json.fs" />
+		<Compile Include="JsonCodec.fs" />
+		<Compile Include="Protocol.fs" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="FSharp.Core" Version="8.0.300" />
+		<!-- for Emit, in the transport Fable compiles -->
+		<PackageReference Include="Fable.Core" Version="5.6.1" />
+	</ItemGroup>
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+			<_Parameter1>Orsak.Tests</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
+	<!-- A Fable project referencing the package compiles the sources in its fable/ folder -->
+	<PropertyGroup>
+		<PackageTags>$(PackageTags);fable;fable-library;fable-javascript</PackageTags>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="Orsak.Remoting.fsproj;Json.fs;JsonCodec.fs;Protocol.fs" Pack="true" PackagePath="fable/" Visible="false" />
+	</ItemGroup>
+</Project>
