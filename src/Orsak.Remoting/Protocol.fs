@@ -43,43 +43,51 @@ type IWireFormat =
     abstract ArgumentsCodecFor: types: Type array -> IWireArgumentsCodec
 
 /// <summary>
-/// JSON, written by Orsak.Remoting's own codec, the same on .NET and Fable. A member's arguments are an array.
+/// A format of a self-describing encoding, such as JSON or MessagePack: the values of F# types mapped to
+/// <see cref="T:Orsak.Remoting.WireValue"/>s, by <see cref="T:Orsak.Remoting.WireMapping"/>, which the encoding writes as
+/// bytes. A member's arguments are an <c>Array</c>.
 /// </summary>
-type JsonFormat() =
-    /// The format, which keeps no state.
-    static member val Instance = JsonFormat()
+/// <param name="encoding">The bytes of the values</param>
+type WireFormat(encoding: IWireEncoding) =
+    /// The encoding of the format's values.
+    member _.Encoding = encoding
 
     interface IWireFormat with
-        member _.ContentType = "application/json"
+        member _.ContentType = encoding.ContentType
 
         member _.CodecFor t =
-            let codec = JsonCodec.compile t
+            let mapping = WireMapping.compile t
 
             {
                 new IWireCodec with
-                    member _.Encode(value: obj) =
-                        codec.Encode value |> Json.write |> Encoding.UTF8.GetBytes
-
-                    member _.Decode body =
-                        Json.parse (Encoding.UTF8.GetString body) |> codec.Decode
+                    member _.Encode(value: obj) = mapping.Encode value |> encoding.Write
+                    member _.Decode body = encoding.Read body |> mapping.Decode
             }
 
         member _.ArgumentsCodecFor types =
-            let codecs = types |> Array.map JsonCodec.compile
+            let mappings = types |> Array.map WireMapping.compile
 
             {
                 new IWireArgumentsCodec with
                     member _.Encode values =
-                        JArray(List.ofArray (Array.map2 (fun (c: JsonCodec) (v: obj) -> c.Encode v) codecs values))
-                        |> Json.write
-                        |> Encoding.UTF8.GetBytes
+                        WireValue.Array(List.ofArray (Array.map2 (fun (m: WireMapping) (v: obj) -> m.Encode v) mappings values))
+                        |> encoding.Write
 
                     member _.Decode body =
-                        match Json.parse (Encoding.UTF8.GetString body) with
-                        | JArray items when items.Length = codecs.Length ->
-                            Array.map2 (fun (c: JsonCodec) item -> c.Decode item) codecs (Array.ofList items)
-                        | json -> failwith $"Expected an array of {codecs.Length} arguments, but got {Json.write json}"
+                        match encoding.Read body with
+                        | WireValue.Array items when items.Length = mappings.Length ->
+                            Array.map2 (fun (m: WireMapping) item -> m.Decode item) mappings (Array.ofList items)
+                        | value -> failwith $"Expected an array of {mappings.Length} arguments, but got %A{value}"
             }
+
+/// <summary>
+/// Orsak.Remoting's JSON, <see cref="T:Orsak.Remoting.JsonEncoding"/>, written the same way on .NET and Fable.
+/// </summary>
+type JsonFormat() =
+    inherit WireFormat(JsonEncoding.Instance)
+
+    /// The format, which keeps no state.
+    static member val Instance = JsonFormat()
 
 /// Raised when a remote call fails, for a reason that isn't the contract's: the server is unreachable, or answers with
 /// an error status. The contract's own errors are in its Result.

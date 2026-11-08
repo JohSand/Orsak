@@ -9,9 +9,11 @@
 
 	<!-- The same files on .NET and Fable, which compiles the transport with fetch rather than an HttpClient -->
 	<ItemGroup>
+		<Compile Include="WireValue.fs" />
 		<Compile Include="Json.fs" />
-		<Compile Include="JsonCodec.fs" />
+		<Compile Include="WireMapping.fs" />
 		<Compile Include="Protocol.fs" />
+		<Compile Include="Conformance.fs" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="FSharp.Core" Version="8.0.300" />
@@ -28,6 +30,6 @@
 		<PackageTags>$(PackageTags);fable;fable-library;fable-javascript</PackageTags>
 	</PropertyGroup>
 	<ItemGroup>
-		<None Include="Orsak.Remoting.fsproj;Json.fs;JsonCodec.fs;Protocol.fs" Pack="true" PackagePath="fable/" Visible="false" />
+		<None Include="Orsak.Remoting.fsproj;WireValue.fs;Json.fs;WireMapping.fs;Protocol.fs;Conformance.fs" Pack="true" PackagePath="fable/" Visible="false" />
 	</ItemGroup>
 </Project>

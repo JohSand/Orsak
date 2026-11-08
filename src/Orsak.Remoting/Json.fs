@@ -1,18 +1,14 @@
 namespace Orsak.Remoting
 
 open System
+open System.Globalization
 open System.Text
 
-/// A JSON value. Numbers keep their text, so a format decides how they are read, without a round trip through float.
-type Json =
-    | JNull
-    | JBool of bool
-    | JNumber of string
-    | JString of string
-    | JArray of Json list
-    | JObject of (string * Json) list
-
-/// Writes and parses JSON text, in plain F#, so .NET and Fable read and write it the same way.
+/// <summary>
+/// Writes and parses JSON text, in plain F#, so .NET and Fable read and write it the same way. <c>Bytes</c> are a base64
+/// string, and numbers are in the invariant culture: a number without a fraction or an exponent that fits an int is
+/// read as an <c>Int</c>, any other as a <c>Float</c>.
+/// </summary>
 module Json =
 
     let private writeString (sb: StringBuilder) (s: string) =
@@ -34,11 +30,13 @@ module Json =
 
     let rec private writeTo (sb: StringBuilder) json =
         match json with
-        | JNull -> sb.Append "null" |> ignore
-        | JBool b -> sb.Append(if b then "true" else "false") |> ignore
-        | JNumber n -> sb.Append n |> ignore
-        | JString s -> writeString sb s
-        | JArray items ->
+        | WireValue.Nil -> sb.Append "null" |> ignore
+        | WireValue.Bool b -> sb.Append(if b then "true" else "false") |> ignore
+        | WireValue.Int i -> sb.Append(string i) |> ignore
+        | WireValue.Float f -> sb.Append(f.ToString("R", CultureInfo.InvariantCulture)) |> ignore
+        | WireValue.String s -> writeString sb s
+        | WireValue.Bytes b -> writeString sb (Convert.ToBase64String b)
+        | WireValue.Array items ->
             sb.Append '[' |> ignore
 
             items
@@ -49,7 +47,7 @@ module Json =
                 writeTo sb item)
 
             sb.Append ']' |> ignore
-        | JObject fields ->
+        | WireValue.Map fields ->
             sb.Append '{' |> ignore
 
             fields
@@ -76,7 +74,7 @@ module Json =
         else failwith $"Invalid hex digit '{c}' in JSON"
 
     /// Parses JSON text.
-    let parse (text: string) : Json =
+    let parse (text: string) : WireValue =
         let mutable i = 0
 
         let fail expected =
@@ -144,7 +142,7 @@ module Json =
 
                 if text[i] = '}' then
                     i <- i + 1
-                    JObject []
+                    WireValue.Map []
                 else
                     let fields = ResizeArray()
                     let mutable more = true
@@ -158,14 +156,14 @@ module Json =
                         if text[i] = ',' then i <- i + 1 else more <- false
 
                     expect '}'
-                    JObject(List.ofSeq fields)
+                    WireValue.Map(List.ofSeq fields)
             | '[' ->
                 i <- i + 1
                 skipWhitespace ()
 
                 if text[i] = ']' then
                     i <- i + 1
-                    JArray []
+                    WireValue.Array []
                 else
                     let items = ResizeArray()
                     let mutable more = true
@@ -177,18 +175,28 @@ module Json =
                         if text[i] = ',' then i <- i + 1 else more <- false
 
                     expect ']'
-                    JArray(List.ofSeq items)
-            | '"' -> JString(parseString ())
-            | 't' -> parseLiteral "true" (JBool true)
-            | 'f' -> parseLiteral "false" (JBool false)
-            | 'n' -> parseLiteral "null" JNull
+                    WireValue.Array(List.ofSeq items)
+            | '"' -> WireValue.String(parseString ())
+            | 't' -> parseLiteral "true" (WireValue.Bool true)
+            | 'f' -> parseLiteral "false" (WireValue.Bool false)
+            | 'n' -> parseLiteral "null" WireValue.Nil
             | _ ->
                 let start = i
 
                 while i < text.Length && (Char.IsDigit text[i] || "+-.eE".IndexOf text[i] >= 0) do
                     i <- i + 1
 
-                if i = start then fail "a value" else JNumber(text.Substring(start, i - start))
+                if i = start then
+                    fail "a value"
+
+                let number = text.Substring(start, i - start)
+                let value = Double.Parse(number, CultureInfo.InvariantCulture)
+
+                // a double holds every int exactly
+                if number.IndexOfAny [| '.'; 'e'; 'E' |] < 0 && value >= -2147483648.0 && value <= 2147483647.0 then
+                    WireValue.Int(int value)
+                else
+                    WireValue.Float value
 
         let value = parseValue ()
         skipWhitespace ()
@@ -197,3 +205,17 @@ module Json =
             fail "the end of the text"
 
         value
+
+/// <summary>
+/// Orsak.Remoting's JSON, written and parsed in plain F#, so it is the same text on .NET and Fable. Its content type,
+/// <c>application/vnd.orsak+json</c>, names the way Orsak.Remoting writes F# types in it, which plain
+/// <c>application/json</c> doesn't say.
+/// </summary>
+type JsonEncoding() =
+    /// The encoding, which keeps no state.
+    static member val Instance = JsonEncoding()
+
+    interface IWireEncoding with
+        member _.ContentType = "application/vnd.orsak+json"
+        member _.Write value = Json.write value |> Encoding.UTF8.GetBytes
+        member _.Read body = Encoding.UTF8.GetString body |> Json.parse
