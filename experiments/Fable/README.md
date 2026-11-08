@@ -42,7 +42,24 @@ dotnet fable Probe --outDir Probe/out --noCache
 | `:? IClock`, a type test against an interface | **Compiles to `false`, without a warning** |
 | `IAsyncEnumerable<'T>.GetAsyncEnumerator` | Compiles to a plain, name-mangled interface call; no JavaScript async iteration |
 
-The type test is the trap: `isClock` compiles to `return false`. Orsak tests the environment against interfaces at
+`Run.fs` runs the probe on Node.js (`npm` isn't needed; `package.json` only makes the output ES modules):
+
+```bash
+dotnet fable Probe --outDir Probe/out --noCache
+node Probe/out/Run.js
+```
+
+```text
+workflow: Ok (Thu Nov 12 2026 00:00:00 GMT+0100 (Central European Standard Time))
+task: 42
+cancelled: true
+isClock on a clock: false
+```
+
+The workflow binds an effect, a task and a result, and the task and the cancellation work. `ValueTask` is behind
+`#if VALUETASK`, so the rest compiles; `--define VALUETASK` shows its error.
+
+The type test is the trap: `isClock` compiles to `return false`, and returns it for a clock. Orsak tests the environment against interfaces at
 run time, in `Time.delay` (`:? ICancellationProvider`) and `Cancellation.timeout` (`:? ITimeProvider`). On Fable these
 would never find the cancellation source or the clock, silently. A Fable implementation must not rely on such tests.
 
@@ -56,11 +73,24 @@ A Fable implementation of the core, beside the .NET one:
 * No type tests against interfaces: what is optional in the environment today is either required, or passed
   explicitly.
 
-Open questions, for the design:
+## Decisions
 
-* Scope: which of the core (`Effect`, `eff`, the `Effect` module, base effects, resilience, `effSeq`, scopes) is
-  needed in Fable. Orsak.AspNetCore and Orsak.Myriad are .NET only.
-* Packaging: the Fable sources in the `Orsak` package itself (in its `fable/` folder, selected with
-  `FABLE_COMPILER`), or a package of their own.
-* Targets: JavaScript only, or also Fable's other targets (TypeScript, Python, Rust, Dart, BEAM).
-* Testing: running the compiled tests needs Node.js, which this machine doesn't have yet.
+* **Scope:** the first version has `Effect`, `eff` and the `Effect` module. Base effects, resilience, `effSeq` and
+  scopes may follow. Orsak.AspNetCore and Orsak.Myriad are .NET only.
+* **Packaging:** inside the `Orsak` package: its Fable sources go in the package's `fable/` folder, where Fable looks
+  for them, and are selected with `FABLE_COMPILER`. Users reference `Orsak` from both .NET and Fable projects.
+* **Targets:** JavaScript only.
+* **Testing:** tests compiled with Fable run on Node.js, locally and in CI.
+
+## Plan
+
+1. **Effect and eff.** `Effect<'r, 'a, 'e>` over `Task<Result<'a, 'e>>`, with `run`, `runOrFail` and `Effect.Create`,
+   and `eff` with `Return`, `ReturnFrom`, `Bind` (effects, tasks, `Async`, results), `Zero`, `Combine`, `Delay`,
+   `While`, `For` (sequences), `TryWith`, `TryFinally` and `Using`, without resumable code.
+2. **The Effect module,** function by function, where it means the same in JavaScript. The ones built on .NET
+   concurrency (`par`, `whenAll`, `parLimited`, `fanOut`, `race`, `timeout`) are looked at one by one: JavaScript is
+   single-threaded, so some become concurrent rather than parallel, and some may be left out.
+3. **Tests,** shared where they can be: the same test written once, run with xunit on .NET and compiled with Fable
+   and run on Node.js.
+4. **Packaging and CI:** the Fable sources in the package's `fable/` folder, and a CI job that compiles and runs the
+   Fable tests.
