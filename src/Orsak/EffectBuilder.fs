@@ -3869,8 +3869,11 @@ type Effect<'R, 'T, 'E> with
         }
 
     (* applicative *)
+    // Its type variables have names of their own: Effect is declared as Effect<'r, 'a, 'e>, so in its members 'r, 'a
+    // and 'e are the type's parameters, and with them <*> expected a function returning the very type it was applied
+    // to, so neither it nor FSharpPlus could use it.
     ///Implements Apply on the effect, making it an applicative
-    static member inline (<*>)(f: Effect<'r, 'b -> 'a, _>, e: Effect<'r, 'b, _>) =
+    static member inline (<*>)(f: Effect<'env, 'arg -> 'res, _>, e: Effect<'env, 'arg, _>) : Effect<'env, 'res, _> =
         eff {
             let! fn = f
             and! a = e

@@ -1170,6 +1170,39 @@ module Laws =
         let g a = Effect.Create(fun () -> a + 2)
         ((m >>= g) >>= h) === (m >>= (fun x -> g x >>= h))
 
+/// The Effect type's own operators, without a library: F# finds an operator that isn't defined in scope on the types
+/// of its operands.
+module OperatorTests =
+    let ok a : Effect<unit, _, string> = eff { return a }
+
+    [<Fact>]
+    let ``<*> applies an effect of a function to an effect of its argument`` () = task {
+        let! value = ok (sprintf "%i") <*> ok 2 |> run
+        Assert.Equal("2", value)
+    }
+
+    [<Fact>]
+    let ``<*> applies a function of two arguments, one effect at a time`` () = task {
+        let! value = ok (fun a b -> a + b) <*> ok 1 <*> ok 2 |> run
+        Assert.Equal(3, value)
+    }
+
+    [<Fact>]
+    let ``<*> starts both effects, and combines their errors`` () = task {
+        let! result =
+            (Effect.Error "a": Effect<unit, int -> int, string>) <*> (Effect.Error "b": Effect<unit, int, string>)
+            |> Effect.run ()
+
+        Assert.Equal(Error "ab", result)
+    }
+
+    [<Fact>]
+    let ``>>= binds an effect, and Map maps one`` () = task {
+        let! bound = ok 1 >>= (fun a -> ok (a + 2)) |> run
+        let! mapped = Effect.Map(ok 1, fun a -> a + 1) |> run
+        Assert.Equal((3, 2), (bound, mapped))
+    }
+
 
 module CreationTests =
     open FSharp.Control
