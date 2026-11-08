@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- The browser client, compiled with Fable into the server's wwwroot/app: see the README -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="App.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Fable.Browser.Dom" Version="2.20.0" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Shared\Shared.fsproj" />
+    </ItemGroup>
+</Project>

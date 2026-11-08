@@ -12,6 +12,9 @@ Orsak.Remoting lets a client, compiled with [Fable](fable.html) or running on .N
 on a server. The interface is the contract, so the effects created from it run on the client unchanged, while the work
 happens on the server. It is experimental.
 
+[The remoting sample](https://github.com/JohSand/Orsak/tree/main/samples/Remoting) is a todo list in the browser, kept
+on the server, with all of what this page shows.
+
 ## The contract
 
 An interface describing a side effect, as for any effect, in a project the server and the client share:
