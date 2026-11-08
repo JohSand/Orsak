@@ -81,6 +81,8 @@ A Myriad plugin that generates effect boilerplate from interface definitions. An
 
 `Orsak` and `Orsak.AspNetCore` target `net8.0` and `net10.0`, and tests run on both. `Orsak.AspNetCore.OpenApi` targets only `net10.0`, as Microsoft.AspNetCore.OpenApi 10 does, and its tests run there. The lowest target is the oldest supported LTS, kept for about six months after it goes out of support. A higher target is added only when it unlocks an API or speedup used behind `#if`. Dropping a target goes in a major version.
 
+`Orsak` also compiles with Fable, for JavaScript (experimental): `Effect` and `eff` from `src/Orsak/Fable/`, and the `Effect` module from the shared `Effect.fs`, whose .NET-only parts are behind `#if !FABLE_COMPILER`. When changing `Effect.fs`, `Fable/` or the `Effect` operators, run the shared tests on both, as in "Fable" in `CONTRIBUTING.md`.
+
 ## Key Conventions
 
 - All async work uses `ValueTask` (not `Task`) for allocation efficiency — preserve this when adding new features.

@@ -113,6 +113,28 @@ versions the packages target. Within it:
   every target. A different mechanism, such as runtime async, gets a name of its own, as a new builder beside `eff`.
 * The tests target the same frameworks, with the same conditions.
 
+### Fable
+
+`Orsak` also compiles with [Fable](https://fable.io), for JavaScript; `experiments/Fable/README.md` has how and why.
+
+* Fable sets `FABLE_COMPILER`, also as an MSBuild property, so `Orsak.fsproj` lists the files it compiles for Fable
+  apart from those for .NET. `src/Orsak/Fable/` has what Fable can't share with .NET, `Effect` and `eff`, which can't
+  use resumable code or `ValueTask`. What it can share, such as `Effect.fs`, is one file for both, with the .NET-only
+  parts behind `#if !FABLE_COMPILER`.
+* Fable compiles the package's `fable/` folder, which `Orsak.fsproj` fills: a file Fable compiles must be in it too.
+* Fable's library lacks some of .NET's, and a call it lacks often compiles, to an import that isn't there, and fails
+  only when the module loads, such as `Task.WhenAll`. Run the code on Node.js to know it works.
+* In JavaScript, a type test against an interface is always false, without a warning. Shared code doesn't use one.
+* `tests/Orsak.Fable.Tests` has tests both implementations share, with a small runner of its own, as xunit doesn't
+  run on Fable. They run on .NET and on Node.js, and `tests/Orsak.Fable.Package` compiles a Fable app against the packed
+  package. CI runs all three:
+
+```bash
+dotnet run --project tests/Orsak.Fable.Tests -c Release
+dotnet fable tests/Orsak.Fable.Tests -o tests/Orsak.Fable.Tests/out && node tests/Orsak.Fable.Tests/out/Program.js
+tests/Orsak.Fable.Package/test-package.sh
+```
+
 ### Design
 
 * Side effects are described with interfaces, provided by the environment, and errors with the `'e` type, not

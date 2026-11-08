@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+Fable support for JavaScript: `Effect`, `eff` and the `Effect` module, from the `Orsak` package, which carries the sources Fable compiles. Effects run on `Task`, which Fable compiles to promises, and `fanOut`, effect sequences, the base effects, resilience and scopes are .NET only, see the Fable guide (experimental)
+
 ### Fixed
 `return!` of a `Task<'T>` in an `eff` returns the task's value, instead of `unit`, and can be used in a `try` block too
 The `Effect` type's `<*>` applies an effect of a function to an effect of its argument, for FSharpPlus too, as up to 0.5.0. From 0.6.0 it expected the function to return the type it was applied to, so it couldn't be used

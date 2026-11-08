@@ -20,7 +20,10 @@ Supported frameworks
 Orsak.Myriad runs at build time, in Myriad, so its target is the runtime the build needs, not the one the application
 runs on. Orsak.AspNetCore.OpenApi targets only .NET 10, as Microsoft.AspNetCore.OpenApi 10 does.
 
-The whole API is available on every target. The tests run on .NET 8 and .NET 10.
+The whole API is available on every .NET target. The tests run on .NET 8 and .NET 10.
+
+`Orsak` also works with [Fable](fable.html), for JavaScript, which is experimental: the package carries the sources
+Fable compiles, which cover `Effect`, `eff` and the `Effect` module, tested on Node.js.
 
 ## Policy
 
