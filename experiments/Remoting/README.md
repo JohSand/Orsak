@@ -11,61 +11,95 @@ The client's environment implements it with a proxy that calls the server, so an
 let orderAndReview order = eff {
     let! id = OrderApi.place order
     let! history = OrderApi.history order.Customer
-    return id, Array.length history
+    return id, history |> List.map (fun o -> o.Note)
 }
 ```
 
 runs on the client as it would against a fake in a test, while the work happens on the server.
 
-## The spike
+## The design
 
-* `Shared/Contract.fs`: the contract, compiled by both, and an adapter between `IOrderApi` and
-  [Fable.Remoting](https://github.com/Zaid-Ajaj/Fable.Remoting)'s record of functions, written by hand here. A
-  generator would write it from the interface into the user's project, so Orsak needn't depend on Fable.Remoting.
-* `Server/`: ASP.NET Core, serving the record with Fable.Remoting.AspNetCore 3.1. Its `IOrderApi` runs effects in the
-  server's environment, an in-memory store the client never sees.
-* `Client/`: compiled with Fable 5.27, with Fable.Remoting.Client 8. Its environment provides `IOrderApi` through the
-  proxy Fable.Remoting builds, behind the adapter.
-* `run.sh` starts the server, runs the client on Node.js against it, and stops the server:
+A protocol of Orsak's own, with the wire format pluggable, in plain F# that .NET and Fable both compile, and no
+dependencies but Fable.Core, for `fetch`:
+
+* **`IWireFormat`** (`Remoting/Protocol.fs`): a content type, and the encoding and decoding of a call's arguments
+  and result, given their types. Fable erases generic arguments at run time, so the types are passed, not found from
+  the values. JSON is the first format; a binary one, such as MessagePack, would be another implementation.
+* **`JsonFormat`** (`Json.fs`, `JsonCodec.fs`): F# values to a JSON tree by reflection, which .NET and Fable both have
+  for F# types, and the tree to text by a writer and parser in plain F#, so both sides write the same text. A record
+  is an object, a union case its name or an object of its name and fields, a list, array or tuple an array, an option
+  its value or null; int64, decimal and Guid are strings, so JavaScript's numbers don't round them; numbers are written
+  and read in the invariant culture. Lists and options are checked before unions, which they also are to reflection.
+* **The transport**: a POST for each member, at `{prefix}/{interface}/{member}`, of its arguments as an array, answered
+  by its result. `FetchTransport` on Fable, which Node.js has too, `HttpClientTransport` on .NET. A failure that isn't
+  the contract's, an unreachable server or an error status, raises `RemoteCallException`.
+* **`RemoteClient`**: what a proxy calls, with each member's name and types. `OrderApiProxy` in `Shared/Contract.fs`
+  is the proxy, written by hand: a generator would write it from the interface.
+* **`MapRemote`** (`Remoting.AspNetCore/`, .NET only): maps each member of an interface to an endpoint by reflection,
+  reads the arguments in the format of the request's content type, calls the implementation made for the request,
+  awaits its task, and writes the result. A content type it has no format for is answered 415.
+
+## Running it
+
+`run.sh` starts the server, runs the client against it compiled with Fable on Node.js, and on .NET, which compiles the
+same client, and compares what both print:
 
 ```text
-placed: Ok (OrderId 1,1)
+== Fable, on Node.js
+placed: Ok N, notes Some ring twice
+without a note: Ok N
 empty: Error EmptyOrder
-unknown: Error (UnknownProduct "plum")
-unreachable: raised Http error (0) from server occured while making request to http://localhost:5180/api/Record/Place
+unknown: Error UnknownProduct plum
+unreachable: raised RemoteCallException
+== .NET
+placed: Ok N, notes Some ring twice
+...
 ```
 
-## What works
+`CodecTests/` checks the JSON for each kind of value, and the round trip back, with `dotnet run` and on Node.js:
+the text is the same on both, which is what lets the two sides understand each other.
+
+```text
+{"Customer":"ada","Lines":[{"Product":"apple","Quantity":2}],"Note":"ring twice","Codes":[1,2]}
+["Empty",{"Circle":1.5},{"Rect":[2,3]}]
+["9007199254740993","1.25","6f9619ff-8b86-d011-b42d-00cf4fc964ff"]
+```
+
+## What it shows
 
 * **The effects run unchanged:** `orderAndReview` makes two remote calls, and is the same code a test would run with a
   fake `IOrderApi`. Where an effect runs is the environment's choice.
-* **Typed errors cross as values:** `Error EmptyOrder` and `Error (UnknownProduct "plum")`, with their data, as the
-  contract's `Result` is serialized like any union.
-* **A transport failure is an exception,** which passes through `Effect.run`: not one of the contract's errors, so it
-  isn't in `'e`, as exceptions are for the unexpected.
-* **The adapter is mechanical:** `Task` to `Async` and back, member by member, which a generator can write.
+* **Typed errors cross as values,** with their data, as the contract's `Result` is a union like any other.
+* **A transport failure is an exception,** `RemoteCallException`, which passes through `Effect.run`: it isn't one of
+  the contract's errors, and exceptions are for the unexpected.
+* **Lists and options cross the wire,** both ways, on Fable 5, where Fable.Remoting fails (below).
+* **Generic arguments must be known where a call is made.** On Fable, `typeof<'T>` in a function that isn't inline
+  has no type behind it at run time, so the proxy passes concrete types: a reason to generate proxies.
 
-## What doesn't: Fable.Remoting on Fable 5
+## Left for later
 
-* **F# lists and options don't serialize on the client.** Fable.SimpleJson, which Fable.Remoting.Client uses, takes
-  them for ordinary unions under Fable 5. Reading `Order list` from the server fails, as it expects the cases `Empty` and
-  `Cons` rather than an array; writing a list fails with `Cannot find case undefined in union type`; and an option is
-  written as `{"Some": "ring twice"}` rather than `"ring twice"`, which the server can't read (500). Without Orsak too:
-  the proxy fails the same way on its own. For options, Fable.SimpleJson has an open pull request, #111, "Match
-  against option types prior to union types"; lists aren't reported. The spike's contract uses arrays, and no options,
-  to get past it.
-* **The server packages require FSharp.Core 10.1.x exactly** (`[10.1.202, 10.2.0)`). An application can live with it.
-  An Orsak package depending on them would hold every user to it, as Orsak only requires 8.0.300 or later. Outside
-  the range, NuGet warns (NU1608), which a build treating warnings as errors fails on.
-* **The client sends with `XMLHttpRequest`,** which browsers have and Node.js doesn't: running it on Node.js, as the
-  tests do, needs a polyfill (`xhr2`, set up in `Client/run.js`).
+* **Generating the proxy** with Orsak.Myriad, from the interface, beside the effects `[<GenEffects>]` generates.
+* **More types:** maps, sets, dates; and `Some None`, which an option written as its value or null can't tell from
+  `None`.
+* **Server errors:** an exception in an implementation is answered 500, with ASP.NET Core's body, which may say too
+  much outside development. The server should answer a body of its own.
+* **Members returning `Async`,** which `MapRemote` doesn't await yet: only `Task` and `Task<'T>`.
+* **Cancellation:** a client's token to `fetch`'s `AbortController`, and the request's `RequestAborted` on the server.
+* **Versioning:** client and server deployed apart; snapshot tests of a contract's JSON would show a change.
+* **Caching the reflection** per type, rather than reflecting on each call.
 
-## The choice it leaves
+## Why not Fable.Remoting
 
-1. **Fable.Remoting, once Fable.SimpleJson handles lists and options on Fable 5.** Its fix is likely small: match
-   lists and options before unions, as #111 does for options. Orsak would generate the adapter into the user's project,
-   and depend on nothing. It waits on, or contributes to, a library whose pull requests stay open for months.
-2. **A small protocol of Orsak's own:** a POST per interface member, sent with `fetch`, which Node.js has, and a
-   serializer that agrees on both sides, such as Thoth.Json, with its encoders and decoders generated for the contract's
-   types. More to build and maintain, but no third party on the wire, and no FSharp.Core pin.
-3. **Restricting contracts to what serializes today,** arrays and no options. Not a real option for F# contracts.
+The spike started with [Fable.Remoting](https://github.com/Zaid-Ajaj/Fable.Remoting) (client 8.0, server 6.1, on
+Fable 5.27), behind an adapter a generator would write. The effects ran, and typed errors crossed, but:
+
+* **F# lists and options don't serialize on the client.** Fable.SimpleJson, which its client uses, takes them for
+  ordinary unions under Fable 5: reading `Order list` fails, as it expects the cases `Empty` and `Cons` rather than an
+  array; writing a list fails with `Cannot find case undefined in union type`; and an option is written as
+  `{"Some": "ring twice"}` rather than `"ring twice"`, which the server can't read. It fails without Orsak too. For
+  options, Fable.SimpleJson has an open pull request, #111; lists aren't reported.
+* **Its server packages require FSharp.Core 10.1.x exactly** (`[10.1.202, 10.2.0)`), which an Orsak package depending
+  on them would impose on every user; Orsak requires 8.0.300 or later.
+* **Its client sends with `XMLHttpRequest`,** which Node.js doesn't have, so running it there needs a polyfill.
+
+`ReflectionProbe/` shows what reflection Fable has, which the JSON format is built on.

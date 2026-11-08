@@ -1,50 +1,91 @@
-/// The Fable client: its environment provides IOrderApi with Fable.Remoting's proxy, behind the adapter, so the effects
-/// of the shared contract run against the server, unchanged. Prints one line per check, which run.sh compares.
+/// The client: its environment provides IOrderApi with the proxy, so the effects of the shared contract run against the
+/// server, unchanged. It compiles with Fable, sending with fetch, and on .NET, sending with an HttpClient, and prints one
+/// line per check, which run.sh compares.
 module Remoting.Client.Program
 
-open Fable.Remoting.Client
+open System.Threading.Tasks
 open Orsak
+open Orsak.Remoting
 open Remoting.Shared.Contract
 
 type ClientEnv(api: IOrderApi) =
     interface IOrderApiProvider with
         member _.OrderApi = api
 
-let remote baseUrl : IOrderApi =
-    Remoting.createApi ()
-    |> Remoting.withBaseUrl baseUrl
-    |> Remoting.withRouteBuilder OrderApiRemoting.route
-    |> Remoting.buildProxy<OrderApiRemoting.Record>
-    |> OrderApiRemoting.ofRecord
+let transport: IRemoteTransport =
+#if FABLE_COMPILER
+    FetchTransport()
+#else
+    HttpClientTransport(new System.Net.Http.HttpClient())
+#endif
 
-let apples = { Customer = "ada"; Lines = [| { Product = "apple"; Quantity = 2 } |] }
+let remote baseUrl : IOrderApi =
+    OrderApiProxy(RemoteClient(baseUrl, "/api", JsonFormat.Instance, transport))
+
+// a customer of its own on each platform, as both run against the same server
+let customer =
+#if FABLE_COMPILER
+    "ada on Fable"
+#else
+    "ada on .NET"
+#endif
+
+let apples = {
+    Customer = customer
+    Lines = [ { Product = "apple"; Quantity = 2 } ]
+    Note = Some "ring twice"
+}
 
 /// An effect of the shared contract, which doesn't know it runs remotely.
 let orderAndReview order = eff {
     let! id = OrderApi.place order
     let! history = OrderApi.history order.Customer
-    return id, Array.length history
+    return id, history |> List.map (fun o -> o.Note)
 }
 
-task {
+// printed by hand, as %A prints an option differently on Fable, where it is erased
+let note =
+    function
+    | Some n -> $"Some {n}"
+    | None -> "None"
+
+let placedOrError =
+    function
+    | Ok(OrderId id) -> $"Ok {id}"
+    | Error EmptyOrder -> "Error EmptyOrder"
+    | Error(UnknownProduct p) -> $"Error UnknownProduct {p}"
+
+let checks () : Task<unit> = task {
     let env = ClientEnv(remote "http://localhost:5179")
 
-    let! placed = orderAndReview apples |> Effect.run env
-    printfn $"placed: %A{placed}"
+    match! orderAndReview apples |> Effect.run env with
+    | Ok(OrderId id, notes) -> printfn $"""placed: Ok {id}, notes {notes |> List.map note |> String.concat "; "}"""
+    | Error e -> printfn $"placed: {placedOrError (Error e)}"
 
-    let! empty = OrderApi.place { apples with Lines = [||] } |> Effect.run env
-    printfn $"empty: %A{empty}"
+    let! withoutNote = OrderApi.place { apples with Note = None } |> Effect.run env
+    printfn $"without a note: {placedOrError withoutNote}"
 
-    let! unknown = OrderApi.place { apples with Lines = [| { Product = "plum"; Quantity = 1 } |] } |> Effect.run env
-    printfn $"unknown: %A{unknown}"
+    let! empty = OrderApi.place { apples with Lines = [] } |> Effect.run env
+    printfn $"empty: {placedOrError empty}"
 
-    // a transport failure isn't one of the contract's errors: how does it reach the effect?
+    let! unknown = OrderApi.place { apples with Lines = [ { Product = "plum"; Quantity = 1 } ] } |> Effect.run env
+    printfn $"unknown: {placedOrError unknown}"
+
+    // a transport failure isn't one of the contract's errors: it is raised
     let unreachable = ClientEnv(remote "http://localhost:5180")
 
     try
         let! result = OrderApi.place apples |> Effect.run unreachable
         printfn $"unreachable: returned %A{result}"
-    with ex ->
-        printfn $"unreachable: raised {ex.Message}"
+    with :? RemoteCallException ->
+        printfn "unreachable: raised RemoteCallException"
 }
-|> ignore
+
+#if FABLE_COMPILER
+checks () |> ignore
+#else
+[<EntryPoint>]
+let main _ =
+    checks().GetAwaiter().GetResult()
+    0
+#endif

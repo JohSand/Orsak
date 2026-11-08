@@ -8,5 +8,6 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\..\..\src\Orsak\Orsak.fsproj" />
+        <ProjectReference Include="..\Remoting\Remoting.fsproj" />
     </ItemGroup>
 </Project>

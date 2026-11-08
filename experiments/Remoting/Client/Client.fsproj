@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <!-- Compiled with Fable, and run on Node.js by run.sh -->
+    <!-- Compiled with Fable and run on Node.js, and run on .NET, by run.sh -->
     <PropertyGroup>
+        <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
@@ -8,8 +9,5 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Shared\Shared.fsproj" />
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Include="Fable.Remoting.Client" Version="8.0.0" />
     </ItemGroup>
 </Project>
