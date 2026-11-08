@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-08
+
 ### Changed
 Orsak and Orsak.AspNetCore target net8.0 and net10.0. net6.0 is no longer supported, so ITimeProvider, Time, CancellationSource, CancellationScope, Orsak.Resilience and the worker count metric are available on every target. Microsoft.Extensions.*.Abstractions dependencies now start at 8.0.0. 0.7.x is the last release supporting net6.0
 
@@ -136,7 +138,8 @@ First release
 - Effect type and its builder
 - Effect module with functions to manipulate effects
 
-[Unreleased]: https://github.com/JohSand/Orsak/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/JohSand/Orsak/compare/0.8.0...HEAD
+[0.8.0]: https://github.com/JohSand/Orsak/compare/0.7.0...0.8.0
 [0.7.0]: https://github.com/JohSand/Orsak/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/JohSand/Orsak/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/JohSand/Orsak/compare/0.4.2...0.5.0
