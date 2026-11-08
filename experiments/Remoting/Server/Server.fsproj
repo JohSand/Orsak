@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Shared\Shared.fsproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Fable.Remoting.AspNetCore" Version="3.1.0" />
+        <!-- Fable.Remoting's server packages require FSharp.Core 10.1.x, which this SDK's 10.1.403 is -->
+        <PackageReference Update="FSharp.Core" Version="10.1.403" />
+    </ItemGroup>
+</Project>
