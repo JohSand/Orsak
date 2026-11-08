@@ -185,9 +185,9 @@ jobs:
           done
 
       # Trusted Publishing: exchanges the job's OIDC token for an API key valid for an hour, under the nuget.org policy
-      # for this repository and workflow file, github-actions.yml, so no API key is stored as a secret
+      # for this repository and workflow file, github-actions.yml, so no API key is stored as a secret. It runs for main
+      # too, without pushing, so a policy that no longer matches fails the next push to main rather than the release.
       - name: Log in to nuget.org
-        if: ${{ github.ref_type == 'tag' }}
         id: nuget-login
         uses: NuGet/login@v1
         with:
