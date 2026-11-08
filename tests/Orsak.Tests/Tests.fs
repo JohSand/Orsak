@@ -833,6 +833,58 @@ module BuilderTests =
         }
         |> run
 
+    [<Fact>]
+    let ``return! of a task returns the task's value`` () = task {
+        let! value = eff { return! Task.FromResult 42 } |> run
+        Assert.Equal(42, value)
+    }
+
+    [<Fact>]
+    let ``return! of a task that completes later returns the task's value`` () = task {
+        let later () = task {
+            do! Task.Yield()
+            return 42
+        }
+
+        let! value = eff { return! later () } |> run
+        Assert.Equal(42, value)
+    }
+
+    [<Fact>]
+    let ``return! of a task in a try block returns the task's value`` () = task {
+        let! value =
+            eff {
+                try
+                    return! Task.FromResult 42
+                with _ ->
+                    return 0
+            }
+            |> run
+
+        Assert.Equal(42, value)
+    }
+
+    [<Fact>]
+    let ``return! of a task without a value, and of a value task, return unit and the value`` () = task {
+        let! () = eff { return! Task.CompletedTask } |> run
+        let! value = eff { return! ValueTask<int>(42) } |> run
+        Assert.Equal(42, value)
+    }
+
+    [<Fact>]
+    let ``a final do! of a task without a value still completes`` () = task {
+        let mutable ran = false
+
+        do!
+            eff {
+                ran <- true
+                do! Task.Delay 1
+            }
+            |> run
+
+        Assert.True ran
+    }
+
 module CombinatorTests =
     ///Setup so that sequential execution hangs, will fail with timeout
     ///Parallel execution will make progress

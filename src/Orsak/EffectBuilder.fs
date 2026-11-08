@@ -3575,6 +3575,11 @@ module Medium =
                 sm.Data.Result <- result
                 true)
 
+        /// return! of a task where it isn't final, such as in a try block.
+        [<CompiledName("ReturnFromTask")>]
+        member inline this.ReturnFrom(task: Task<'T>) : EffectCode<'Env, 'T, 'T, 'Err> =
+            this.Bind(task, (fun (t: 'T) -> this.Return t))
+
         /// Tail-call-optimised return!  for Effect values.
         /// Checks the thread-local Trampoline before running the inner effect so that
         /// deeply tail-recursive eff {} blocks do not grow the call stack without bound.
@@ -3620,6 +3625,13 @@ module Medium =
         [<CompiledName("ReturnFromFinalAsync")>]
         member inline this.ReturnFromFinal(a: Async<'T>) : EffectCode<'Env, 'T, 'T, 'Err> =
             this.ReturnFrom(a)
+
+        /// return! of a task with a value, in tail position. Without it, the overload for a Task below would take a
+        /// Task<'T>, as this group of overloads is resolved before the generic one for awaitables, and the value would
+        /// be dropped.
+        [<CompiledName("ReturnFromFinalGenericTask")>]
+        member inline this.ReturnFromFinal(task: Task<'T>) : EffectCode<'Env, 'T, 'T, 'Err> =
+            this.Bind(task, (fun (t: 'T) -> this.Return t))
 
         /// Fallback: do! on Task in tail position (e.g. the last do! in a CE body).
         [<CompiledName("ReturnFromFinalTask")>]

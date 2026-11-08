@@ -35,6 +35,12 @@ let ``return! of a result and an async can be quoted`` () = task {
 }
 
 [<Fact>]
+let ``return! of a task can be quoted`` () = task {
+    let! a = run (Capture.Of(fun () -> eff { return! Task.FromResult 4 }))
+    Assert.Equal(4, a)
+}
+
+[<Fact>]
 let ``let! of an effect, a task, a value task, an async and a result can be quoted`` () = task {
     let! a =
         run (
