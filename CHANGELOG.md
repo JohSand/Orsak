@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Changed
+Orsak and Orsak.AspNetCore target net8.0 and net10.0. net6.0 is no longer supported, so ITimeProvider, Time, CancellationSource, CancellationScope, Orsak.Resilience and the worker count metric are available on every target. Microsoft.Extensions.*.Abstractions dependencies now start at 8.0.0
 More performant implementation of Effect.par
 Orsak.Myriad updated to Myriad 1.1.0, and now targets net8.0 (previously netstandard2.1) and requires FSharp.Core 9. Consumers must add `<PackageDownload Include="Myriad" Version="[1.1.0]" />`, see README
 

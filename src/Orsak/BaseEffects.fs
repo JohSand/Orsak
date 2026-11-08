@@ -47,7 +47,6 @@ module GuidGenerator =
             member _.GenGuid() = Guid.NewGuid()
     }
 
-#if NET8_0_OR_GREATER
 /// <summary>
 /// Provides a <see cref="T:System.TimeProvider"/> to effects, as part of an environment. Using
 /// <c>TimeProvider.System</c> in production and a fake time provider in tests makes time-dependent effects testable.
@@ -55,7 +54,6 @@ module GuidGenerator =
 type ITimeProvider =
     /// <summary>The clock used by the functions in <c>Time</c>.</summary>
     abstract Clock: TimeProvider
-#endif
 
 /// <summary>
 /// Generates random numbers. An effect interface, so that code using randomness can be run with a seeded or fixed
@@ -181,7 +179,6 @@ module MemoryCache =
             return defaultValue
     }
 
-#if NET8_0_OR_GREATER
 /// <summary>
 /// Provides a <see cref="T:System.Threading.CancellationTokenSource"/> to effects, as part of an environment.
 /// </summary>
@@ -255,7 +252,6 @@ module Time =
 
             do! Task.Delay(delay, provider.Clock, token)
         })
-#endif
 
 open Microsoft.Extensions.Logging
 

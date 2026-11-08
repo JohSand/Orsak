@@ -75,7 +75,7 @@ A Myriad plugin that generates effect boilerplate from interface definitions. An
 
 ### Multi-targeting
 
-The main library targets `net6.0`, `net8.0`, and `net10.0`. Some APIs (e.g., `ITimeProvider`) are conditional on `net8.0` or later. Tests run on `net8.0` and `net10.0`.
+`Orsak` and `Orsak.AspNetCore` target `net8.0` and `net10.0`, and tests run on both. The lowest target is the oldest supported LTS, kept for about six months after it goes out of support. A higher target is added only when it unlocks an API or speedup used behind `#if`. Dropping a target goes in a major version.
 
 ## Key Conventions
 

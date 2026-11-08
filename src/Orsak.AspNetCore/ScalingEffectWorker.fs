@@ -76,17 +76,13 @@ type ScalingEffectJob<'r, 's, 'err>
         let factor = Math.Pow(2., float (min (failures - 1) 30))
         TimeSpan.FromTicks(min maxRestartDelay.Ticks (int64 (float restartDelay.Ticks * factor)))
 
-#if NET8_0_OR_GREATER
     let workerTag = KeyValuePair<string, obj>("sub", name)
-#endif
 
     /// Runs the effect of a worker until the token is cancelled, logging failures, and waiting after them.
     let runWorker (token: CancellationToken) = task {
         // so starting a worker doesn't block the caller, such as the host starting up
         do! Task.Yield()
-#if NET8_0_OR_GREATER
         EffectDiagnostics.workers.Add(1, workerTag)
-#endif
         try
             let runner = runnerFactory token
             let effect = work state
@@ -111,11 +107,7 @@ type ScalingEffectJob<'r, 's, 'err>
                     with :? OperationCanceledException ->
                         ()
         finally
-#if NET8_0_OR_GREATER
             EffectDiagnostics.workers.Add(-1, workerTag)
-#else
-            ()
-#endif
     }
 
     member private this.AddWorker(token: CancellationToken) =
