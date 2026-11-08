@@ -152,12 +152,43 @@ jobs:
             check_name: Dynamic Path Test Results
             files: test-results/**/*.trx
 
-  # Publishes the packages once both test jobs pass. A push to main publishes prereleases to GitHub Packages; a tag,
+  # Orsak's Fable implementation: the tests both implementations share, run on .NET and, compiled with Fable, on
+  # Node.js, and a Fable app compiled against the packed Orsak package, as a user's project would be.
+  fable:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Run the shared tests on .NET
+        run: dotnet run --project tests/Orsak.Fable.Tests -c Release
+
+      - name: Run the shared tests with Fable, on Node.js
+        run: |
+          dotnet fable tests/Orsak.Fable.Tests -o tests/Orsak.Fable.Tests/out
+          node tests/Orsak.Fable.Tests/out/Program.js
+
+      - name: Compile a Fable app against the package, and run it on Node.js
+        run: tests/Orsak.Fable.Package/test-package.sh
+
+  # Publishes the packages once the test jobs pass. A push to main publishes prereleases to GitHub Packages; a tag,
   # made by scripts/release.sh, publishes the release to nuget.org and then creates its GitHub release, with the notes
   # of its section of CHANGELOG.md followed by GitHub's list of merged pull requests.
   publish:
     if: ${{ github.event_name == 'push' }}
-    needs: [build-and-test, build-and-test-dynamic-path]
+    needs: [build-and-test, build-and-test-dynamic-path, fable]
     runs-on: ubuntu-24.04
     permissions:
       contents: write # the GitHub release

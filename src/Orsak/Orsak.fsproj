@@ -36,4 +36,13 @@
 			<_Parameter1>Orsak.Tests</_Parameter1>
 		</AssemblyAttribute>
 	</ItemGroup>
+	<!-- A Fable project referencing the package compiles the sources in its fable/ folder: this project file, which
+	     Fable evaluates with FABLE_COMPILER set, so it chooses the Fable files as above, and those files. -->
+	<PropertyGroup>
+		<PackageTags>$(PackageTags);fable;fable-library;fable-javascript</PackageTags>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="Orsak.fsproj;Marker.fs;Effect.fs" Pack="true" PackagePath="fable/" Visible="false" />
+		<None Include="Fable\*.fs" Pack="true" PackagePath="fable/Fable/" Visible="false" />
+	</ItemGroup>
 </Project>

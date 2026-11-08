@@ -73,8 +73,7 @@ dotnet run --project Conditional/App                                    # compil
 dotnet fable Conditional/App --outDir Conditional/out && node Conditional/out/App.js   # compiled by Fable
 ```
 
-That holds for a project reference. Whether it also holds for a project in a package's `fable/` folder is for the
-packaging step to check.
+That holds for a project reference, and also for the project file in a package's `fable/` folder, as step 4 found.
 
 ## What follows
 
@@ -176,3 +175,23 @@ Found on the way:
   is declared as `Effect<'r, 'a, 'e>`, so in its members those names are the type's own parameters, and `<*>` used
   them. It was fixed on `main`, in `fix/applicative-operator`, and in the Fable copy of the operators, which had the
   same names; the shared tests cover it.
+
+## Step 3: tests
+
+Done with steps 1 and 2: `tests/Orsak.Fable.Tests` has the tests both implementations share, written once.
+
+## Step 4: packaging and CI
+
+The `Orsak` package carries, in its `fable/` folder, `Orsak.fsproj` and the files Fable compiles: `Marker.fs`,
+`Effect.fs` and `Fable/EffectBuilder.fs`, and the tags `fable`, `fable-library` and `fable-javascript`.
+`Orsak.fsproj` adds them itself, rather than with Fable.Package.SDK, which packs the `Compile` items of the build
+being packed, the .NET ones, and changes settings of the .NET package, such as `DebugType`.
+
+Fable evaluates the project file in a package's `fable/` folder with `FABLE_COMPILER` set, as it does a referenced
+project, so the package's `Orsak.fsproj` chooses the Fable files itself, and the .NET files it lists needn't be in the
+package. `tests/Orsak.Fable.Package/test-package.sh` packs Orsak under a version of its own, compiles a Fable app
+against it from a local feed, checks that Fable compiled the Fable files, and runs the app on Node.js. It found that
+NuGet keeps an item's folder in the package only for a `**` glob: `Fable\*.fs` needs `PackagePath="fable/Fable/"`.
+
+CI's `fable` job runs the shared tests on .NET and on Node.js, and the package test, and packages are only published
+once it passes. `docs/fable.md` is the user's guide, and "Fable" in `CONTRIBUTING.md` the contributor's.

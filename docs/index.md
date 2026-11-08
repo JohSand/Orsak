@@ -35,5 +35,6 @@ Where to go next:
 * [Testing](testing.html): running effects with environments of fakes, including the clock.
 * [Scopes](scopes.html): running effects in transactions and other scopes, with an environment that grows.
 * [Generating code](myriad.html): generating effects and environments from interfaces with Orsak.Myriad.
+* [Fable](fable.html): effects in F# compiled to JavaScript, with what differs from .NET, and what is .NET only.
 * [Supported frameworks](supported-frameworks.html): the .NET versions each package targets, and how that changes.
 * The [API reference](reference/index.html).
