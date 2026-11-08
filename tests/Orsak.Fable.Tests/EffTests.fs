@@ -102,15 +102,26 @@ let tests = [
         equal (Error "no") error
     })
 
-    // Not a task yet: on .NET, return! of a Task<'T> in tail position resolves to the overload for a Task, and the
-    // effect returns unit instead of the task's value, which is a bug of its own.
-    test "return! returns the result of an effect, a result and an async" (fun () -> task {
+    test "return! returns the result of an effect, a result, a task and an async" (fun () -> task {
         let! fromEffect = runUnit (eff { return! one () })
         let! fromResult = runUnit (eff { return! (Error "no": Result<int, string>) })
+        let! fromTask = runUnit (eff { return! Task.FromResult 1 })
         let! fromAsync = runUnit (eff { return! async { return 1 } })
         equal (Ok 1) fromEffect
         equal (Error "no") fromResult
+        equal (Ok 1) fromTask
         equal (Ok 1) fromAsync
+    })
+
+    test "return! of a task in a try block returns the task's value" (fun () -> task {
+        let! result = runUnit (eff {
+            try
+                return! Task.FromResult 1
+            with _ ->
+                return 0
+        })
+
+        equal (Ok 1) result
     })
 
     test "if without else runs the effect only when the condition is true" (fun () -> task {
