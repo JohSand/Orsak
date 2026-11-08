@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net8.0; net6.0</TargetFrameworks>
+		<TargetFrameworks>net8.0; net10.0</TargetFrameworks>
 		<RootNamespace>Orsak</RootNamespace>
 	</PropertyGroup>
 
@@ -12,7 +12,7 @@
 		<Compile Include="EffSeqBuilder.fs" />
 		<Compile Include="Effect.fs" />
 		<Compile Include="BaseEffects.fs" />
-		<Compile Include="Resilience.fs" Condition="'$(TargetFramework)' != 'NET6.0'" />
+		<Compile Include="Resilience.fs" />
 		<Compile Include="ScopedEffect.fs" />
 		<Compile Include="CancellationScope.fs" />
 		<Compile Include="Effects\Database.fs" />
@@ -20,8 +20,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="FSharp.Core" Version="8.0.300" />
-		<PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="6.0.0" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
 	</ItemGroup>
 	<ItemGroup>
 		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">

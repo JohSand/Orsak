@@ -1018,7 +1018,6 @@ module CombinatorTests =
         |> Effect.changeError (fun (i: int) -> string i)
         |> run
 
-#if NET8_0_OR_GREATER
     [<Fact(Timeout = 10_000)>]
     let ``timeout fails with the error when the effect is too slow`` () =
         eff {
@@ -1046,7 +1045,6 @@ module CombinatorTests =
             |> Effect.withCancellation cts.Token
             |> run
     }
-#endif
 
     [<Fact>]
     let ``sequence should abort on first error`` () = task {

@@ -47,19 +47,15 @@ module EffectDiagnostics =
     let eventCounter =
         meter.CreateCounter<int64>("orsak.effect.event_count", description = "Number of events observed since process start")
 
-#if NET8_0_OR_GREATER
     let workers =
         meter.CreateUpDownCounter<int64>("orsak.effect.worker_count", description = "Number of workers")
-#endif
 
 
     let private effectDuration =
         meter.CreateHistogram<float>("orsak.effect.duration", "ms", "Duration of effect handler execution")
 
-#if NET7_0_OR_GREATER
     let private effectActive =
         meter.CreateUpDownCounter<int>("orsak.effect.active", "{effects}", "Concurrently executing effect handlers")
-#endif
 
     let inline private elapsedMs (startTimestamp: int64) =
         let elapsed = Stopwatch.GetTimestamp() - startTimestamp
@@ -67,9 +63,7 @@ module EffectDiagnostics =
 
     let private finish (start: int64) (route: string) (verb: string) (activity: Activity) (statusCode: int) =
         let ms = elapsedMs start
-#if NET7_0_OR_GREATER
         effectActive.Add(-1)
-#endif
 
         effectDuration.Record(
             ms,
@@ -100,9 +94,7 @@ module EffectDiagnostics =
                 activity.SetTag("orsak.route", route) |> ignore
                 activity.SetTag("http.request.method", verb) |> ignore
 
-#if NET7_0_OR_GREATER
             effectActive.Add(1)
-#endif
             let start = Stopwatch.GetTimestamp()
             let innerTask = inner.Invoke(ctx)
 

@@ -6,7 +6,6 @@ open System.Threading.Tasks
 open FSharp.Control
 open Orsak.Scoped
 
-#if NET8_0_OR_GREATER
 /// <summary>
 /// A scope of cancellation: a <see cref="T:System.Threading.CancellationTokenSource"/> that is cancelled when the token
 /// it is linked to is, and can be cancelled on its own without cancelling that token. Begun by
@@ -201,4 +200,3 @@ module Cancellation =
             with :? OperationCanceledException when timedOut.Value ->
                 return Error onTimeout
         })
-#endif
