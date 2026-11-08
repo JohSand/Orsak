@@ -179,7 +179,7 @@ jobs:
       - name: Check that the packages have the tag's version
         if: ${{ github.ref_type == 'tag' }}
         run: |
-          for package in Orsak Orsak.AspNetCore Orsak.Myriad; do
+          for package in Orsak Orsak.AspNetCore Orsak.AspNetCore.OpenApi Orsak.Myriad; do
             test -f "nupkg/$package.$GITHUB_REF_NAME.nupkg" || { echo "nupkg/$package.$GITHUB_REF_NAME.nupkg is missing"; ls nupkg; exit 1; }
           done
 
