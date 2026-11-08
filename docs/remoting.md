@@ -111,8 +111,99 @@ generated code as it is: Myriad runs when .NET builds the contract's project, no
 * **The contract's errors are values:** the server's `Error (UnknownProduct "plum")` is the client's, as the
   `Result` crosses the wire like any union.
 * **A failed call raises `RemoteCallException`:** a server that can't be reached, or answers with an error status. It
-  isn't one of the contract's errors, so it isn't in the effect's error type.
+  isn't one of the contract's errors, so it isn't in the effect's error type. Its `StatusCode` is the status, such as
+  `Some 401`, or `None` when the server couldn't be reached.
+* **Arguments the server can't read** are answered 400, and the member isn't called.
 * **An exception on the server** is logged, and answered with status 500 and a body that doesn't say what it was.
+
+## Authorization
+
+Who a caller is, and what they may do, are checked at two places:
+
+* **Authentication, and rules about a member as a whole,** by ASP.NET Core, before the member is called. A caller it
+  refuses gets 401 or 403, which the client raises as `RemoteCallException`, with the status. It concerns the app
+  rather than one call, so the app handles it once, such as by asking the user to sign in.
+* **Rules about a resource,** such as "only a document's owner may rename it", in the server's effects, which answer
+  with an error of the contract. The client gets it as a value, and the compiler has it handled.
+
+### On a member
+
+Conventions on the group `MapRemote` returns apply to every member, and a member's attributes are its endpoint's
+metadata, so they apply to it alone, as on a controller's action:
+
+```fsharp
+type IDocsApi =
+    abstract Ping: unit -> Task<string>
+
+#if !FABLE_COMPILER
+    [<Authorize(Roles = "editor")>]
+#endif
+    abstract Publish: id: int -> Task<string>
+
+    abstract Rename: id: int * title: string -> Task<Result<Doc, DocError>>
+
+app.MapRemote<IDocsApi>("/api", [ JsonFormat.Instance ], fun ctx -> DocsApi(envOf ctx))
+```
+
+The attributes are in the package Microsoft.AspNetCore.Authorization, which the contract's project references. Fable
+leaves out packages not made for it, so a contract it compiles too hides them from it, with `#if !FABLE_COMPILER`.
+
+### In an effect
+
+`create` makes the implementation for each request, so the server's environment can have the request's user and
+ASP.NET Core's `IAuthorizationService`, whose policies, resource-based ones included, an effect asks:
+
+```fsharp
+type DocError =
+    | Forbidden
+    | NotFound of id: int
+
+module Authz =
+    /// Fails with the contract's Forbidden unless the user may do to the resource what the policy says.
+    let authorize (resource: obj) (policy: string) = eff {
+        let! user = Effect.Create(fun (p: #IUserProvider) -> p.User)
+        let! authorization = Effect.Create(fun (p: #IAuthorizationProvider) -> p.Authorization)
+        let! result = authorization.AuthorizeAsync(user, resource, policy)
+
+        if not result.Succeeded then
+            return! Error Forbidden
+    }
+
+let rename id title = eff {
+    match! Docs.find id with
+    | None -> return! Error(NotFound id)
+    | Some doc ->
+        do! Authz.authorize doc "owner"
+        return! Docs.save { doc with Title = title }
+}
+
+app.MapRemote<IDocsApi>("/api", [ JsonFormat.Instance ], fun ctx ->
+    DocsApi { User = ctx.User; Authorization = ctx.RequestServices.GetRequiredService<IAuthorizationService>(); Docs = docs })
+```
+
+A member that may be refused says so in its type: `Rename` returns a `Result` with `Forbidden`, while a member
+returning `Task<string>` can only fail with an exception. Two choices are the app's:
+
+* **Forbidden or not found:** answering `Forbidden` for another user's document tells the caller it exists. An app
+  that shouldn't can answer `NotFound` instead, or leave such documents out of a list.
+* **What the client may do:** to hide a button rather than be refused, the client asks, with a member such as
+  `Permissions: id: int -> Task<Permission list>`, implemented with the same effects, as the policies need the
+  server's data.
+
+### Credentials from the client
+
+A browser sends its cookies with each call to the page's own origin. A token, or cookies to a server elsewhere, are
+given to `FetchTransport`:
+
+```fsharp
+FetchTransport(
+    headers = (fun () -> task { return [ "Authorization", $"Bearer {currentToken ()}" ] }),
+    credentials = FetchCredentials.Include
+)
+```
+
+The headers are asked for on each request, so a token can be renewed between calls. On .NET, `HttpClientTransport`
+sends what its `HttpClient` does: default headers, or a handler of its own.
 
 ## The JSON
 

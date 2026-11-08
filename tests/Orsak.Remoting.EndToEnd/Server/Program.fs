@@ -75,6 +75,15 @@ let main args =
     let app = builder.Build()
     let env = { Store = InMemoryStore() }
 
+    // the server requires the client's name, as authentication would
+    app.Use(fun (ctx: Microsoft.AspNetCore.Http.HttpContext) (next: Microsoft.AspNetCore.Http.RequestDelegate) ->
+        if ctx.Request.Headers.ContainsKey "X-Client" then
+            next.Invoke ctx
+        else
+            ctx.Response.StatusCode <- 401
+            System.Threading.Tasks.Task.CompletedTask)
+    |> ignore
+
     app.MapRemote<IOrderApi>("/api", [ JsonFormat.Instance ], fun _ -> ServerOrderApi env) |> ignore
     app.Run()
     0

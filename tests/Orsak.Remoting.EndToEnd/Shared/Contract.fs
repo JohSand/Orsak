@@ -25,6 +25,11 @@ type PlaceError =
 [<GenRemote>]
 type IOrderApi =
     abstract Place: Order -> Task<Result<OrderId, PlaceError>>
+    // an ASP.NET Core attribute, which MapRemote makes the endpoint's metadata, hidden from Fable, which doesn't have
+    // ASP.NET Core
+#if !FABLE_COMPILER
+    [<Microsoft.AspNetCore.Authorization.AllowAnonymous>]
+#endif
     abstract History: customer: string -> Task<Order list>
 
 type IOrderApiProvider =

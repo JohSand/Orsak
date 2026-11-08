@@ -12,15 +12,27 @@ type ClientEnv(api: IOrderApi) =
     interface IOrderApiProvider with
         member _.OrderApi = api
 
-let transport: IRemoteTransport =
+/// A transport naming the client in the X-Client header, which the server requires, as authentication would; or none.
+let transport (client: string option) : IRemoteTransport =
 #if FABLE_COMPILER
-    FetchTransport()
+    match client with
+    | Some name -> FetchTransport(headers = (fun () -> task { return [ "X-Client", name ] }))
+    | None -> FetchTransport()
 #else
-    HttpClientTransport(new System.Net.Http.HttpClient())
+    let http = new System.Net.Http.HttpClient()
+    client |> Option.iter (fun name -> http.DefaultRequestHeaders.Add("X-Client", name))
+    HttpClientTransport(http)
 #endif
 
-let remote baseUrl : IOrderApi =
-    OrderApiProxy.create (RemoteClient(baseUrl, "/api", JsonFormat.Instance, transport))
+let remoteAs client baseUrl : IOrderApi =
+    OrderApiProxy.create (RemoteClient(baseUrl, "/api", JsonFormat.Instance, transport client))
+
+let remote = remoteAs (Some "e2e")
+
+let status (e: RemoteCallException) =
+    match e.StatusCode with
+    | Some s -> string s
+    | None -> "none"
 
 // a customer of its own on each platform, as both run against the same server
 let customer =
@@ -77,8 +89,15 @@ let checks () : Task<unit> = task {
     try
         let! result = OrderApi.place apples |> Effect.run unreachable
         printfn $"unreachable: returned %A{result}"
-    with :? RemoteCallException ->
-        printfn "unreachable: raised RemoteCallException"
+    with :? RemoteCallException as e ->
+        printfn $"unreachable: raised RemoteCallException, status {status e}"
+
+    // a client the server doesn't know is answered 401, which the client sees as the status
+    try
+        let! result = OrderApi.place apples |> Effect.run (ClientEnv(remoteAs None "http://localhost:5179"))
+        printfn $"anonymous: returned %A{result}"
+    with :? RemoteCallException as e ->
+        printfn $"anonymous: raised RemoteCallException, status {status e}"
 }
 
 #if FABLE_COMPILER

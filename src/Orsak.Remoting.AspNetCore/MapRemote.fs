@@ -78,44 +78,63 @@ type RemoteEndpoints =
             with
             | None -> ctx.Response.StatusCode <- StatusCodes.Status415UnsupportedMediaType
             | Some(format, arguments, result) ->
-                let! response =
+                let logger () =
+                    ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Orsak.Remoting")
+
+                let! args =
                     task {
                         try
                             use body = new MemoryStream()
                             do! ctx.Request.Body.CopyToAsync(body, ctx.RequestAborted)
-                            let args = arguments.Decode(body.ToArray())
-                            let returned = m.Invoke(create ctx, args)
-                            let! value = RemoteEndpoints.Await(m.ReturnType, returned)
-                            return Ok(result.Encode value)
+                            return Ok(arguments.Decode(body.ToArray()))
                         with e ->
-                            let e = match e with :? TargetInvocationException as t when not (isNull t.InnerException) -> t.InnerException | e -> e
                             return Error e
                     }
 
-                match response with
-                | Ok body ->
-                    ctx.Response.ContentType <- format.ContentType
-                    do! ctx.Response.Body.WriteAsync(body, ctx.RequestAborted)
+                match args with
                 | Error e ->
-                    // logged, and answered without its details, which a client shouldn't see
-                    let logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Orsak.Remoting")
-                    logger.LogError(e, "The remote call {Path} failed", ctx.Request.Path)
-                    ctx.Response.StatusCode <- StatusCodes.Status500InternalServerError
+                    // the caller's fault, not the server's: a warning, and 400 with what couldn't be read
+                    logger().LogWarning(e, "The arguments of the remote call {Path} couldn't be read", ctx.Request.Path)
+                    ctx.Response.StatusCode <- StatusCodes.Status400BadRequest
                     ctx.Response.ContentType <- "text/plain"
-                    do! ctx.Response.WriteAsync($"The call to {ctx.Request.Path} failed on the server.")
+                    do! ctx.Response.WriteAsync($"The arguments of {ctx.Request.Path} couldn't be read.")
+                | Ok args ->
+                    let! response =
+                        task {
+                            try
+                                let returned = m.Invoke(create ctx, args)
+                                let! value = RemoteEndpoints.Await(m.ReturnType, returned)
+                                return Ok(result.Encode value)
+                            with e ->
+                                let e = match e with :? TargetInvocationException as t when not (isNull t.InnerException) -> t.InnerException | e -> e
+                                return Error e
+                        }
+
+                    match response with
+                    | Ok body ->
+                        ctx.Response.ContentType <- format.ContentType
+                        do! ctx.Response.Body.WriteAsync(body, ctx.RequestAborted)
+                    | Error e ->
+                        // logged, and answered without its details, which a client shouldn't see
+                        logger().LogError(e, "The remote call {Path} failed", ctx.Request.Path)
+                        ctx.Response.StatusCode <- StatusCodes.Status500InternalServerError
+                        ctx.Response.ContentType <- "text/plain"
+                        do! ctx.Response.WriteAsync($"The call to {ctx.Request.Path} failed on the server.")
         })
 
     /// <summary>
     /// Maps each member of <typeparamref name="'Api"/> to a POST endpoint at
     /// <c>{prefix}/{interface}/{member}</c>, which reads the member's arguments in the format of the request's content
     /// type, calls the member of the implementation <paramref name="create"/> makes for the request, and writes its
-    /// result in the same format. A content type none of <paramref name="formats"/> has is answered 415, and an
-    /// exception is logged and answered 500, without its details.
+    /// result in the same format. A content type none of <paramref name="formats"/> has is answered 415, arguments that
+    /// can't be read 400, and an exception from the implementation is logged and answered 500, without its details.
     /// </summary>
     /// <remarks>
     /// The members may return a Task, a ValueTask or an Async, of a value or of none. Reflection finds them, so nothing is
     /// generated for the server. The formats' codecs for each member are made here, once, so a type a format can't
-    /// write fails when the endpoints are mapped, as the application starts, rather than on a call.
+    /// write fails when the endpoints are mapped, as the application starts, rather than on a call. A member's
+    /// attributes are its endpoint's metadata, so <c>[&lt;Authorize(Policy = "editors")&gt;]</c> on a member of the
+    /// interface applies to it alone, while conventions on the returned group apply to all of them.
     /// </remarks>
     /// <param name="endpoints">The endpoints to add to</param>
     /// <param name="prefix">The path the members' routes start with, such as <c>/api</c></param>
@@ -137,6 +156,11 @@ type RemoteEndpoints =
         let group = endpoints.MapGroup(prefix)
 
         for m in api.GetMethods() do
-            group.MapPost($"/{api.Name}/{m.Name}", RemoteEndpoints.Handle(m, formats, create)) |> ignore
+            // a member's attributes are its endpoint's metadata, so [<Authorize(Policy = "editors")>] on one applies
+            // to it alone, as on a controller's action
+            group
+                .MapPost($"/{api.Name}/{m.Name}", RemoteEndpoints.Handle(m, formats, create))
+                .WithMetadata(m.GetCustomAttributes(true))
+            |> ignore
 
         group

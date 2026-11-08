@@ -89,10 +89,21 @@ type JsonFormat() =
     /// The format, which keeps no state.
     static member val Instance = JsonFormat()
 
+/// <summary>
 /// Raised when a remote call fails, for a reason that isn't the contract's: the server is unreachable, or answers with
-/// an error status. The contract's own errors are in its Result.
-type RemoteCallException(message: string) =
+/// an error status, such as 401 to a caller it doesn't know. The contract's own errors are in its Result.
+/// </summary>
+/// <param name="message">What failed</param>
+/// <param name="statusCode">The status the server answered with, or None if it couldn't be reached</param>
+type RemoteCallException(message: string, statusCode: int option) =
     inherit Exception(message)
+
+    /// <summary>Raised when the server couldn't be reached.</summary>
+    new(message: string) = RemoteCallException(message, None)
+
+    /// The status the server answered with, such as 401 or 403 from its authorization, or None if it couldn't be
+    /// reached.
+    member _.StatusCode = statusCode
 
 /// Sends a request and returns the body of a successful response, raising RemoteCallException otherwise.
 type IRemoteTransport =
@@ -106,10 +117,27 @@ module Routes =
 #if FABLE_COMPILER
 open Fable.Core
 
+/// <summary>What fetch sends of the browser's credentials, such as cookies: fetch's <c>credentials</c> option.</summary>
+[<RequireQualifiedAccess>]
+type FetchCredentials =
+    /// To the page's own origin only, as fetch does by default.
+    | SameOrigin
+    /// To other origins too, for a server elsewhere that authenticates with cookies, whose CORS policy allows them.
+    | Include
+    /// Never.
+    | Omit
+
+/// <summary>
 /// Sends with fetch, which browsers and Node.js have. On Fable a Task is a promise, so fetch's are awaited as tasks.
-type FetchTransport() =
-    [<Emit("""fetch($0, { method: "POST", headers: { "Content-Type": $1 }, body: $2 })""")>]
-    static member private Fetch(url: string, contentType: string, body: byte array) : Task<obj> = jsNative
+/// </summary>
+/// <param name="headers">Headers to send with each request, asked for each one, so a token can change, such as
+/// <c>fun () -> task { return [ "Authorization", $"Bearer {token}" ] }</c>; none if not given</param>
+/// <param name="credentials">What fetch sends of the browser's credentials; to the page's own origin if not
+/// given</param>
+type FetchTransport(?headers: unit -> Task<(string * string) list>, ?credentials: FetchCredentials) =
+    [<Emit("""fetch($0, { method: "POST", headers: Object.fromEntries($1), body: $2, credentials: $3 })""")>]
+    static member private Fetch(url: string, headers: (string * string) array, body: byte array, credentials: string) : Task<obj> =
+        jsNative
 
     [<Emit("""$0.arrayBuffer().then(b => new Uint8Array(b))""")>]
     static member private Bytes(response: obj) : Task<byte array> = jsNative
@@ -117,12 +145,26 @@ type FetchTransport() =
     [<Emit("$0.status")>]
     static member private Status(response: obj) : int = jsNative
 
+    member private _.Credentials =
+        match defaultArg credentials FetchCredentials.SameOrigin with
+        | FetchCredentials.SameOrigin -> "same-origin"
+        | FetchCredentials.Include -> "include"
+        | FetchCredentials.Omit -> "omit"
+
     interface IRemoteTransport with
-        member _.Post(url, contentType, body) = task {
+        member this.Post(url, contentType, body) = task {
+            let! extra =
+                match headers with
+                | Some headers -> headers ()
+                | None -> task { return [] }
+
+            // the content type last, so it is the format's whatever the headers have
+            let sent = Array.ofList (extra @ [ "Content-Type", contentType ])
+
             let! response =
                 task {
                     try
-                        return! FetchTransport.Fetch(url, contentType, body)
+                        return! FetchTransport.Fetch(url, sent, body, this.Credentials)
                     with ex ->
                         return raise (RemoteCallException $"The request to {url} failed: {ex.Message}")
                 }
@@ -131,7 +173,7 @@ type FetchTransport() =
             let status = FetchTransport.Status response
 
             if status < 200 || status > 299 then
-                raise (RemoteCallException $"{url} answered {status}: {Encoding.UTF8.GetString bytes}")
+                raise (RemoteCallException($"{url} answered {status}: {Encoding.UTF8.GetString bytes}", Some status))
 
             return bytes
         }
@@ -139,7 +181,10 @@ type FetchTransport() =
 open System.Net.Http
 open System.Net.Http.Headers
 
-/// Sends with an HttpClient.
+/// <summary>
+/// Sends with an HttpClient. Credentials, such as a bearer token, go in its default headers, or in a handler of its
+/// own, which can ask for a token on each request.
+/// </summary>
 type HttpClientTransport(client: HttpClient) =
     interface IRemoteTransport with
         member _.Post(url, contentType, body) = task {
@@ -157,7 +202,12 @@ type HttpClientTransport(client: HttpClient) =
             let! bytes = response.Content.ReadAsByteArrayAsync()
 
             if not response.IsSuccessStatusCode then
-                raise (RemoteCallException $"{url} answered {int response.StatusCode}: {Encoding.UTF8.GetString bytes}")
+                raise (
+                    RemoteCallException(
+                        $"{url} answered {int response.StatusCode}: {Encoding.UTF8.GetString bytes}",
+                        Some(int response.StatusCode)
+                    )
+                )
 
             return bytes
         }
