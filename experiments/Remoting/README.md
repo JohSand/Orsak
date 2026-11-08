@@ -89,7 +89,10 @@ the text is the same on both, which is what lets the two sides understand each o
 The packages did three things the spike left: an exception in an implementation is logged and answered 500 with a body
 of the server's own, members returning `Async` and `ValueTask` are awaited too, and `MapRemote` returns the endpoints'
 group, so authorization applies to all of them. Then `[<GenRemote>]` generated the proxy, and a format made its codecs
-once for each member, so an unsupported type fails when a proxy is made or the endpoints are mapped. Still to do:
+once for each member, so an unsupported type fails when a proxy is made or the endpoints are mapped. And a format was
+split in two: the mapping of F# types to `WireValue`s, `WireMapping.fs` (formerly `JsonCodec.fs`), and an encoding of
+those to bytes, `IWireEncoding`, which `Conformance` checks, so MessagePack, say, is an encoding of a few dozen lines.
+Still to do:
 
 * **More types:** maps, sets, dates; and `Some None`, which an option written as its value or null can't tell from
   `None`.

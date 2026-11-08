@@ -83,4 +83,12 @@ let tests = [
 
     test "Orsak.Remoting's JSON of a type that contains itself" (fun () ->
         writesAndReads """{"Node":[1,["Leaf",{"Node":[2,[]]}]]}""" (Node(1, [ Leaf; Node(2, []) ])))
+
+    test "Orsak.Remoting's JSON of bytes, as base64" (fun () -> writesAndReads "\"AAF//w==\"" [| 0uy; 1uy; 127uy; 255uy |])
+
+    test "Orsak.Remoting's JSON reads a float without a fraction, as JavaScript writes it" (fun () ->
+        task { equal (box 2.0) (format.CodecFor(typeof<float>).Decode(Encoding.UTF8.GetBytes "2")) })
+
+    test "Orsak.Remoting's JSON encoding passes the conformance checks" (fun () ->
+        task { equal ([]: string list) (Conformance.check JsonEncoding.Instance) })
 ]
