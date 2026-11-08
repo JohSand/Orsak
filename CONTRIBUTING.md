@@ -29,6 +29,41 @@ Keep the name of the function a test is about as it is written, as in ``` ``addD
 Tests of asynchronous code should have a timeout, as in `[<Fact(Timeout = 10_000)>]`, so a hang fails the test
 instead of the run.
 
+## Releasing
+
+`CHANGELOG.md` is the release notes. Add a line under `## [Unreleased]` with each change users will notice, and a
+release moves those lines to a section of its own. Versions follow semver, and before 1.0 a breaking change, such as
+dropping a target framework, raises the minor version.
+
+To release, from an up-to-date `main` with a clean working tree:
+
+```bash
+scripts/release.sh 0.8.0
+git push origin main 0.8.0
+```
+
+The script moves the Unreleased notes to a `## [0.8.0]` section, updates the compare links, commits that as
+`Release 0.8.0`, and tags the commit. It pushes nothing, so the commit can be checked first. Pushing the tag runs the
+build and test workflow, which, once both test jobs pass:
+
+1. publishes the packages to nuget.org, with the version's notes as their release notes, and
+2. creates the GitHub release, with the version's notes followed by GitHub's list of merged pull requests, and the
+   packages attached.
+
+A tag without a section in `CHANGELOG.md` fails the workflow before anything is published.
+`scripts/changelog-section.sh <version>` prints a version's notes, as the workflow reads them.
+
+### Prereleases
+
+Every push to `main` that changes the code publishes prerelease packages, versioned by GitVersion, such as
+`0.8.1-beta0003`, to GitHub Packages rather than nuget.org. To try one, add the source with a GitHub token that can
+read packages (a classic token with `read:packages`; GitHub Packages requires one, even for public packages):
+
+```bash
+dotnet nuget add source https://nuget.pkg.github.com/JohSand/index.json --name orsak-prerelease \
+    --username <github user> --password <token> --store-password-in-clear-text
+```
+
 ## Documentation
 
 The documentation site, https://johsand.github.io/Orsak/, is built from `docs/` with
