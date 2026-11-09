@@ -33,7 +33,7 @@ type WireMapping = {
 /// name and its field, or an <c>Array</c> of its fields; a list, an array or a tuple is an <c>Array</c>; an option is
 /// its value or <c>Nil</c>, or, when the value can itself be <c>Nil</c>, as in <c>Some None</c>, an <c>Array</c> of
 /// the value; a map or a Dictionary keyed by strings is a <c>Map</c>, and by anything else an <c>Array</c> of <c>[key, value]</c>
-/// <c>Array</c>s; a set or a ResizeArray is an <c>Array</c>; a float32 is the <c>Float</c> of its shortest text, 0.1 for 0.1f; a byte array is <c>Bytes</c>; a byte, an sbyte, an int16 and a uint16 are
+/// <c>Array</c>s; a set, a ResizeArray or a HashSet is an <c>Array</c>; a float32 is the <c>Float</c> of its shortest text, 0.1 for 0.1f; a byte array is <c>Bytes</c>; a byte, an sbyte, an int16 and a uint16 are
 /// <c>Int</c>s, read only within their bounds; an int64, a uint32, a uint64, a decimal and a Guid are strings, so
 /// JavaScript's numbers don't round them; an enum's value is its name, or its number if it has none, such as flags
 /// combined. Dates and times are ISO 8601 strings, the text of .NET's round-trip format:
@@ -355,6 +355,23 @@ module WireMapping =
                     box list
 #endif
                 | value -> fail t value)
+        elif isGeneric typedefof<Generic.HashSet<obj>> t then
+            let element = child (t.GetGenericArguments()[0])
+#if !FABLE_COMPILER
+            let add = t.GetMethod("Add", [| t.GetGenericArguments()[0] |])
+#endif
+
+            mapping (fun v -> WireValue.Array [ for item in (v :?> IEnumerable) -> element.Encode item ]) (function
+                | WireValue.Array items ->
+                    let values = [ for item in items -> element.Decode item ]
+#if FABLE_COMPILER
+                    box (Generic.HashSet<obj> values)
+#else
+                    let set = Activator.CreateInstance t
+                    values |> List.iter (fun v -> add.Invoke(set, [| v |]) |> ignore)
+                    set
+#endif
+                | value -> fail t value)
         elif isGeneric typedefof<Map<string, obj>> t || isGeneric typedefof<Generic.Dictionary<string, obj>> t then
             let isMap = isGeneric typedefof<Map<string, obj>> t
             let keyType, valueType = t.GetGenericArguments()[0], t.GetGenericArguments()[1]
@@ -527,4 +544,4 @@ module WireMapping =
                         | _ -> fail t value
                     | _ -> fail t value)
         else
-            failwith $"Orsak.Remoting can't convert values of {t.FullName}: it supports F# records, unions, tuples, lists, options, arrays, maps and sets, ResizeArrays and Dictionaries, of strings, bools, integers, floats, decimals, enums, Guids, byte arrays, DateTimes, DateTimeOffsets, DateOnlys, TimeOnlys and TimeSpans"
+            failwith $"Orsak.Remoting can't convert values of {t.FullName}: it supports F# records, unions, tuples, lists, options, arrays, maps and sets, ResizeArrays, HashSets and Dictionaries, of strings, bools, integers, floats, decimals, enums, Guids, byte arrays, DateTimes, DateTimeOffsets, DateOnlys, TimeOnlys and TimeSpans"
