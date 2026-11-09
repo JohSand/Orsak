@@ -217,6 +217,7 @@ sends what its `HttpClient` does: default headers, or a handler of its own.
 | Map, `Dictionary` | An object, if keyed by strings, or an array of `[key, value]` arrays |
 | Option | Its value, or `null`; an option of an option or of unit, an array of its value, `[1]` or `[null]` |
 | `int`, `float` | A number, in the invariant culture |
+| `float32` | A number, its shortest text: `0.1` for `0.1f` |
 | `byte`, `sbyte`, `int16`, `uint16` | A number, read only within the type's bounds |
 | `int64`, `uint32`, `uint64`, `decimal`, `Guid` | A string, which JavaScript's numbers don't round |
 | Enum | Its name, `"Red"`, or its number if it has none, such as flags combined |
@@ -232,7 +233,11 @@ the same on .NET and Fable. A local `DateTime` is written as UTC, and read back 
 three, and a `DateTime` with an offset is read as UTC. Fable keeps milliseconds, so a client compiled with it loses any
 finer fraction a .NET server sends.
 
-Other types, such as `HashSet`, `float32` and interfaces like `seq` or `IDictionary`, aren't supported: a contract
+`float` and `float32` are binary, so neither holds most decimal fractions exactly: `0.1` is the nearest value to it.
+For a value that must be exact, such as an amount of money, use `decimal`, which is written as a string, so JavaScript
+doesn't round it either.
+
+Other types, such as `HashSet` and interfaces like `seq` or `IDictionary`, aren't supported: a contract
 using one fails when its proxy is made, or when `MapRemote` maps it.
 
 ## Other formats

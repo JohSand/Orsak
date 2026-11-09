@@ -148,6 +148,12 @@ let tests = [
             """[255,-128,-32768,65535,"4294967295","18446744073709551615"]"""
             (255uy, -128y, -32768s, 65535us, 4294967295u, 18446744073709551615UL))
 
+    test "Orsak.Remoting's JSON of a float32, by its shortest text" (fun () ->
+        writesAndReads "[0.1,1.5,-2.25,0,3000000000]" [ 0.1f; 1.5f; -2.25f; 0.0f; 3e9f ])
+
+    test "Orsak.Remoting's JSON of float32s computed, and at their bounds" (fun () ->
+        writesAndReads "[0.3,0.33333334,3.4028235E+38,1E-45]" [ 0.1f + 0.2f; 1.0f / 3.0f; Single.MaxValue; Single.Epsilon ])
+
     test "Orsak.Remoting's JSON doesn't read a number outside a smaller integer's bounds" (fun () -> task {
         isTrue "256 was read as a byte" (fails<byte> "256")
         isTrue "-1 was read as a byte" (fails<byte> "-1")
