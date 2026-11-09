@@ -79,6 +79,30 @@ let main _ =
 
         let! again = settle env (update (Complete 1) completed)
         check "completing it again is an error" (again.Error = Some "Todo 1 is already done.")
+
+        // two requests, whose answers come back in the wrong order: the older is stale, and dropped
+        let loading, older = update<TestEnv> Load again
+        let adding, newer = update<TestEnv> (Add "eggs") loading
+        let answer (command: Command<TestEnv>) = task {
+            match! Effect.run env command with
+            | Ok msg
+            | Error msg -> return msg
+        }
+
+        let! newerAnswer = answer newer.Head
+        let! olderAnswer = answer older.Head
+        let afterNewer, _ = update<TestEnv> newerAnswer adding
+        let afterBoth, _ = update<TestEnv> olderAnswer afterNewer
+        check "an answer to an older request, arriving last, is dropped" (afterBoth = afterNewer)
+        check "the latest answer is kept" (afterBoth.Todos |> List.map _.Title = [ "milk"; "eggs" ])
+
+        let busy, whileBusy = update<TestEnv> Refresh adding
+        let _, whileIdle = update<TestEnv> Refresh afterBoth
+        check "a refresh while a request runs makes no command" (busy = adding && whileBusy.IsEmpty)
+        check "a refresh otherwise loads the todos" (whileIdle.Length = 1)
+
+        let crashed, _ = update<TestEnv> (Crashed "The server can't be reached.") adding
+        check "an exception is shown, whatever request was running" (crashed.Error.IsSome && not crashed.Busy)
     }
     |> _.GetAwaiter().GetResult()
 

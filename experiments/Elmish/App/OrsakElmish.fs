@@ -21,6 +21,17 @@ module Cmd =
                 |> ignore
     ]
 
+module Sub =
+    /// Dispatches the message every so many milliseconds, until Elmish stops the subscription. It runs no effect:
+    /// update makes the message a command, so it decides, with the model, whether one is needed.
+    let every (milliseconds: int) (msg: 'msg) : Subscribe<'msg> =
+        fun dispatch ->
+            let timer = Fable.Core.JS.setInterval (fun () -> dispatch msg) milliseconds
+
+            { new System.IDisposable with
+                member _.Dispose() = Fable.Core.JS.clearInterval timer
+            }
+
 module Program =
     /// An Elmish program whose init and update return Orsak commands, run in the environment.
     let mkWithEffects
