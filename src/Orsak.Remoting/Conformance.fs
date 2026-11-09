@@ -31,6 +31,11 @@ module Conformance =
         | Leaf
         | Node of int * Tree list
 
+    [<Flags>]
+    type internal Color =
+        | Red = 1
+        | Blue = 4
+
     type internal Sample = { Name: string; Type: Type; Value: obj }
 
     /// Inline, so the type is known on Fable, which erases generic arguments at run time.
@@ -75,6 +80,14 @@ module Conformance =
         sample "a DateTimeOffset" (DateTimeOffset(2026, 11, 9, 8, 30, 0, TimeSpan.FromMinutes -330.0))
         sample "a DateOnly and a TimeOnly" (DateOnly(2026, 11, 9), TimeOnly(8, 30, 15, 250))
         sample "TimeSpans" [ TimeSpan(1, 2, 3, 4, 500); TimeSpan.FromMinutes -90.0; TimeSpan.Zero ]
+        sample "the smaller integers, to their bounds" (
+            [ Byte.MinValue; Byte.MaxValue ],
+            [ SByte.MinValue; SByte.MaxValue ],
+            [ Int16.MinValue; Int16.MaxValue ],
+            [ UInt16.MinValue; UInt16.MaxValue ]
+        )
+        sample "uint32s and uint64s, to their bounds" ([ UInt32.MinValue; UInt32.MaxValue ], [ UInt64.MinValue; UInt64.MaxValue ])
+        sample "an enum, named and not" [ Color.Red; Color.Blue; Color.Red ||| Color.Blue ]
     ]
 
     let private attempt name f =
