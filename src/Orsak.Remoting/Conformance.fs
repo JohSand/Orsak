@@ -36,10 +36,19 @@ module Conformance =
         | Red = 1
         | Blue = 4
 
-    type internal Sample = { Name: string; Type: Type; Value: obj }
+    /// A value, and what of it must come back the same: its contents, for a type compared by reference.
+    type internal Sample = { Name: string; Type: Type; Value: obj; Contents: obj -> obj }
 
     /// Inline, so the type is known on Fable, which erases generic arguments at run time.
-    let inline private sample name (value: 'T) = { Name = name; Type = typeof<'T>; Value = box value }
+    let inline private sample name (value: 'T) = { Name = name; Type = typeof<'T>; Value = box value; Contents = id }
+
+    /// A sample of a type compared by reference, such as a Dictionary, compared by <paramref name="contents"/>.
+    let inline private sampleBy name (value: 'T) (contents: 'T -> 'C) = {
+        Name = name
+        Type = typeof<'T>
+        Value = box value
+        Contents = fun v -> box (contents (unbox<'T> v))
+    }
 
     let private order = {
         Customer = "ada"
@@ -88,6 +97,11 @@ module Conformance =
         )
         sample "uint32s and uint64s, to their bounds" ([ UInt32.MinValue; UInt32.MaxValue ], [ UInt64.MinValue; UInt64.MaxValue ])
         sample "an enum, named and not" [ Color.Red; Color.Blue; Color.Red ||| Color.Blue ]
+        sampleBy "a ResizeArray" (ResizeArray [ 1; 2 ]) List.ofSeq
+        sampleBy "a Dictionary keyed by strings" (Collections.Generic.Dictionary(dict [ "b", 2; "a", 1 ])) (fun d ->
+            [ for KeyValue(k, v) in d -> k, v ])
+        sampleBy "a Dictionary keyed by ints" (Collections.Generic.Dictionary(dict [ 2, "b"; 1, "a" ])) (fun d ->
+            [ for KeyValue(k, v) in d -> k, v ])
     ]
 
     let private attempt name f =
@@ -113,7 +127,7 @@ module Conformance =
                 yield!
                     attempt s.Name (fun () ->
                         let codec = format.CodecFor s.Type
-                        same s.Name s.Value (codec.Decode(codec.Encode s.Value)))
+                        same s.Name (s.Contents s.Value) (s.Contents(codec.Decode(codec.Encode s.Value))))
 
             yield!
                 attempt "a member's arguments" (fun () ->
@@ -143,6 +157,6 @@ module Conformance =
                         let fromReference = reference'.CodecFor s.Type
                         let fromEncoding = encoding'.CodecFor s.Type
 
-                        same $"{s.Name}, written by the reference" s.Value (fromEncoding.Decode(fromReference.Encode s.Value))
-                        @ same $"{s.Name}, read by the reference" s.Value (fromReference.Decode(fromEncoding.Encode s.Value)))
+                        same $"{s.Name}, written by the reference" (s.Contents s.Value) (s.Contents(fromEncoding.Decode(fromReference.Encode s.Value)))
+                        @ same $"{s.Name}, read by the reference" (s.Contents s.Value) (s.Contents(fromReference.Decode(fromEncoding.Encode s.Value))))
         ]
