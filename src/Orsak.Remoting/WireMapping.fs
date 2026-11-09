@@ -29,8 +29,8 @@ type WireMapping = {
 /// A record is a <c>Map</c> of its fields; a union case without fields is its name, one with fields a <c>Map</c> of its
 /// name and its field, or an <c>Array</c> of its fields; a list, an array or a tuple is an <c>Array</c>; an option is
 /// its value or <c>Nil</c>, or, when the value can itself be <c>Nil</c>, as in <c>Some None</c>, an <c>Array</c> of
-/// the value; a map keyed by strings is a <c>Map</c>, and by anything else an <c>Array</c> of <c>[key, value]</c>
-/// <c>Array</c>s; a set is an <c>Array</c>; a byte array is <c>Bytes</c>; a byte, an sbyte, an int16 and a uint16 are
+/// the value; a map or a Dictionary keyed by strings is a <c>Map</c>, and by anything else an <c>Array</c> of <c>[key, value]</c>
+/// <c>Array</c>s; a set or a ResizeArray is an <c>Array</c>; a byte array is <c>Bytes</c>; a byte, an sbyte, an int16 and a uint16 are
 /// <c>Int</c>s, read only within their bounds; an int64, a uint32, a uint64, a decimal and a Guid are strings, so
 /// JavaScript's numbers don't round them; an enum's value is its name, or its number if it has none, such as flags
 /// combined. Dates and times are ISO 8601 strings, the text of .NET's round-trip format:
@@ -311,32 +311,62 @@ module WireMapping =
                     List.foldBack (fun (v: obj) tail -> FSharpValue.MakeUnion(cases[1], [| v; tail |])) values empty
 #endif
                 | value -> fail t value)
-        elif isGeneric typedefof<Map<string, obj>> t then
+        elif isGeneric typedefof<ResizeArray<obj>> t then
+            let element = child (t.GetGenericArguments()[0])
+
+            mapping (fun v -> WireValue.Array [ for item in (v :?> IEnumerable) -> element.Encode item ]) (function
+                | WireValue.Array items ->
+                    let values = [ for item in items -> element.Decode item ]
+#if FABLE_COMPILER
+                    box (ResizeArray<obj> values)
+#else
+                    let list = Activator.CreateInstance t :?> IList
+                    values |> List.iter (list.Add >> ignore)
+                    box list
+#endif
+                | value -> fail t value)
+        elif isGeneric typedefof<Map<string, obj>> t || isGeneric typedefof<Generic.Dictionary<string, obj>> t then
+            let isMap = isGeneric typedefof<Map<string, obj>> t
             let keyType, valueType = t.GetGenericArguments()[0], t.GetGenericArguments()[1]
             let key, value = child keyType, child valueType
 #if !FABLE_COMPILER
-            let pair = typedefof<Collections.Generic.KeyValuePair<obj, obj>>.MakeGenericType(keyType, valueType)
+            let pair = typedefof<Generic.KeyValuePair<obj, obj>>.MakeGenericType(keyType, valueType)
             let pairKey, pairValue = pair.GetProperty "Key", pair.GetProperty "Value"
             let tupleType = FSharpType.MakeTupleType [| keyType; valueType |]
 #endif
 
             let pairs (v: obj) : (obj * obj) list =
 #if FABLE_COMPILER
-                [ for KeyValue(k, v) in unbox<Map<IComparable, obj>> v -> box k, v ]
+                if isMap then
+                    [ for KeyValue(k, v) in unbox<Map<IComparable, obj>> v -> box k, v ]
+                else
+                    [ for KeyValue(k, v) in unbox<Generic.Dictionary<obj, obj>> v -> k, v ]
 #else
                 [ for p in (v :?> IEnumerable) -> pairKey.GetValue p, pairValue.GetValue p ]
 #endif
 
+            // a key read twice keeps its last value, as in a Map
             let make (pairs: (obj * obj) list) : obj =
 #if FABLE_COMPILER
-                box (Map.ofList [ for k, v in pairs -> unbox<IComparable> k, v ])
+                if isMap then
+                    box (Map.ofList [ for k, v in pairs -> unbox<IComparable> k, v ])
+                else
+                    let dictionary = Generic.Dictionary<obj, obj>()
+                    pairs |> List.iter (fun (k, v) -> dictionary[k] <- v)
+                    box dictionary
 #else
-                let tuples = Array.CreateInstance(tupleType, pairs.Length)
-                pairs |> List.iteri (fun i (k, v) -> tuples.SetValue(FSharpValue.MakeTuple([| k; v |], tupleType), i))
-                Activator.CreateInstance(t, [| box tuples |])
+                if isMap then
+                    let tuples = Array.CreateInstance(tupleType, pairs.Length)
+                    pairs |> List.iteri (fun i (k, v) -> tuples.SetValue(FSharpValue.MakeTuple([| k; v |], tupleType), i))
+                    Activator.CreateInstance(t, [| box tuples |])
+                else
+                    let dictionary = Activator.CreateInstance t :?> IDictionary
+                    pairs |> List.iter (fun (k, v) -> dictionary[k] <- v)
+                    box dictionary
 #endif
 
-            // keyed by strings, a map is a Map, as a JSON object; keyed by anything else, an Array of [key, value]
+            // keyed by strings, a map or a dictionary is a Map, as a JSON object; keyed by anything else, an Array of
+            // [key, value]
             if keyType = typeof<string> then
                 mapping (fun v -> WireValue.Map [ for k, v in pairs v -> unbox<string> k, value.Encode v ]) (function
                     | WireValue.Map members -> make [ for k, v in members -> box k, value.Decode v ]
@@ -467,4 +497,4 @@ module WireMapping =
                         | _ -> fail t value
                     | _ -> fail t value)
         else
-            failwith $"Orsak.Remoting can't convert values of {t.FullName}: it supports F# records, unions, tuples, lists, options, arrays, maps and sets, of strings, bools, integers, floats, decimals, enums, Guids, byte arrays, DateTimes, DateTimeOffsets, DateOnlys, TimeOnlys and TimeSpans"
+            failwith $"Orsak.Remoting can't convert values of {t.FullName}: it supports F# records, unions, tuples, lists, options, arrays, maps and sets, ResizeArrays and Dictionaries, of strings, bools, integers, floats, decimals, enums, Guids, byte arrays, DateTimes, DateTimeOffsets, DateOnlys, TimeOnlys and TimeSpans"

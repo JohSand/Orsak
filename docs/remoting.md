@@ -213,8 +213,8 @@ sends what its `HttpClient` does: default headers, or a handler of its own.
 |---|---|
 | Record | An object of its fields |
 | Union case | Its name without fields, or an object of its name and its field, or an array of its fields |
-| List, array, tuple, set | An array |
-| Map | An object, if keyed by strings, or an array of `[key, value]` arrays |
+| List, array, tuple, set, `ResizeArray` | An array |
+| Map, `Dictionary` | An object, if keyed by strings, or an array of `[key, value]` arrays |
 | Option | Its value, or `null`; an option of an option or of unit, an array of its value, `[1]` or `[null]` |
 | `int`, `float` | A number, in the invariant culture |
 | `byte`, `sbyte`, `int16`, `uint16` | A number, read only within the type's bounds |
@@ -232,7 +232,7 @@ the same on .NET and Fable. A local `DateTime` is written as UTC, and read back 
 three, and a `DateTime` with an offset is read as UTC. Fable keeps milliseconds, so a client compiled with it loses any
 finer fraction a .NET server sends.
 
-Other types, such as `Dictionary`, `ResizeArray` and `float32`, aren't supported: a contract
+Other types, such as `HashSet`, `float32` and interfaces like `seq` or `IDictionary`, aren't supported: a contract
 using one fails when its proxy is made, or when `MapRemote` maps it.
 
 ## Other formats

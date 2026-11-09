@@ -160,6 +160,28 @@ let tests = [
     test "Orsak.Remoting's JSON doesn't read a name an enum doesn't have" (fun () ->
         task { isTrue "Purple was read as a Color" (fails<Color> "\"Purple\"") })
 
+    // a ResizeArray and a Dictionary are compared by reference, so by their contents here
+    test "Orsak.Remoting's JSON of a ResizeArray" (fun () -> task {
+        let codec = format.CodecFor typeof<ResizeArray<int>>
+        let text = Encoding.UTF8.GetString(codec.Encode(box (ResizeArray [ 1; 2 ])))
+        equal "[1,2]" text
+        equal [ 1; 2 ] (List.ofSeq (codec.Decode(Encoding.UTF8.GetBytes text) :?> ResizeArray<int>))
+    })
+
+    test "Orsak.Remoting's JSON of a Dictionary, as a map, in its order" (fun () -> task {
+        let pairs (d: Collections.Generic.Dictionary<'k, 'v>) = [ for KeyValue(k, v) in d -> k, v ]
+
+        let byString = format.CodecFor typeof<Collections.Generic.Dictionary<string, int>>
+        let text = Encoding.UTF8.GetString(byString.Encode(box (Collections.Generic.Dictionary(dict [ "b", 2; "a", 1 ]))))
+        equal """{"b":2,"a":1}""" text
+        equal [ "b", 2; "a", 1 ] (pairs (byString.Decode(Encoding.UTF8.GetBytes text) :?> Collections.Generic.Dictionary<string, int>))
+
+        let byInt = format.CodecFor typeof<Collections.Generic.Dictionary<int, string>>
+        let text = Encoding.UTF8.GetString(byInt.Encode(box (Collections.Generic.Dictionary(dict [ 2, "b"; 1, "a" ]))))
+        equal """[[2,"b"],[1,"a"]]""" text
+        equal [ 2, "b"; 1, "a" ] (pairs (byInt.Decode(Encoding.UTF8.GetBytes text) :?> Collections.Generic.Dictionary<int, string>))
+    })
+
     test "Orsak.Remoting's JSON reads a float without a fraction, as JavaScript writes it" (fun () ->
         task { equal (box 2.0) (format.CodecFor(typeof<float>).Decode(Encoding.UTF8.GetBytes "2")) })
 
