@@ -86,6 +86,49 @@ let tests = [
 
     test "Orsak.Remoting's JSON of bytes, as base64" (fun () -> writesAndReads "\"AAF//w==\"" [| 0uy; 1uy; 127uy; 255uy |])
 
+    test "Orsak.Remoting's JSON of a DateTime, UTC and of no kind" (fun () ->
+        writesAndReads
+            """["2026-11-09T08:30:15.1230000Z","2026-11-09T08:30:00.0000000"]"""
+            (DateTime(2026, 11, 9, 8, 30, 15, 123, DateTimeKind.Utc), DateTime(2026, 11, 9, 8, 30, 0, DateTimeKind.Unspecified)))
+
+    test "Orsak.Remoting's JSON of a DateTime keeps it UTC" (fun () -> task {
+        let codec = format.CodecFor typeof<DateTime>
+        let back = codec.Decode(codec.Encode(box (DateTime(2026, 11, 9, 8, 30, 0, DateTimeKind.Utc)))) :?> DateTime
+        equal DateTimeKind.Utc back.Kind
+    })
+
+    test "Orsak.Remoting's JSON reads a DateTime as JavaScript writes it, and one with an offset as UTC" (fun () -> task {
+        let codec = format.CodecFor typeof<DateTime>
+        let read (text: string) = codec.Decode(Encoding.UTF8.GetBytes $"\"{text}\"") :?> DateTime
+        equal (DateTime(2026, 11, 9, 8, 30, 15, 123, DateTimeKind.Utc)) (read "2026-11-09T08:30:15.123Z")
+        equal (DateTime(2026, 11, 9, 7, 30, 0, DateTimeKind.Utc)) (read "2026-11-09T08:30:00+01:00")
+        equal DateTimeKind.Utc (read "2026-11-09T08:30:00+01:00").Kind
+    })
+
+    test "Orsak.Remoting's JSON of a DateTimeOffset, with its offset" (fun () ->
+        writesAndReads
+            """["2026-11-09T08:30:00.0000000+01:00","2026-11-09T08:30:00.5000000-05:30"]"""
+            (DateTimeOffset(2026, 11, 9, 8, 30, 0, TimeSpan.FromHours 1.0),
+             DateTimeOffset(2026, 11, 9, 8, 30, 0, 500, TimeSpan.FromMinutes -330.0)))
+
+    test "Orsak.Remoting's JSON of a DateOnly, a TimeOnly and TimeSpans" (fun () ->
+        writesAndReads
+            """["2026-11-09","08:30:15.2500000","1.02:03:04.5000000","-01:30:00"]"""
+            (DateOnly(2026, 11, 9), TimeOnly(8, 30, 15, 250), TimeSpan(1, 2, 3, 4, 500), TimeSpan.FromMinutes -90.0))
+
+    test "Orsak.Remoting's JSON of a map keyed by strings, as an object" (fun () ->
+        writesAndReads """{"a":1,"b":2}""" (Map [ "b", 2; "a", 1 ]))
+
+    test "Orsak.Remoting's JSON of a map keyed by anything else, as pairs" (fun () ->
+        writesAndReads """[[1,"a"],[2,"b"]]""" (Map [ 2, "b"; 1, "a" ]))
+
+    test "Orsak.Remoting's JSON of a set" (fun () -> writesAndReads """["a","b"]""" (Set [ "b"; "a" ]))
+
+    test "Orsak.Remoting's JSON of nested options tells Some None from None" (fun () -> task {
+        do! writesAndReads """[[1],[null],null]""" [ Some(Some 1); Some None; None ]
+        do! writesAndReads """[[null],null]""" [ Some(); None ]
+    })
+
     test "Orsak.Remoting's JSON reads a float without a fraction, as JavaScript writes it" (fun () ->
         task { equal (box 2.0) (format.CodecFor(typeof<float>).Decode(Encoding.UTF8.GetBytes "2")) })
 

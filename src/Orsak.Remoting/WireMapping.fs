@@ -28,8 +28,14 @@ type WireMapping = {
 /// <remarks>
 /// A record is a <c>Map</c> of its fields; a union case without fields is its name, one with fields a <c>Map</c> of its
 /// name and its field, or an <c>Array</c> of its fields; a list, an array or a tuple is an <c>Array</c>; an option is
-/// its value or <c>Nil</c>; a byte array is <c>Bytes</c>; an int64, a decimal and a Guid are strings, so JavaScript's
-/// numbers don't round them. Reading, a float may be an <c>Int</c>, and bytes a base64 <c>String</c>, for the
+/// its value or <c>Nil</c>, or, when the value can itself be <c>Nil</c>, as in <c>Some None</c>, an <c>Array</c> of
+/// the value; a map keyed by strings is a <c>Map</c>, and by anything else an <c>Array</c> of <c>[key, value]</c>
+/// <c>Array</c>s; a set is an <c>Array</c>; a byte array is <c>Bytes</c>; an int64, a decimal and a Guid are strings, so
+/// JavaScript's numbers don't round them. Dates and times are ISO 8601 strings, the text of .NET's round-trip format:
+/// a DateTime <c>2026-11-09T08:30:00.0000000Z</c>, or without the <c>Z</c> if its kind is unspecified, and a local one
+/// as UTC; a DateTimeOffset with its offset, <c>+01:00</c>; a DateOnly <c>2026-11-09</c>; a TimeOnly
+/// <c>08:30:00.0000000</c>; a TimeSpan <c>1.02:03:04.5000000</c>. On Fable, which keeps milliseconds, a fraction of a
+/// millisecond is lost. Reading, a float may be an <c>Int</c>, and bytes a base64 <c>String</c>, for the
 /// encodings that can't tell them apart. Lists and options are checked before unions, which they also are to
 /// reflection.
 /// </remarks>
@@ -42,6 +48,104 @@ module WireMapping =
         failwith $"Orsak.Remoting can't read %A{value} as {t.FullName}"
 
     let private mapping encode decode = { Encode = encode; Decode = decode }
+
+    // Dates and times as ISO 8601 text, written and read here rather than by ToString and Parse, whose formats differ
+    // between .NET and Fable: the text of .NET's round-trip format, "o", with seven digits of a second's fraction.
+
+    let private pad width (n: int) = (string n).PadLeft(width, '0')
+
+    let private ticksPerSecond = 10_000_000L
+
+    /// The ticks of a second's fraction, as seven digits.
+    let private fraction (ticks: int64) = pad 7 (int (ticks % ticksPerSecond))
+
+    let private date (year: int) (month: int) (day: int) = $"{pad 4 year}-{pad 2 month}-{pad 2 day}"
+
+    let private time (hour: int) (minute: int) (second: int) (ticks: int64) =
+        $"{pad 2 hour}:{pad 2 minute}:{pad 2 second}.{fraction ticks}"
+
+    let private offset (o: TimeSpan) =
+        let sign = if o < TimeSpan.Zero then "-" else "+"
+        $"{sign}{pad 2 (abs o.Hours)}:{pad 2 (abs o.Minutes)}"
+
+    let private number (s: string) = Int32.Parse(s, CultureInfo.InvariantCulture)
+
+    /// A time of day, "hh:mm:ss" with an optional fraction of any number of digits, as ticks, and what follows it.
+    let private readTime (s: string) =
+        let seconds = (number (s.Substring(0, 2)) * 60 + number (s.Substring(3, 2))) * 60 + number (s.Substring(6, 2))
+        let mutable i = 8
+
+        let digits =
+            if i < s.Length && s[i] = '.' then
+                i <- i + 1
+                let start = i
+
+                while i < s.Length && Char.IsDigit s[i] do
+                    i <- i + 1
+
+                s.Substring(start, i - start)
+            else
+                ""
+
+        let fractionTicks = Int64.Parse((digits + "0000000").Substring(0, 7), CultureInfo.InvariantCulture)
+        int64 seconds * ticksPerSecond + fractionTicks, s.Substring i
+
+    /// A date and a time, "yyyy-MM-ddThh:mm:ss" with an optional fraction, as the date, the ticks since its midnight,
+    /// and what follows them: a zone, "Z" or an offset, or nothing.
+    let private readStamp (s: string) =
+        let day = DateTime(number (s.Substring(0, 4)), number (s.Substring(5, 2)), number (s.Substring(8, 2)))
+        let ticks, zone = readTime (s.Substring 11)
+        day, ticks, zone
+
+    /// An offset, "+hh:mm" or "-hh:mm", or "Z".
+    let private readOffset (zone: string) =
+        if zone = "Z" || zone = "" then
+            TimeSpan.Zero
+        else
+            let o = TimeSpan(number (zone.Substring(1, 2)), number (zone.Substring(4, 2)), 0)
+            if zone[0] = '-' then -o else o
+
+    let private dateTimeText (d: DateTime) =
+        let d = if d.Kind = DateTimeKind.Local then d.ToUniversalTime() else d
+        let zone = if d.Kind = DateTimeKind.Utc then "Z" else ""
+        $"{date d.Year d.Month d.Day}T{time d.Hour d.Minute d.Second d.Ticks}{zone}"
+
+    let private readDateTime (s: string) =
+        let day, ticks, zone = readStamp s
+
+        // made from the date's parts, as Fable's DateTime and DateTimeOffset from another DateTime depend on the machine's
+        // time zone
+        match zone with
+        | "" -> DateTime(day.Year, day.Month, day.Day, 0, 0, 0, DateTimeKind.Unspecified).Add(TimeSpan.FromTicks ticks)
+        | "Z" -> DateTime(day.Year, day.Month, day.Day, 0, 0, 0, DateTimeKind.Utc).Add(TimeSpan.FromTicks ticks)
+        | zone ->
+            DateTimeOffset(day.Year, day.Month, day.Day, 0, 0, 0, readOffset zone).Add(TimeSpan.FromTicks ticks).UtcDateTime
+
+    let private dateTimeOffsetText (d: DateTimeOffset) =
+        $"{date d.Year d.Month d.Day}T{time d.Hour d.Minute d.Second d.Ticks}{offset d.Offset}"
+
+    let private readDateTimeOffset (s: string) =
+        let day, ticks, zone = readStamp s
+        DateTimeOffset(day.Year, day.Month, day.Day, 0, 0, 0, readOffset zone).Add(TimeSpan.FromTicks ticks)
+
+    /// A TimeSpan as .NET's constant format, "c": "[-][d.]hh:mm:ss[.fffffff]".
+    let private timeSpanText (t: TimeSpan) =
+        let sign = if t < TimeSpan.Zero then "-" else ""
+        let t = t.Duration()
+        let days = if t.Days > 0 then $"{t.Days}." else ""
+        let ticks = t.Ticks % ticksPerSecond
+        let fraction = if ticks = 0L then "" else $".{fraction ticks}"
+        $"{sign}{days}{pad 2 t.Hours}:{pad 2 t.Minutes}:{pad 2 t.Seconds}{fraction}"
+
+    let private readTimeSpan (s: string) =
+        let negative = s.StartsWith "-"
+        let s = if negative then s.Substring 1 else s
+        let colon = s.IndexOf ':'
+        let dot = s.IndexOf '.'
+        let days, s = if dot >= 0 && dot < colon then number (s.Substring(0, dot)), s.Substring(dot + 1) else 0, s
+        let ticks, _ = readTime s
+        let t = TimeSpan.FromTicks(int64 days * TimeSpan.TicksPerDay + ticks)
+        if negative then -t else t
 
     let private primitive (t: Type) (write: obj -> WireValue) (read: WireValue -> obj option) =
         mapping write (fun value ->
@@ -90,6 +194,37 @@ module WireMapping =
             primitive t (fun v -> WireValue.String(string v)) (function
                 | WireValue.String s -> Some(box (Guid.Parse s))
                 | _ -> None)
+        elif t = typeof<DateTime> then
+            primitive t (fun v -> WireValue.String(dateTimeText (unbox v))) (function
+                | WireValue.String s -> Some(box (readDateTime s))
+                | _ -> None)
+        elif t = typeof<DateTimeOffset> then
+            primitive t (fun v -> WireValue.String(dateTimeOffsetText (unbox v))) (function
+                | WireValue.String s -> Some(box (readDateTimeOffset s))
+                | _ -> None)
+        elif t = typeof<TimeSpan> then
+            primitive t (fun v -> WireValue.String(timeSpanText (unbox v))) (function
+                | WireValue.String s -> Some(box (readTimeSpan s))
+                | _ -> None)
+        elif t = typeof<DateOnly> then
+            primitive
+                t
+                (fun v ->
+                    let d = unbox<DateOnly> v
+                    WireValue.String(date d.Year d.Month d.Day))
+                (function
+                | WireValue.String s ->
+                    Some(box (DateOnly(number (s.Substring(0, 4)), number (s.Substring(5, 2)), number (s.Substring(8, 2)))))
+                | _ -> None)
+        elif t = typeof<TimeOnly> then
+            primitive
+                t
+                (fun v ->
+                    let d = unbox<TimeOnly> v
+                    WireValue.String(time d.Hour d.Minute d.Second d.Ticks))
+                (function
+                | WireValue.String s -> Some(box (TimeOnly.FromTimeSpan(TimeSpan.FromTicks(fst (readTime s)))))
+                | _ -> None)
         elif t = typeof<byte array> then
             primitive t (fun v -> WireValue.Bytes(unbox v)) (function
                 | WireValue.Bytes b -> Some(box b)
@@ -127,8 +262,68 @@ module WireMapping =
                     List.foldBack (fun (v: obj) tail -> FSharpValue.MakeUnion(cases[1], [| v; tail |])) values empty
 #endif
                 | value -> fail t value)
+        elif isGeneric typedefof<Map<string, obj>> t then
+            let keyType, valueType = t.GetGenericArguments()[0], t.GetGenericArguments()[1]
+            let key, value = child keyType, child valueType
+#if !FABLE_COMPILER
+            let pair = typedefof<Collections.Generic.KeyValuePair<obj, obj>>.MakeGenericType(keyType, valueType)
+            let pairKey, pairValue = pair.GetProperty "Key", pair.GetProperty "Value"
+            let tupleType = FSharpType.MakeTupleType [| keyType; valueType |]
+#endif
+
+            let pairs (v: obj) : (obj * obj) list =
+#if FABLE_COMPILER
+                [ for KeyValue(k, v) in unbox<Map<IComparable, obj>> v -> box k, v ]
+#else
+                [ for p in (v :?> IEnumerable) -> pairKey.GetValue p, pairValue.GetValue p ]
+#endif
+
+            let make (pairs: (obj * obj) list) : obj =
+#if FABLE_COMPILER
+                box (Map.ofList [ for k, v in pairs -> unbox<IComparable> k, v ])
+#else
+                let tuples = Array.CreateInstance(tupleType, pairs.Length)
+                pairs |> List.iteri (fun i (k, v) -> tuples.SetValue(FSharpValue.MakeTuple([| k; v |], tupleType), i))
+                Activator.CreateInstance(t, [| box tuples |])
+#endif
+
+            // keyed by strings, a map is a Map, as a JSON object; keyed by anything else, an Array of [key, value]
+            if keyType = typeof<string> then
+                mapping (fun v -> WireValue.Map [ for k, v in pairs v -> unbox<string> k, value.Encode v ]) (function
+                    | WireValue.Map members -> make [ for k, v in members -> box k, value.Decode v ]
+                    | other -> fail t other)
+            else
+                mapping
+                    (fun v -> WireValue.Array [ for k, v in pairs v -> WireValue.Array [ key.Encode k; value.Encode v ] ])
+                    (function
+                    | WireValue.Array items ->
+                        make [
+                            for item in items ->
+                                match item with
+                                | WireValue.Array [ k; v ] -> key.Decode k, value.Decode v
+                                | other -> fail t other, null
+                        ]
+                    | other -> fail t other)
+        elif isGeneric typedefof<Set<int>> t then
+            let element = child (t.GetGenericArguments()[0])
+
+            mapping (fun v -> WireValue.Array [ for item in (v :?> IEnumerable) -> element.Encode item ]) (function
+                | WireValue.Array items ->
+                    let values = [| for item in items -> element.Decode item |]
+#if FABLE_COMPILER
+                    box (Set.ofArray (Array.map unbox<IComparable> values))
+#else
+                    let typed = Array.CreateInstance(t.GetGenericArguments()[0], values.Length)
+                    values |> Array.iteri (fun i v -> typed.SetValue(v, i))
+                    Activator.CreateInstance(t, [| box typed |])
+#endif
+                | value -> fail t value)
         elif isGeneric typedefof<option<obj>> t then
-            let inner = child (t.GetGenericArguments()[0])
+            let valueType = t.GetGenericArguments()[0]
+            let inner = child valueType
+            // a value that can itself be Nil, such as None in Some None, is in an Array of one, so it isn't read as None
+            let nested = valueType = typeof<unit> || isGeneric typedefof<option<obj>> valueType
+            let encodeSome v = if nested then WireValue.Array [ inner.Encode v ] else inner.Encode v
 #if !FABLE_COMPILER
             let some = (FSharpType.GetUnionCases(t, true))[1]
 #endif
@@ -137,23 +332,31 @@ module WireMapping =
                 (fun v ->
 #if FABLE_COMPILER
                     match unbox<obj option> v with
-                    | Some value -> inner.Encode value
+                    | Some value -> encodeSome value
                     | None -> WireValue.Nil
 #else
                     if isNull v then
                         WireValue.Nil
                     else
                         let _, fields = FSharpValue.GetUnionFields(v, t, true)
-                        inner.Encode fields[0]
+                        encodeSome fields[0]
 #endif
                 )
-                (function
-                | WireValue.Nil -> null
-                | value ->
+                (fun value ->
+                    let decoded =
+                        match value with
+                        | WireValue.Nil -> None
+                        | WireValue.Array [ v ] when nested -> Some(inner.Decode v)
+                        | v when not nested -> Some(inner.Decode v)
+                        | v -> Some(fail t v)
+
+                    match decoded with
+                    | None -> null
+                    | Some v ->
 #if FABLE_COMPILER
-                    box (Some(inner.Decode value))
+                        box (Some v)
 #else
-                    FSharpValue.MakeUnion(some, [| inner.Decode value |])
+                        FSharpValue.MakeUnion(some, [| v |])
 #endif
                 )
         elif FSharpType.IsTuple t then
@@ -215,4 +418,4 @@ module WireMapping =
                         | _ -> fail t value
                     | _ -> fail t value)
         else
-            failwith $"Orsak.Remoting can't convert values of {t.FullName}: it supports F# records, unions, tuples, lists, options and arrays, of strings, bools, ints, floats, int64s, decimals, Guids and byte arrays"
+            failwith $"Orsak.Remoting can't convert values of {t.FullName}: it supports F# records, unions, tuples, lists, options, arrays, maps and sets, of strings, bools, ints, floats, int64s, decimals, Guids, byte arrays, DateTimes, DateTimeOffsets, DateOnlys, TimeOnlys and TimeSpans"

@@ -69,9 +69,9 @@ type Tree =
     | Leaf
     | Node of int * Tree list
 
-/// A contract with a type JsonFormat can't write: a Map.
+/// A contract with a type JsonFormat can't write: a Dictionary.
 type IUnsupportedApi =
-    abstract Totals: unit -> Task<Map<string, int>>
+    abstract Totals: unit -> Task<Collections.Generic.Dictionary<string, int>>
 
 /// A test server mapping ITestApi to the implementation, and a proxy calling it.
 let serve (api: TestApi) = task {
@@ -208,8 +208,8 @@ let ``a server that can't be reached is a RemoteCallException, without a status`
 let ``a type the format can't write fails when the proxy's member is made, naming the type`` () =
     use http = new HttpClient()
     let client = RemoteClient("http://localhost", "/api", JsonFormat.Instance, HttpClientTransport(http))
-    let e = Assert.ThrowsAny<exn>(fun () -> client.Member("IUnsupportedApi", "Totals", [| typeof<unit> |], typeof<Map<string, int>>) |> ignore)
-    Assert.Contains("FSharpMap", e.Message)
+    let e = Assert.ThrowsAny<exn>(fun () -> client.Member("IUnsupportedApi", "Totals", [| typeof<unit> |], typeof<Collections.Generic.Dictionary<string, int>>) |> ignore)
+    Assert.Contains("Dictionary", e.Message)
 
 [<Fact>]
 let ``a type the format can't write fails when MapRemote maps the member`` () =
@@ -221,7 +221,7 @@ let ``a type the format can't write fails when MapRemote maps the member`` () =
         Assert.ThrowsAny<exn>(fun () ->
             app.MapRemote<IUnsupportedApi>("/api", [ JsonFormat.Instance ], fun _ -> Unchecked.defaultof<_>) |> ignore)
 
-    Assert.Contains("FSharpMap", e.Message)
+    Assert.Contains("Dictionary", e.Message)
 
 [<Fact>]
 let ``a type that contains itself has a codec`` () =
