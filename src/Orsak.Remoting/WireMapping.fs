@@ -30,8 +30,10 @@ type WireMapping = {
 /// name and its field, or an <c>Array</c> of its fields; a list, an array or a tuple is an <c>Array</c>; an option is
 /// its value or <c>Nil</c>, or, when the value can itself be <c>Nil</c>, as in <c>Some None</c>, an <c>Array</c> of
 /// the value; a map keyed by strings is a <c>Map</c>, and by anything else an <c>Array</c> of <c>[key, value]</c>
-/// <c>Array</c>s; a set is an <c>Array</c>; a byte array is <c>Bytes</c>; an int64, a decimal and a Guid are strings, so
-/// JavaScript's numbers don't round them. Dates and times are ISO 8601 strings, the text of .NET's round-trip format:
+/// <c>Array</c>s; a set is an <c>Array</c>; a byte array is <c>Bytes</c>; a byte, an sbyte, an int16 and a uint16 are
+/// <c>Int</c>s, read only within their bounds; an int64, a uint32, a uint64, a decimal and a Guid are strings, so
+/// JavaScript's numbers don't round them; an enum's value is its name, or its number if it has none, such as flags
+/// combined. Dates and times are ISO 8601 strings, the text of .NET's round-trip format:
 /// a DateTime <c>2026-11-09T08:30:00.0000000Z</c>, or without the <c>Z</c> if its kind is unspecified, and a local one
 /// as UTC; a DateTimeOffset with its offset, <c>+01:00</c>; a DateOnly <c>2026-11-09</c>; a TimeOnly
 /// <c>08:30:00.0000000</c>; a TimeSpan <c>1.02:03:04.5000000</c>. On Fable, which keeps milliseconds, a fraction of a
@@ -153,6 +155,35 @@ module WireMapping =
             | Some v -> v
             | None -> fail t value)
 
+    /// An integer type smaller than int, as an Int, read only within the type's bounds.
+    let private integer (t: Type) (low: int) (high: int) (toInt: obj -> int) (ofInt: int -> obj) =
+        primitive t (fun v -> WireValue.Int(toInt v)) (function
+            | WireValue.Int i when i >= low && i <= high -> Some(ofInt i)
+            | _ -> None)
+
+    /// An enum's value as its name, or as its number if it has none, such as flags combined.
+    let private enumeration (t: Type) =
+        let named = [ for name in Enum.GetNames t -> Enum.Parse(t, name), name ]
+
+        primitive
+            t
+            (fun v ->
+                match named |> List.tryFind (fun (value, _) -> value.Equals v) with
+                | Some(_, name) -> WireValue.String name
+#if FABLE_COMPILER
+                | None -> WireValue.Int(unbox v))
+#else
+                | None -> WireValue.Int(Convert.ToInt32 v))
+#endif
+            (function
+            | WireValue.String s -> named |> List.tryFind (fun (_, name) -> name = s) |> Option.map fst
+#if FABLE_COMPILER
+            | WireValue.Int i -> Some(box i)
+#else
+            | WireValue.Int i -> Some(Enum.ToObject(t, i))
+#endif
+            | _ -> None)
+
     /// The mapping of a field or an element, compiled when first used, so a type that contains itself, such as a tree,
     /// is compiled once rather than without end.
     let rec private child (t: Type) =
@@ -186,6 +217,24 @@ module WireMapping =
             primitive t (fun v -> WireValue.String(string v)) (function
                 | WireValue.String s -> Some(box (Int64.Parse(s, CultureInfo.InvariantCulture)))
                 | _ -> None)
+        elif t = typeof<byte> then
+            integer t 0 255 (fun v -> int (unbox<byte> v)) (fun i -> box (byte i))
+        elif t = typeof<sbyte> then
+            integer t -128 127 (fun v -> int (unbox<sbyte> v)) (fun i -> box (sbyte i))
+        elif t = typeof<int16> then
+            integer t -32768 32767 (fun v -> int (unbox<int16> v)) (fun i -> box (int16 i))
+        elif t = typeof<uint16> then
+            integer t 0 65535 (fun v -> int (unbox<uint16> v)) (fun i -> box (uint16 i))
+        elif t = typeof<uint32> then
+            primitive t (fun v -> WireValue.String(string v)) (function
+                | WireValue.String s -> Some(box (UInt32.Parse(s, CultureInfo.InvariantCulture)))
+                | _ -> None)
+        elif t = typeof<uint64> then
+            primitive t (fun v -> WireValue.String(string v)) (function
+                | WireValue.String s -> Some(box (UInt64.Parse(s, CultureInfo.InvariantCulture)))
+                | _ -> None)
+        elif t.IsEnum then
+            enumeration t
         elif t = typeof<decimal> then
             primitive t (fun v -> WireValue.String(string v)) (function
                 | WireValue.String s -> Some(box (Decimal.Parse(s, CultureInfo.InvariantCulture)))
@@ -418,4 +467,4 @@ module WireMapping =
                         | _ -> fail t value
                     | _ -> fail t value)
         else
-            failwith $"Orsak.Remoting can't convert values of {t.FullName}: it supports F# records, unions, tuples, lists, options, arrays, maps and sets, of strings, bools, ints, floats, int64s, decimals, Guids, byte arrays, DateTimes, DateTimeOffsets, DateOnlys, TimeOnlys and TimeSpans"
+            failwith $"Orsak.Remoting can't convert values of {t.FullName}: it supports F# records, unions, tuples, lists, options, arrays, maps and sets, of strings, bools, integers, floats, decimals, enums, Guids, byte arrays, DateTimes, DateTimeOffsets, DateOnlys, TimeOnlys and TimeSpans"

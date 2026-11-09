@@ -25,7 +25,21 @@ type Shape =
     | Circle of radius: float
     | Rect of width: int * height: int
 
+[<Flags>]
+type Color =
+    | Red = 1
+    | Green = 2
+    | Blue = 4
+
 let format = JsonFormat.Instance :> IWireFormat
+
+/// Whether the JSON can't be read as the type.
+let inline fails<'T> (text: string) =
+    try
+        format.CodecFor(typeof<'T>).Decode(Encoding.UTF8.GetBytes text) |> ignore
+        false
+    with _ ->
+        true
 
 /// Inline, so the type is known on Fable, which erases generic arguments at run time.
 let inline writesAndReads (expected: string) (value: 'T) = task {
@@ -128,6 +142,23 @@ let tests = [
         do! writesAndReads """[[1],[null],null]""" [ Some(Some 1); Some None; None ]
         do! writesAndReads """[[null],null]""" [ Some(); None ]
     })
+
+    test "Orsak.Remoting's JSON of the smaller integers, as numbers, and uint32 and uint64, as strings" (fun () ->
+        writesAndReads
+            """[255,-128,-32768,65535,"4294967295","18446744073709551615"]"""
+            (255uy, -128y, -32768s, 65535us, 4294967295u, 18446744073709551615UL))
+
+    test "Orsak.Remoting's JSON doesn't read a number outside a smaller integer's bounds" (fun () -> task {
+        isTrue "256 was read as a byte" (fails<byte> "256")
+        isTrue "-1 was read as a byte" (fails<byte> "-1")
+        isTrue "32768 was read as an int16" (fails<int16> "32768")
+    })
+
+    test "Orsak.Remoting's JSON of an enum, by name, or by number if it has none" (fun () ->
+        writesAndReads """["Red","Blue",5]""" [ Color.Red; Color.Blue; Color.Red ||| Color.Blue ])
+
+    test "Orsak.Remoting's JSON doesn't read a name an enum doesn't have" (fun () ->
+        task { isTrue "Purple was read as a Color" (fails<Color> "\"Purple\"") })
 
     test "Orsak.Remoting's JSON reads a float without a fraction, as JavaScript writes it" (fun () ->
         task { equal (box 2.0) (format.CodecFor(typeof<float>).Decode(Encoding.UTF8.GetBytes "2")) })

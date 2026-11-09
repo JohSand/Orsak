@@ -217,7 +217,9 @@ sends what its `HttpClient` does: default headers, or a handler of its own.
 | Map | An object, if keyed by strings, or an array of `[key, value]` arrays |
 | Option | Its value, or `null`; an option of an option or of unit, an array of its value, `[1]` or `[null]` |
 | `int`, `float` | A number, in the invariant culture |
-| `int64`, `decimal`, `Guid` | A string, which JavaScript's numbers don't round |
+| `byte`, `sbyte`, `int16`, `uint16` | A number, read only within the type's bounds |
+| `int64`, `uint32`, `uint64`, `decimal`, `Guid` | A string, which JavaScript's numbers don't round |
+| Enum | Its name, `"Red"`, or its number if it has none, such as flags combined |
 | `byte array` | A base64 string |
 | `DateTime` | A string, `"2026-11-09T08:30:00.0000000Z"`, without the `Z` if its kind is unspecified |
 | `DateTimeOffset` | A string with its offset, `"2026-11-09T08:30:00.0000000+01:00"` |
@@ -230,7 +232,7 @@ the same on .NET and Fable. A local `DateTime` is written as UTC, and read back 
 three, and a `DateTime` with an offset is read as UTC. Fable keeps milliseconds, so a client compiled with it loses any
 finer fraction a .NET server sends.
 
-Other types, such as `Dictionary`, `ResizeArray`, enums and the smaller integer types, aren't supported: a contract
+Other types, such as `Dictionary`, `ResizeArray` and `float32`, aren't supported: a contract
 using one fails when its proxy is made, or when `MapRemote` maps it.
 
 ## Other formats
