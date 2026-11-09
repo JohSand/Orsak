@@ -63,6 +63,18 @@ module Conformance =
         sample "union cases without, with one and with two fields" [ Empty; Circle 1.5; Rect(2, 3) ]
         sample "Results" [ Ok 1; Error "no" ]
         sample "a type that contains itself" (Node(1, [ Leaf; Node(2, []) ]))
+        sample "nested options" [ Some(Some 1); Some None; None ]
+        sample "a map keyed by strings" (Map [ "a", 1; "b", 2 ])
+        sample "a map keyed by ints" (Map [ 1, "a"; 2, "b" ])
+        sample "an empty map" (Map.empty: Map<string, int>)
+        sample "a set" (Set [ "a"; "b" ])
+        sample "DateTimes, UTC and of no kind" [
+            DateTime(2026, 11, 9, 8, 30, 15, 123, DateTimeKind.Utc)
+            DateTime(2026, 11, 9, 8, 30, 0, DateTimeKind.Unspecified)
+        ]
+        sample "a DateTimeOffset" (DateTimeOffset(2026, 11, 9, 8, 30, 0, TimeSpan.FromMinutes -330.0))
+        sample "a DateOnly and a TimeOnly" (DateOnly(2026, 11, 9), TimeOnly(8, 30, 15, 250))
+        sample "TimeSpans" [ TimeSpan(1, 2, 3, 4, 500); TimeSpan.FromMinutes -90.0; TimeSpan.Zero ]
     ]
 
     let private attempt name f =

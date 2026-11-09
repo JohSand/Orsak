@@ -213,14 +213,25 @@ sends what its `HttpClient` does: default headers, or a handler of its own.
 |---|---|
 | Record | An object of its fields |
 | Union case | Its name without fields, or an object of its name and its field, or an array of its fields |
-| List, array, tuple | An array |
-| Option | Its value, or `null` |
+| List, array, tuple, set | An array |
+| Map | An object, if keyed by strings, or an array of `[key, value]` arrays |
+| Option | Its value, or `null`; an option of an option or of unit, an array of its value, `[1]` or `[null]` |
 | `int`, `float` | A number, in the invariant culture |
 | `int64`, `decimal`, `Guid` | A string, which JavaScript's numbers don't round |
 | `byte array` | A base64 string |
+| `DateTime` | A string, `"2026-11-09T08:30:00.0000000Z"`, without the `Z` if its kind is unspecified |
+| `DateTimeOffset` | A string with its offset, `"2026-11-09T08:30:00.0000000+01:00"` |
+| `DateOnly`, `TimeOnly` | A string, `"2026-11-09"`, `"08:30:00.0000000"` |
+| `TimeSpan` | A string, `"1.02:03:04.5000000"`, .NET's constant format |
 
-The types may be public or not. Maps, sets and dates aren't supported yet, nor an option of an option: `Some None`
-would be written as `None` is.
+The types may be public or not. Dates and times are ISO 8601, the text of .NET's round-trip format, `"o"`, written
+the same on .NET and Fable. A local `DateTime` is written as UTC, and read back as UTC; for a time in a zone, use
+`DateTimeOffset`. Reading, a fraction of a second may have any number of digits, as JavaScript's `toISOString` writes
+three, and a `DateTime` with an offset is read as UTC. Fable keeps milliseconds, so a client compiled with it loses any
+finer fraction a .NET server sends.
+
+Other types, such as `Dictionary`, `ResizeArray`, enums and the smaller integer types, aren't supported: a contract
+using one fails when its proxy is made, or when `MapRemote` maps it.
 
 ## Other formats
 
