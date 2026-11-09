@@ -30,7 +30,9 @@ The app is the remoting sample's todo list (`samples/Remoting`), with its contra
 * **`App/OrsakElmish.fs`:** the adapter, about 25 lines. `Cmd.ofEffects` runs each command in the environment and
   dispatches the message it ends with, or the one `onException` makes of an exception, such as a
   `RemoteCallException`. `Program.mkWithEffects` is `Program.mkProgram` with init and update returning commands.
-* **`App/Main.fs`:** the environment, with the generated proxy, a view drawn on the DOM, and the program.
+  `Sub.every` is a timer subscription, from the second round, below.
+* **`App/Main.fs`:** the environment, with the generated proxy, a view drawn on the DOM, the refresh subscription, and
+  the program.
 * **`Tests/Program.fs`:** `update`, tested on .NET against a fake `ITodoApi`, with no Elmish, browser or server.
 
 ## What it shows
@@ -71,7 +73,23 @@ dotnet run --project ../../samples/Remoting/Server -- --webroot ../../../experim
 
 The tests print each check. The server then serves this app rather than the sample's (the web root is resolved from
 the server's project folder). The program also ran on Node.js, compiled with Fable, against the server: the real Elmish
-loop and remote calls, with a view logging each model. The page itself wasn't clicked through in a browser.
+loop and remote calls, with a view logging each model, and with the refresh subscription, which showed a todo another
+client added. The page itself wasn't clicked through in a browser.
+
+## Second round: answers out of order, subscriptions, Elmish 4
+
+* **Stale answers are dropped by number.** Each command-making message gives the model a new request number, which the
+  command's `Loaded` or `Failed` carries back; `update` keeps only the latest's, and stays busy until it comes. A test
+  runs two commands and feeds their answers in the wrong order: the older is dropped. It needs no cancellation, so it
+  works today, though the older call still runs on the server. An exception, `Crashed`, answers no request, so it is
+  never stale.
+* **A subscription sends a message; `update` makes the command.** The refresh timer, `Sub.every 3000 Refresh`, runs no
+  effect: `update` loads the todos on `Refresh`, unless a request is running, so the request numbers and the busy flag
+  stay in one place, and the decision is tested on .NET with the rest. A subscription running an effect itself would
+  have to repeat that, so for timers it isn't worth it. A push from the server, such as a stream of changes, is the
+  case where a subscription would need effects, and is still open.
+* **Elmish 4 works too.** The app, adapter included, compiles against Fable.Elmish 4.2.0 unchanged: both versions have
+  the same `Cmd`, `Sub` and `Program.withSubscription`.
 
 ## As a feature
 
@@ -102,14 +120,15 @@ but works for any effect.
    the test loop, `settle`, which a project copies into its own tests.
 3. **Check it with a view library:** the spike draws on the DOM itself. An app with Feliz or Fable.Elmish.React, and
    npm with a bundler, should need no change to the commands; that's untested.
-4. **Elmish 4 and 5:** both define `Cmd<'msg>` as a list of `Dispatch<'msg> -> unit`, so the adapter should work with
-   either; the spike used 5.0.2 only.
+4. **The patterns of the second round in the docs:** request numbers for stale answers, and subscriptions that send
+   messages rather than run effects. Both work with Elmish 4 and 5.
 
 **Open, and needing a design first:**
 
-* **Commands in flight:** they run at once, so an older `Loaded` can arrive after a newer one, which the busy flag
-  only hides. Either messages carry which request they answer, so `update` drops a stale one, which works now; or a
-  command is cancelled when a newer one replaces it, which needs the cancellation Orsak.Remoting doesn't have yet (a
-  token through `ICancellationProvider` to `fetch`'s `AbortController`).
-* **Subscriptions:** Elmish's `Sub`, such as a timer or a server push, as effects. A stream of messages would be an
-  `EffectSeq`, which Orsak's Fable build doesn't have; a subscription that dispatches from an effect would work today.
+* **Cancelling a superseded call:** request numbers drop a stale answer, but its call still runs on the server. To
+  stop it, Orsak's Fable build needs cancellation, and Orsak.Remoting a token through to `fetch`'s `AbortController`.
+* **Pushes from the server:** a stream of changes, rather than a timer. A stream of messages would be an `EffectSeq`,
+  which Orsak's Fable build doesn't have, and Orsak.Remoting has no streaming; a subscription that dispatches from a
+  callback would work today.
+* **With the authorization PR,** `onException` can tell a 401 by `RemoteCallException.StatusCode` and send the user to
+  sign in, rather than show an error.

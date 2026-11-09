@@ -18,8 +18,8 @@ let env =
 
 let onException (e: exn) =
     match e with
-    | :? RemoteCallException -> Failed "The server can't be reached."
-    | e -> Failed e.Message
+    | :? RemoteCallException -> Crashed "The server can't be reached."
+    | e -> Crashed e.Message
 
 let title = document.getElementById "title" :?> HTMLInputElement
 let add = document.getElementById "add" :?> HTMLButtonElement
@@ -52,4 +52,9 @@ let view (model: Model) (dispatch: Dispatch<Msg>) =
 
         todos.appendChild item |> ignore
 
-Program.mkWithEffects env onException init update view |> Program.run
+/// Refreshes every few seconds, to show what others change.
+let subscriptions (_: Model) : Sub<Msg> = [ [ "refresh" ], Sub.every 3000 Refresh ]
+
+Program.mkWithEffects env onException init update view
+|> Program.withSubscription subscriptions
+|> Program.run
