@@ -7,6 +7,9 @@ open System
 open System.Collections
 open System.Globalization
 open Microsoft.FSharp.Reflection
+#if FABLE_COMPILER
+open Fable.Core
+#endif
 
 /// <summary>
 /// Converts the values of one type to <see cref="T:Orsak.Remoting.WireValue"/>s and back, compiled once for the type,
@@ -30,7 +33,7 @@ type WireMapping = {
 /// name and its field, or an <c>Array</c> of its fields; a list, an array or a tuple is an <c>Array</c>; an option is
 /// its value or <c>Nil</c>, or, when the value can itself be <c>Nil</c>, as in <c>Some None</c>, an <c>Array</c> of
 /// the value; a map or a Dictionary keyed by strings is a <c>Map</c>, and by anything else an <c>Array</c> of <c>[key, value]</c>
-/// <c>Array</c>s; a set or a ResizeArray is an <c>Array</c>; a byte array is <c>Bytes</c>; a byte, an sbyte, an int16 and a uint16 are
+/// <c>Array</c>s; a set or a ResizeArray is an <c>Array</c>; a float32 is the <c>Float</c> of its shortest text, 0.1 for 0.1f; a byte array is <c>Bytes</c>; a byte, an sbyte, an int16 and a uint16 are
 /// <c>Int</c>s, read only within their bounds; an int64, a uint32, a uint64, a decimal and a Guid are strings, so
 /// JavaScript's numbers don't round them; an enum's value is its name, or its number if it has none, such as flags
 /// combined. Dates and times are ISO 8601 strings, the text of .NET's round-trip format:
@@ -69,6 +72,28 @@ module WireMapping =
     let private offset (o: TimeSpan) =
         let sign = if o < TimeSpan.Zero then "-" else "+"
         $"{sign}{pad 2 (abs o.Hours)}:{pad 2 (abs o.Minutes)}"
+
+#if FABLE_COMPILER
+    [<Emit("Number($0.toPrecision($1))")>]
+    let private toPrecision (f: float) (digits: int) : float = jsNative
+
+    [<Emit("Math.fround($0)")>]
+    let private fround (f: float) : float = jsNative
+#endif
+
+    /// A float32 as the float of its shortest text, 0.1 for 0.1f rather than its binary value, 0.10000000149011612: the
+    /// fewest significant digits that read back as the same float32, as .NET's "R" finds them.
+    let private shortest (f: float32) : float =
+#if FABLE_COMPILER
+        let f = float f
+        let rec digits n =
+            let d = toPrecision f n
+            if n >= 9 || fround d = f then d else digits (n + 1)
+
+        if Double.IsNaN f || Double.IsInfinity f || f = 0.0 then f else digits 1
+#else
+        Double.Parse(f.ToString("R", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
+#endif
 
     let private number (s: string) = Int32.Parse(s, CultureInfo.InvariantCulture)
 
@@ -212,6 +237,11 @@ module WireMapping =
             primitive t (fun v -> WireValue.Float(unbox v)) (function
                 | WireValue.Float f -> Some(box f)
                 | WireValue.Int i -> Some(box (float i))
+                | _ -> None)
+        elif t = typeof<float32> then
+            primitive t (fun v -> WireValue.Float(shortest (unbox v))) (function
+                | WireValue.Float f -> Some(box (float32 f))
+                | WireValue.Int i -> Some(box (float32 i))
                 | _ -> None)
         elif t = typeof<int64> then
             primitive t (fun v -> WireValue.String(string v)) (function

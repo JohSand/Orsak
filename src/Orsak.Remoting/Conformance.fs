@@ -97,6 +97,7 @@ module Conformance =
         )
         sample "uint32s and uint64s, to their bounds" ([ UInt32.MinValue; UInt32.MaxValue ], [ UInt64.MinValue; UInt64.MaxValue ])
         sample "an enum, named and not" [ Color.Red; Color.Blue; Color.Red ||| Color.Blue ]
+        sample "float32s, to their bounds" [ 0.1f; -2.25f; Single.MaxValue; Single.MinValue; Single.Epsilon ]
         sampleBy "a ResizeArray" (ResizeArray [ 1; 2 ]) List.ofSeq
         sampleBy "a Dictionary keyed by strings" (Collections.Generic.Dictionary(dict [ "b", 2; "a", 1 ])) (fun d ->
             [ for KeyValue(k, v) in d -> k, v ])
