@@ -99,6 +99,7 @@ module Conformance =
         sample "an enum, named and not" [ Color.Red; Color.Blue; Color.Red ||| Color.Blue ]
         sample "float32s, to their bounds" [ 0.1f; -2.25f; Single.MaxValue; Single.MinValue; Single.Epsilon ]
         sampleBy "a ResizeArray" (ResizeArray [ 1; 2 ]) List.ofSeq
+        sampleBy "a HashSet" (Collections.Generic.HashSet [ "a"; "b" ]) Set.ofSeq
         sampleBy "a Dictionary keyed by strings" (Collections.Generic.Dictionary(dict [ "b", 2; "a", 1 ])) (fun d ->
             [ for KeyValue(k, v) in d -> k, v ])
         sampleBy "a Dictionary keyed by ints" (Collections.Generic.Dictionary(dict [ 2, "b"; 1, "a" ])) (fun d ->

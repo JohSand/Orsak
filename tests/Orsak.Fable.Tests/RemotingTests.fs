@@ -174,6 +174,13 @@ let tests = [
         equal [ 1; 2 ] (List.ofSeq (codec.Decode(Encoding.UTF8.GetBytes text) :?> ResizeArray<int>))
     })
 
+    test "Orsak.Remoting's JSON of a HashSet" (fun () -> task {
+        let codec = format.CodecFor typeof<Collections.Generic.HashSet<string>>
+        let text = Encoding.UTF8.GetString(codec.Encode(box (Collections.Generic.HashSet [ "b"; "a"; "b" ])))
+        equal """["b","a"]""" text
+        equal (Set [ "a"; "b" ]) (Set.ofSeq (codec.Decode(Encoding.UTF8.GetBytes text) :?> Collections.Generic.HashSet<string>))
+    })
+
     test "Orsak.Remoting's JSON of a Dictionary, as a map, in its order" (fun () -> task {
         let pairs (d: Collections.Generic.Dictionary<'k, 'v>) = [ for KeyValue(k, v) in d -> k, v ]
 

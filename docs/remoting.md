@@ -213,7 +213,7 @@ sends what its `HttpClient` does: default headers, or a handler of its own.
 |---|---|
 | Record | An object of its fields |
 | Union case | Its name without fields, or an object of its name and its field, or an array of its fields |
-| List, array, tuple, set, `ResizeArray` | An array |
+| List, array, tuple, set, `ResizeArray`, `HashSet` | An array |
 | Map, `Dictionary` | An object, if keyed by strings, or an array of `[key, value]` arrays |
 | Option | Its value, or `null`; an option of an option or of unit, an array of its value, `[1]` or `[null]` |
 | `int`, `float` | A number, in the invariant culture |
@@ -237,7 +237,7 @@ finer fraction a .NET server sends.
 For a value that must be exact, such as an amount of money, use `decimal`, which is written as a string, so JavaScript
 doesn't round it either.
 
-Other types, such as `HashSet` and interfaces like `seq` or `IDictionary`, aren't supported: a contract
+Other types, such as interfaces like `seq` or `IDictionary`, which say nothing of the type to read, aren't supported: a contract
 using one fails when its proxy is made, or when `MapRemote` maps it.
 
 ## Other formats
