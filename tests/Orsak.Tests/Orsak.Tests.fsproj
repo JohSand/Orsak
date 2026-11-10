@@ -4,7 +4,6 @@
         <IsTestProject>true</IsTestProject>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <NoWarn>0057; 0988</NoWarn>
-        <LangVersion>preview</LangVersion>
         <!-- read by OpenApiInferenceTests, as an application's would be -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>

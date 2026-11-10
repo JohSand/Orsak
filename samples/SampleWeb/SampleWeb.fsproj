@@ -7,7 +7,6 @@
 		<Version>0.1.0-beta0028</Version>
 		<PlatformTarget>x64</PlatformTarget>
 		<NoWarn>57</NoWarn>
-        <LangVersion>preview</LangVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Include="Effects.fs" />
