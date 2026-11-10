@@ -23,7 +23,6 @@
 		<FSharpPreferNetFrameworkTools>False</FSharpPreferNetFrameworkTools>
 		<FSharpPrefer64BitTools>True</FSharpPrefer64BitTools>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-		<LangVersion>preview</LangVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<None Include="..\..\README.md" Pack="true" PackagePath="\"/>
