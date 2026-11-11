@@ -8,8 +8,8 @@ index: 9
 Fable
 =====
 
-Effects can be used in F# compiled to JavaScript with [Fable](https://fable.io): `Effect`, `eff` and the `Effect`
-module work in Fable 5, for JavaScript. Support is experimental: what's there behaves as on .NET, and is tested on both,
+Effects can be used in F# compiled to JavaScript with [Fable](https://fable.io): `Effect`, `eff`, the `Effect`
+module and most base effects work in Fable 5, for JavaScript. Support is experimental: what's there behaves as on .NET, and is tested on both,
 but it covers the core of Orsak, not all of it.
 
 ## Setup
@@ -60,11 +60,44 @@ task {
   effect that checks whether its environment implements an interface never finds it. Require the interface instead,
   as `Effect.Create(fun (clock: #IClock) -> ...)` does.
 
+## Base effects
+
+`Time`, `GuidGenerator`, `Random` and `CancellationSource`, with their providers, work as on .NET, but for the clock:
+Fable has no `System.TimeProvider`, so on Fable an `ITimeProvider`'s `Clock` is Orsak's own `TimeProvider`. It has
+`TimeProvider.System` and `GetUtcNow`, as .NET's does, so a clock written with them compiles on both, as long as
+`open Orsak` comes after `open System`:
+
+```fsharp
+open System
+open Orsak
+
+type ClientEnv() =
+    interface ITimeProvider with
+        member _.Clock = TimeProvider.System
+
+// a fixed clock, for tests
+let fixedClock now =
+    { new TimeProvider() with
+        member _.GetUtcNow() = now
+    }
+```
+
+A fake clock on Fable decides when `Time.delay` ends by overriding `Delay`, which .NET's `TimeProvider` doesn't have.
+And `Time.delay` isn't ended by the environment's `ICancellationProvider` on Fable: on .NET it finds that with a type
+test, which JavaScript doesn't have, as above.
+
+## Generated effects
+
+The effects `[<GenEffects>]` generates, and the proxies `[<GenRemote>]` generates, compile with Fable. Orsak.Myriad
+runs when .NET builds the project, so the code must be generated into the shared project's files, with
+`MyriadInlineGeneration`, or into a file Fable compiles too, and the project references the Orsak.Myriad package for its
+attributes, which Fable compiles to nothing. See [Generating code](myriad.html).
+
 ## What is .NET only
 
 * `Effect.fanOut`, effect sequences (`effSeq`, `EffSeq`) and `Effect.Create` of a `ValueTask`;
 * `for` over an `IAsyncEnumerable`, and `use` of an `IAsyncDisposable`;
-* the base effects (`Time`, `Log`, `CancellationSource`, ...), `Orsak.Resilience`, scopes and `CancellationScope`;
-* Orsak.AspNetCore, Orsak.AspNetCore.OpenApi and Orsak.Myriad.
+* `Log` and `MemoryCache`, built on Microsoft.Extensions, `Orsak.Resilience`, scopes and `CancellationScope`;
+* Orsak.AspNetCore and Orsak.AspNetCore.OpenApi, and running Orsak.Myriad.
 
 Some may follow; [Supported frameworks](supported-frameworks.html) lists what each package targets.

@@ -3,7 +3,9 @@
 open System
 open System.Threading
 open System.Threading.Tasks
+#if !FABLE_COMPILER
 open Microsoft.Extensions.Caching.Memory
+#endif
 
 
 /// <summary>
@@ -47,6 +49,32 @@ module GuidGenerator =
             member _.GenGuid() = Guid.NewGuid()
     }
 
+#if FABLE_COMPILER
+/// <summary>
+/// Fable's stand-in for <c>System.TimeProvider</c>, which Fable doesn't have: the clock of an
+/// <see cref="T:Orsak.ITimeProvider"/>. <c>TimeProvider.System</c> is the system's clock, and a fake clock for tests
+/// inherits it, overriding <c>GetUtcNow</c>, and <c>Delay</c> to decide when a wait ends. Opened after
+/// <c>System</c>, <c>open Orsak</c> makes <c>TimeProvider</c> this on Fable, and .NET's on .NET, so code reading the
+/// time compiles on both.
+/// </summary>
+type TimeProvider() =
+    static let system = TimeProvider()
+
+    /// <summary>The system's clock.</summary>
+    static member System = system
+
+    /// <summary>The current UTC time.</summary>
+    abstract GetUtcNow: unit -> DateTimeOffset
+    default _.GetUtcNow() = DateTimeOffset.UtcNow
+
+    /// <summary>
+    /// Waits for <paramref name="delay"/>, ending early, cancelled, when <paramref name="cancellationToken"/> is.
+    /// Fable's own: .NET's <c>TimeProvider</c> creates timers instead, which <c>Task.Delay</c> waits on.
+    /// </summary>
+    abstract Delay: delay: TimeSpan * cancellationToken: CancellationToken -> Task
+    default _.Delay(delay, cancellationToken) = Task.Delay(delay, cancellationToken)
+
+#endif
 /// <summary>
 /// Provides a <see cref="T:System.TimeProvider"/> to effects, as part of an environment. Using
 /// <c>TimeProvider.System</c> in production and a fake time provider in tests makes time-dependent effects testable.
@@ -113,6 +141,8 @@ module Random =
     let nextDouble () =
         Effect.Create(fun (provider: #IRandomProvider) -> provider.Effect.NextDouble())
 
+#if !FABLE_COMPILER
+// .NET only: Microsoft.Extensions.Caching isn't compiled by Fable
 
 /// <summary>
 /// Provides an <see cref="T:Microsoft.Extensions.Caching.Memory.IMemoryCache"/> to effects, as part of an environment.
@@ -179,6 +209,7 @@ module MemoryCache =
             return defaultValue
     }
 
+#endif
 /// <summary>
 /// Provides a <see cref="T:System.Threading.CancellationTokenSource"/> to effects, as part of an environment.
 /// </summary>
@@ -208,7 +239,12 @@ module CancellationSource =
     /// An effect that cancels the environment's cancellation source.
     /// </summary>
     let cancel () =
+#if FABLE_COMPILER
+        // Fable has no CancelAsync
+        Effect.Create(fun (provider: #ICancellationProvider) -> task { provider.Source.Cancel() })
+#else
         Effect.Create(fun (provider: #ICancellationProvider) -> task { do! provider.Source.CancelAsync() })
+#endif
 
 /// <summary>
 /// Effects for reading the time, and waiting, through an <see cref="T:Orsak.ITimeProvider"/>.
@@ -231,7 +267,9 @@ module Time =
     /// <summary>
     /// An effect that waits for <paramref name="delay"/> on the environment's clock, so that a fake clock in tests
     /// decides when it ends. When the environment is also an <see cref="T:Orsak.ICancellationProvider"/>, cancelling
-    /// its source ends the wait early, with a <see cref="T:System.Threading.Tasks.TaskCanceledException"/>.
+    /// its source ends the wait early, with a <see cref="T:System.Threading.Tasks.TaskCanceledException"/>. Not on
+    /// Fable, where an environment can't be tested for an interface it may implement: there the wait is the clock's
+    /// <c>Delay</c>, and isn't ended by the environment's source.
     /// </summary>
     /// <param name="delay">The time to wait.</param>
     /// <example>
@@ -244,6 +282,10 @@ module Time =
     /// </code>
     /// </example>
     let delay (delay: TimeSpan) =
+#if FABLE_COMPILER
+        // a type test against an interface is always false in JavaScript, so the environment's source isn't found
+        Effect.Create(fun (provider: #ITimeProvider) -> task { do! provider.Clock.Delay(delay, CancellationToken.None) })
+#else
         Effect.Create(fun (provider: #ITimeProvider) -> task {
             let token =
                 match box provider with
@@ -252,7 +294,10 @@ module Time =
 
             do! Task.Delay(delay, provider.Clock, token)
         })
+#endif
 
+#if !FABLE_COMPILER
+// .NET only: Microsoft.Extensions.Logging isn't compiled by Fable
 open Microsoft.Extensions.Logging
 
 /// <summary>
@@ -353,3 +398,4 @@ type Log =
         (ex: exn, message: string, [<ParamArray>] args: obj array)
         : Effect<'r, unit, 'e> =
         Log.Write(LogLevel.Critical, ex, message, args)
+#endif
