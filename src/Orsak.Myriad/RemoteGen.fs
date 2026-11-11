@@ -27,7 +27,10 @@ type RemoteArguments =
 type RemoteMemberCfg = {
     name: string
     arguments: RemoteArguments
+    /// The types of all the member's arguments, its CancellationToken's too.
     argumentTypes: SynType list
+    /// The position of the member's CancellationToken among its arguments, which isn't sent but cancels the call.
+    token: int option
     resultType: SynType
     call: RemoteCall
 }
@@ -89,31 +92,44 @@ module RemoteAst =
             argType :: args, returns
         | returns -> [], returns
 
+    /// A member's CancellationToken, found by name, as a generator only sees syntax.
+    let private token (interfaceName: string) (memberName: string) (call: RemoteCall) (types: SynType list) =
+        match types |> List.indexed |> List.filter (fun (_, t) -> lastName t = Some "CancellationToken") with
+        | [] -> None
+        | [ _ ] when call = AsyncOf ->
+            failwith
+                $"GenRemote: '%s{interfaceName}.%s{memberName}' returns an Async, which is cancelled by its own token, so it can't take a CancellationToken."
+        | [ i, _ ] -> Some i
+        | _ -> failwith $"GenRemote: '%s{interfaceName}.%s{memberName}' takes more than one CancellationToken."
+
     let private memberCfg (interfaceName: string) (m: SynMemberDefn) =
         match m with
         | SynMemberDefn.AbstractSlot(slotSig = SynValSig(ident = SynIdent(id, _); synType = signature)) ->
             let name = id.idText
 
-            match curried signature with
-            | [ arg ], returns when isUnitType arg ->
-                let call, resultType = result interfaceName name returns
-                Some { name = name; arguments = NoArguments; argumentTypes = []; resultType = resultType; call = call }
-            | [ arg ], returns ->
+            let cfg arguments types returns =
                 let call, resultType = result interfaceName name returns
 
-                let arguments, types =
-                    match unnamed arg with
-                    | SynType.Tuple(path = segments) ->
-                        Tupled, [ for s in segments do
+                Some {
+                    name = name
+                    arguments = arguments
+                    argumentTypes = types
+                    token = token interfaceName name call types
+                    resultType = resultType
+                    call = call
+                }
+
+            match curried signature with
+            | [ arg ], returns when isUnitType arg -> cfg NoArguments [] returns
+            | [ arg ], returns ->
+                match unnamed arg with
+                | SynType.Tuple(path = segments) ->
+                    cfg Tupled [ for s in segments do
                                     match s with
                                     | SynTupleTypeSegment.Type t -> unnamed t
-                                    | _ -> () ]
-                    | t -> Single, [ t ]
-
-                Some { name = name; arguments = arguments; argumentTypes = types; resultType = resultType; call = call }
-            | args, returns when args.Length > 1 ->
-                let call, resultType = result interfaceName name returns
-                Some { name = name; arguments = Curried; argumentTypes = List.map unnamed args; resultType = resultType; call = call }
+                                    | _ -> () ] returns
+                | t -> cfg Single [ t ] returns
+            | args, returns when args.Length > 1 -> cfg Curried (List.map unnamed args) returns
             | _ -> failwith $"GenRemote: '%s{interfaceName}.%s{name}' must be a method, of one or more arguments."
         | _ -> None
 
@@ -176,7 +192,11 @@ module RemoteSyntax =
                     tupleExpr [
                         stringExpr interfaceName
                         stringExpr m.name
-                        arrayExpr [ for t in m.argumentTypes -> typeofExpr t ]
+                        arrayExpr [
+                            for i, t in List.indexed m.argumentTypes do
+                                if Some i <> m.token then
+                                    typeofExpr t
+                        ]
                         typeofExpr m.resultType
                     ]
                 ))
@@ -194,10 +214,15 @@ module RemoteSyntax =
             | Tupled -> [ SynPat.Paren(SynPat.Tuple(false, [ for n in names -> namedPat n ], [ for _ in names.Tail -> range0 ], range0), range0) ]
             | Curried -> [ for n in names -> namedPat n ]
 
+        // the arguments sent: all but the CancellationToken, which cancels the call
         let boxed =
             match m.arguments with
             | NoArguments -> []
-            | _ -> [ for n in names -> app (longExpr [ "box" ]) (longExpr [ n ]) ]
+            | _ -> [
+                for i, n in List.indexed names do
+                    if Some i <> m.token then
+                        app (longExpr [ "box" ]) (longExpr [ n ])
+              ]
 
         let callName =
             match m.call with
@@ -206,7 +231,12 @@ module RemoteSyntax =
             | AsyncOf -> "Async"
             | ValueTaskOf -> "ValueTask"
 
-        let body = app (longExpr [ Writer.toCamelCase m.name; callName ]) (arrayExpr boxed)
+        let callee = longExpr [ Writer.toCamelCase m.name; callName ]
+
+        let body =
+            match m.token with
+            | Some i -> appAtomic callee (paren (tupleExpr [ arrayExpr boxed; longExpr [ names[i] ] ]))
+            | None -> app callee (arrayExpr boxed)
 
         let flags: SynMemberFlags = {
             IsInstance = true

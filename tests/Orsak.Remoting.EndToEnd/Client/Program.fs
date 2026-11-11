@@ -98,6 +98,36 @@ let checks () : Task<unit> = task {
         printfn $"anonymous: returned %A{result}"
     with :? RemoteCallException as e ->
         printfn $"anonymous: raised RemoteCallException, status {status e}"
+
+    // cancelling a call aborts its request, which cancels the token the server passed the member
+    let api = remote "http://localhost:5179"
+    let! heldBefore, releasedBefore = api.Holds()
+    use cts = new System.Threading.CancellationTokenSource()
+    let call = api.Hold cts.Token
+
+    let rec until (condition: int * int -> bool) tries = task {
+        let! holds = api.Holds()
+
+        if condition holds || tries = 0 then
+            return condition holds
+        else
+            do! Task.Delay 50
+            return! until condition (tries - 1)
+    }
+
+    let! held = until (fun (held, _) -> held > heldBefore) 100
+    cts.Cancel()
+
+    try
+        do! call
+        printfn "cancelled: returned"
+    with :? System.OperationCanceledException ->
+        printfn "cancelled: raised OperationCanceledException"
+
+    let! released = until (fun (_, released) -> released > releasedBefore) 100
+    // by hand, as .NET prints a bool True, and Fable true
+    let yesNo b = if b then "yes" else "no"
+    printfn $"held on the server: {yesNo held}, released: {yesNo released}"
 }
 
 #if FABLE_COMPILER

@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Reflection
 open System.Runtime.CompilerServices
+open System.Threading
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
@@ -29,8 +30,11 @@ type RemoteEndpoints =
         else
             returnType
 
-    /// The value a member returned, awaited: a Task, a ValueTask or an Async of a value, a Task of none, or a value.
-    static member private Await(returnType: Type, returned: obj) : Task<obj> = task {
+    /// <summary>
+    /// The value a member returned, awaited: a Task, a ValueTask or an Async of a value, a Task of none, or a value. An
+    /// Async is started with the token.
+    /// </summary>
+    static member private Await(returnType: Type, returned: obj, cancellationToken: CancellationToken) : Task<obj> = task {
         let generic = if returnType.IsGenericType then returnType.GetGenericTypeDefinition() else null
 
         if generic = typedefof<Async<obj>> then
@@ -38,13 +42,24 @@ type RemoteEndpoints =
                 typeof<Async>
                     .GetMethod("StartAsTask")
                     .MakeGenericMethod(returnType.GetGenericArguments())
-                    // its two optional parameters, None
-                    .Invoke((null: obj), [| returned; (null: obj); (null: obj) |])
+                    // its two optional parameters: no task creation options, and the token
+                    .Invoke((null: obj), [| returned; (null: obj); box (Some cancellationToken) |])
 
-            return! RemoteEndpoints.Await(typedefof<Task<obj>>.MakeGenericType(returnType.GetGenericArguments()), started)
+            return!
+                RemoteEndpoints.Await(
+                    typedefof<Task<obj>>.MakeGenericType(returnType.GetGenericArguments()),
+                    started,
+                    cancellationToken
+                )
         elif generic = typedefof<ValueTask<obj>> then
             let task = returnType.GetMethod("AsTask").Invoke(returned, [||])
-            return! RemoteEndpoints.Await(typedefof<Task<obj>>.MakeGenericType(returnType.GetGenericArguments()), task)
+
+            return!
+                RemoteEndpoints.Await(
+                    typedefof<Task<obj>>.MakeGenericType(returnType.GetGenericArguments()),
+                    task,
+                    cancellationToken
+                )
         else
             match returned with
             | :? Task as t ->
@@ -61,8 +76,23 @@ type RemoteEndpoints =
     static member private Handle<'Api>
         (m: MethodInfo, formats: IWireFormat list, create: HttpContext -> 'Api)
         : RequestDelegate =
+        // a CancellationToken isn't sent: the request's RequestAborted is passed in its place
+        let parameters = m.GetParameters() |> Array.map (fun p -> p.ParameterType)
+        let isToken (t: Type) = t = typeof<CancellationToken>
+        let argTypes = parameters |> Array.filter (isToken >> not)
+
+        let withTokens (args: obj array) (token: CancellationToken) =
+            let mutable sent = 0
+
+            parameters
+            |> Array.map (fun t ->
+                if isToken t then
+                    box token
+                else
+                    sent <- sent + 1
+                    args[sent - 1])
+
         // the codecs of each format, made once, when the endpoint is mapped: a type a format can't write fails here
-        let argTypes = m.GetParameters() |> Array.map (fun p -> p.ParameterType)
         let resultType = RemoteEndpoints.ResultType m.ReturnType
 
         let codecs = [
@@ -99,11 +129,13 @@ type RemoteEndpoints =
                     ctx.Response.ContentType <- "text/plain"
                     do! ctx.Response.WriteAsync($"The arguments of {ctx.Request.Path} couldn't be read.")
                 | Ok args ->
+                    let aborted = ctx.RequestAborted
+
                     let! response =
                         task {
                             try
-                                let returned = m.Invoke(create ctx, args)
-                                let! value = RemoteEndpoints.Await(m.ReturnType, returned)
+                                let returned = m.Invoke(create ctx, withTokens args aborted)
+                                let! value = RemoteEndpoints.Await(m.ReturnType, returned, aborted)
                                 return Ok(result.Encode value)
                             with e ->
                                 let e = match e with :? TargetInvocationException as t when not (isNull t.InnerException) -> t.InnerException | e -> e
@@ -113,7 +145,10 @@ type RemoteEndpoints =
                     match response with
                     | Ok body ->
                         ctx.Response.ContentType <- format.ContentType
-                        do! ctx.Response.Body.WriteAsync(body, ctx.RequestAborted)
+                        do! ctx.Response.Body.WriteAsync(body, aborted)
+                    | Error(:? OperationCanceledException) when aborted.IsCancellationRequested ->
+                        // the client cancelled the call, or went away: nobody reads an answer, and nothing failed
+                        logger().LogDebug("The remote call {Path} was cancelled by its client", ctx.Request.Path)
                     | Error e ->
                         // logged, and answered without its details, which a client shouldn't see
                         logger().LogError(e, "The remote call {Path} failed", ctx.Request.Path)
@@ -130,6 +165,9 @@ type RemoteEndpoints =
     /// can't be read 400, and an exception from the implementation is logged and answered 500, without its details.
     /// </summary>
     /// <remarks>
+    /// A member's CancellationToken isn't read from the request: the request's RequestAborted is passed in its place,
+    /// and an Async is started with it, so a call stops when its client cancels it or goes away, which is logged at
+    /// the debug level and not answered.
     /// The members may return a Task, a ValueTask or an Async, of a value or of none. Reflection finds them, so nothing is
     /// generated for the server. The formats' codecs for each member are made here, once, so a type a format can't
     /// write fails when the endpoints are mapped, as the application starts, rather than on a call. A member's
