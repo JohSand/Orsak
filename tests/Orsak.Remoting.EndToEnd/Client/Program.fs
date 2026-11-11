@@ -10,7 +10,7 @@ open Remoting.Shared.Contract
 
 type ClientEnv(api: IOrderApi) =
     interface IOrderApiProvider with
-        member _.OrderApi = api
+        member _.Effect = api
 
 /// A transport naming the client in the X-Client header, which the server requires, as authentication would; or none.
 let transport (client: string option) : IRemoteTransport =
