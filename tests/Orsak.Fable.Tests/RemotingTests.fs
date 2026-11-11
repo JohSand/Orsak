@@ -200,4 +200,28 @@ let tests = [
 
     test "Orsak.Remoting's JSON encoding passes the conformance checks" (fun () ->
         task { equal ([]: string list) (Conformance.check JsonEncoding.Instance) })
+
+    test "a remote call with a cancelled token raises OperationCanceledException, not RemoteCallException" (fun () -> task {
+        let transport: IRemoteTransport =
+#if FABLE_COMPILER
+            FetchTransport()
+#else
+            HttpClientTransport(new Net.Http.HttpClient())
+#endif
+        let client = RemoteClient("http://localhost:1", "/api", format, transport)
+        let call = client.Member("IApi", "Answer", [||], typeof<int>)
+
+        let! raised =
+            task {
+                try
+                    let! _ = call.Task<int>([||], Threading.CancellationToken(true))
+                    return "nothing"
+                with
+                | :? OperationCanceledException -> return "OperationCanceledException"
+                | :? RemoteCallException -> return "RemoteCallException"
+                | e -> return $"another exception: {e.Message}"
+            }
+
+        equal "OperationCanceledException" raised
+    })
 ]

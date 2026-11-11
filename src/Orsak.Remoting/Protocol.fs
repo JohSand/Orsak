@@ -5,6 +5,7 @@ namespace Orsak.Remoting
 
 open System
 open System.Text
+open System.Threading
 open System.Threading.Tasks
 
 /// <summary>Writes the values of one type to the wire, and reads them back, in one format.</summary>
@@ -105,9 +106,12 @@ type RemoteCallException(message: string, statusCode: int option) =
     /// reached.
     member _.StatusCode = statusCode
 
-/// Sends a request and returns the body of a successful response, raising RemoteCallException otherwise.
+/// <summary>
+/// Sends a request and returns the body of a successful response, raising RemoteCallException otherwise, or
+/// OperationCanceledException once the token is cancelled, which aborts the request.
+/// </summary>
 type IRemoteTransport =
-    abstract Post: url: string * contentType: string * body: byte array -> Task<byte array>
+    abstract Post: url: string * contentType: string * body: byte array * cancellationToken: CancellationToken -> Task<byte array>
 
 module Routes =
     /// The route of a member of a remote interface: {prefix}/{interface}/{member}.
@@ -135,8 +139,10 @@ type FetchCredentials =
 /// <param name="credentials">What fetch sends of the browser's credentials; to the page's own origin if not
 /// given</param>
 type FetchTransport(?headers: unit -> Task<(string * string) list>, ?credentials: FetchCredentials) =
-    [<Emit("""fetch($0, { method: "POST", headers: Object.fromEntries($1), body: $2, credentials: $3 })""")>]
-    static member private Fetch(url: string, headers: (string * string) array, body: byte array, credentials: string) : Task<obj> =
+    [<Emit("""fetch($0, { method: "POST", headers: Object.fromEntries($1), body: $2, credentials: $3, signal: $4.signal })""")>]
+    static member private Fetch
+        (url: string, headers: (string * string) array, body: byte array, credentials: string, abort: obj)
+        : Task<obj> =
         jsNative
 
     [<Emit("""$0.arrayBuffer().then(b => new Uint8Array(b))""")>]
@@ -145,6 +151,20 @@ type FetchTransport(?headers: unit -> Task<(string * string) list>, ?credentials
     [<Emit("$0.status")>]
     static member private Status(response: obj) : int = jsNative
 
+    [<Emit("new AbortController()")>]
+    static member private AbortController() : obj = jsNative
+
+    [<Emit("$0.abort()")>]
+    static member private Abort(controller: obj) : unit = jsNative
+
+    // Fails with OperationCanceledException if the token is cancelled. On Fable, ThrowIfCancellationRequested and
+    // OperationCanceledException() raise a plain Exception, while a cancelled Task.Delay fails with its own
+    // OperationCanceledException, which a type test sees as one
+    static member private ThrowIfCancelled(token: CancellationToken) : Task<unit> = task {
+        if token.IsCancellationRequested then
+            do! Task.Delay(0, token)
+    }
+
     member private _.Credentials =
         match defaultArg credentials FetchCredentials.SameOrigin with
         | FetchCredentials.SameOrigin -> "same-origin"
@@ -152,7 +172,9 @@ type FetchTransport(?headers: unit -> Task<(string * string) list>, ?credentials
         | FetchCredentials.Omit -> "omit"
 
     interface IRemoteTransport with
-        member this.Post(url, contentType, body) = task {
+        member this.Post(url, contentType, body, cancellationToken) = task {
+            do! FetchTransport.ThrowIfCancelled cancellationToken
+
             let! extra =
                 match headers with
                 | Some headers -> headers ()
@@ -161,15 +183,21 @@ type FetchTransport(?headers: unit -> Task<(string * string) list>, ?credentials
             // the content type last, so it is the format's whatever the headers have
             let sent = Array.ofList (extra @ [ "Content-Type", contentType ])
 
-            let! response =
+            // the token aborts the request, and reading its response
+            let abort = FetchTransport.AbortController()
+            use _ = cancellationToken.Register(fun () -> FetchTransport.Abort abort)
+
+            let! response, bytes =
                 task {
                     try
-                        return! FetchTransport.Fetch(url, sent, body, this.Credentials)
+                        let! response = FetchTransport.Fetch(url, sent, body, this.Credentials, abort)
+                        let! bytes = FetchTransport.Bytes response
+                        return response, bytes
                     with ex ->
+                        do! FetchTransport.ThrowIfCancelled cancellationToken
                         return raise (RemoteCallException $"The request to {url} failed: {ex.Message}")
                 }
 
-            let! bytes = FetchTransport.Bytes response
             let status = FetchTransport.Status response
 
             if status < 200 || status > 299 then
@@ -187,19 +215,20 @@ open System.Net.Http.Headers
 /// </summary>
 type HttpClientTransport(client: HttpClient) =
     interface IRemoteTransport with
-        member _.Post(url, contentType, body) = task {
+        member _.Post(url, contentType, body, cancellationToken) = task {
             use content = new ByteArrayContent(body)
             content.Headers.ContentType <- MediaTypeHeaderValue.Parse contentType
 
+            // a cancelled token raises OperationCanceledException, which isn't an HttpRequestException
             let! response =
                 task {
                     try
-                        return! client.PostAsync(url, content)
+                        return! client.PostAsync(url, content, cancellationToken)
                     with :? HttpRequestException as ex ->
                         return raise (RemoteCallException $"The request to {url} failed: {ex.Message}")
                 }
 
-            let! bytes = response.Content.ReadAsByteArrayAsync()
+            let! bytes = response.Content.ReadAsByteArrayAsync(cancellationToken)
 
             if not response.IsSuccessStatusCode then
                 raise (
@@ -218,30 +247,50 @@ type HttpClientTransport(client: HttpClient) =
 /// </summary>
 type RemoteMember(url: string, format: IWireFormat, transport: IRemoteTransport, arguments: IWireArgumentsCodec, result: IWireCodec) =
 
-    /// Calls the member, and returns its result as an object.
-    member _.Call(args: obj array) : Task<obj> = task {
-        let! body = transport.Post(url, format.ContentType, arguments.Encode args)
+    /// <summary>
+    /// Calls the member, and returns its result as an object. Cancelling the token aborts the call, which raises
+    /// OperationCanceledException, and the server's RequestAborted.
+    /// </summary>
+    /// <param name="args">The arguments sent, in order, without the member's CancellationToken</param>
+    /// <param name="cancellationToken">Cancels the call</param>
+    member _.Call(args: obj array, cancellationToken: CancellationToken) : Task<obj> = task {
+        let! body = transport.Post(url, format.ContentType, arguments.Encode args, cancellationToken)
         return result.Decode body
     }
 
-    /// Calls a member that returns a Task of a value.
-    member this.Task<'T>(args: obj array) : Task<'T> = task {
-        let! value = this.Call args
+    /// Calls the member, and returns its result as an object.
+    member this.Call(args: obj array) : Task<obj> = this.Call(args, CancellationToken.None)
+
+    /// Calls a member that returns a Task of a value, cancelled by the token.
+    member this.Task<'T>(args: obj array, cancellationToken: CancellationToken) : Task<'T> = task {
+        let! value = this.Call(args, cancellationToken)
         return unbox<'T> value
     }
 
-    /// Calls a member that returns a Task without a value.
-    member this.UnitTask(args: obj array) : Task = this.Call args :> Task
+    /// Calls a member that returns a Task of a value.
+    member this.Task<'T>(args: obj array) : Task<'T> = this.Task<'T>(args, CancellationToken.None)
 
-    /// Calls a member that returns an Async.
+    /// Calls a member that returns a Task without a value, cancelled by the token.
+    member this.UnitTask(args: obj array, cancellationToken: CancellationToken) : Task =
+        this.Call(args, cancellationToken) :> Task
+
+    /// Calls a member that returns a Task without a value.
+    member this.UnitTask(args: obj array) : Task = this.UnitTask(args, CancellationToken.None)
+
+    /// Calls a member that returns an Async, cancelled by the Async's own token.
     member this.Async<'T>(args: obj array) : Async<'T> = async {
-        let! value = this.Call args |> Async.AwaitTask
+        let! cancellationToken = Async.CancellationToken
+        let! value = this.Call(args, cancellationToken) |> Async.AwaitTask
         return unbox<'T> value
     }
 
 #if !FABLE_COMPILER
+    /// Calls a member that returns a ValueTask of a value, cancelled by the token.
+    member this.ValueTask<'T>(args: obj array, cancellationToken: CancellationToken) : ValueTask<'T> =
+        ValueTask<'T>(this.Task<'T>(args, cancellationToken))
+
     /// Calls a member that returns a ValueTask of a value.
-    member this.ValueTask<'T>(args: obj array) : ValueTask<'T> = ValueTask<'T>(this.Task<'T> args)
+    member this.ValueTask<'T>(args: obj array) : ValueTask<'T> = this.ValueTask<'T>(args, CancellationToken.None)
 #endif
 
 /// <summary>

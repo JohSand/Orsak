@@ -7,6 +7,7 @@ open System
 open System.Net
 open System.Net.Http
 open System.Text
+open System.Threading
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
@@ -38,9 +39,18 @@ type ITestApi =
     abstract Record: string -> Task
     abstract Fail: unit -> Task<int>
     abstract Answer: unit -> Task<int>
+    abstract Scale: factor: int * cancellationToken: CancellationToken -> Task<int>
+    abstract Hold: cancellationToken: CancellationToken -> Task<int>
+    abstract HoldAsync: unit -> Async<int>
 
 type TestApi() =
     member val Recorded = ResizeArray<string>()
+
+    /// Completed when a held call starts on the server.
+    member val Held = TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
+
+    /// Completed when a held call is cancelled on the server.
+    member val Released = TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
 
     interface ITestApi with
         member _.Echo order = Task.FromResult order
@@ -63,6 +73,27 @@ type TestApi() =
 
         member _.Fail() = failwith "a secret in the message"
         member _.Answer() = Task.FromResult 42
+
+        member _.Scale(factor, cancellationToken) =
+            if cancellationToken.CanBeCanceled then Task.FromResult(factor * 10) else Task.FromResult -1
+
+        member this.Hold cancellationToken = task {
+            this.Held.TrySetResult() |> ignore
+
+            try
+                do! Task.Delay(Timeout.Infinite, cancellationToken)
+                return 0
+            finally
+                if cancellationToken.IsCancellationRequested then
+                    this.Released.TrySetResult() |> ignore
+        }
+
+        member this.HoldAsync() = async {
+            use! _ = Async.OnCancel(fun () -> this.Released.TrySetResult() |> ignore)
+            this.Held.TrySetResult() |> ignore
+            do! Async.Sleep Timeout.Infinite
+            return 0
+        }
 
 /// A type that contains itself.
 type Tree =
@@ -226,6 +257,91 @@ let ``a type the format can't write fails when MapRemote maps the member`` () =
 [<Fact>]
 let ``a type that contains itself has a codec`` () =
     Assert.Equal("""{"Node":[1,["Leaf",{"Node":[2,[]]}]]}""", json (Node(1, [ Leaf; Node(2, []) ])))
+
+[<Fact(Timeout = 10_000)>]
+let ``a member's CancellationToken isn't sent, and the server passes its request's in its place`` () = task {
+    let! app, http, api = serve (TestApi())
+    use _ = app
+    let! scaled = api.Scale(3, CancellationToken.None)
+    Assert.Equal(30, scaled)
+
+    // the arguments are those without the token, so a member may take one without changing what is sent
+    use content = new StringContent("[3]")
+    content.Headers.ContentType <- Headers.MediaTypeHeaderValue.Parse (JsonFormat.Instance :> IWireFormat).ContentType
+    let! response = http.PostAsync("/api/ITestApi/Scale", content)
+    let! body = response.Content.ReadAsStringAsync()
+    Assert.Equal("30", body)
+}
+
+[<Fact(Timeout = 10_000)>]
+let ``cancelling a call raises OperationCanceledException, and cancels the token the server passed`` () = task {
+    let testApi = TestApi()
+    let! app, _, api = serve testApi
+    use _ = app
+    use cts = new CancellationTokenSource()
+    let call = api.Hold cts.Token
+    do! testApi.Held.Task
+    cts.Cancel()
+    let! _ = Assert.ThrowsAnyAsync<OperationCanceledException>(fun () -> call :> Task)
+    do! testApi.Released.Task
+}
+
+[<Fact(Timeout = 10_000)>]
+let ``cancelling a call of a member returning Async cancels it on the server`` () = task {
+    let testApi = TestApi()
+    let! app, _, api = serve testApi
+    use _ = app
+    use cts = new CancellationTokenSource()
+    let call = Async.StartAsTask(api.HoldAsync(), cancellationToken = cts.Token)
+    do! testApi.Held.Task
+    cts.Cancel()
+    let! _ = Assert.ThrowsAnyAsync<OperationCanceledException>(fun () -> call :> Task)
+    do! testApi.Released.Task
+}
+
+[<Fact(Timeout = 10_000)>]
+let ``a call with a cancelled token isn't sent`` () = task {
+    let testApi = TestApi()
+    let! app, _, api = serve testApi
+    use _ = app
+    let! _ = Assert.ThrowsAnyAsync<OperationCanceledException>(fun () -> api.Hold(CancellationToken(true)) :> Task)
+    Assert.False testApi.Held.Task.IsCompleted
+}
+
+/// Records the level of each message logged.
+type LevelsLogger() =
+    member val Levels = Collections.Concurrent.ConcurrentQueue<LogLevel>()
+
+    interface ILoggerProvider with
+        member this.CreateLogger _ =
+            { new ILogger with
+                member _.BeginScope _ = null
+                member _.IsEnabled _ = true
+                member _.Log(level, _, _, _, _) = this.Levels.Enqueue level }
+
+        member _.Dispose() = ()
+
+[<Fact(Timeout = 10_000)>]
+let ``a call its client cancelled isn't logged as an error`` () = task {
+    let testApi = TestApi()
+    let levels = new LevelsLogger()
+    let builder = WebApplication.CreateBuilder()
+    builder.WebHost.UseTestServer() |> ignore
+    builder.Logging.ClearProviders().AddProvider(levels).SetMinimumLevel(LogLevel.Debug) |> ignore
+    use app = builder.Build()
+    app.MapRemote<ITestApi>("/api", [ JsonFormat.Instance ], fun _ -> testApi) |> ignore
+    do! app.StartAsync()
+    let client = RemoteClient("http://localhost", "/api", JsonFormat.Instance, HttpClientTransport(app.GetTestClient()))
+    let api = TestApiProxy.create client
+    use cts = new CancellationTokenSource()
+    let call = api.Hold cts.Token
+    do! testApi.Held.Task
+    cts.Cancel()
+    let! _ = Assert.ThrowsAnyAsync<OperationCanceledException>(fun () -> call :> Task)
+    do! testApi.Released.Task
+    do! app.StopAsync()
+    Assert.DoesNotContain(LogLevel.Error, levels.Levels)
+}
 //------------------------------------------------------------------------------
 //        This code was generated by myriad.
 //        Changes to this file will be lost when the code is regenerated.
@@ -248,6 +364,9 @@ module TestApiProxy =
         let record = client.Member("ITestApi", "Record", [| typeof<string> |], typeof<unit>)
         let fail = client.Member("ITestApi", "Fail", [||], typeof<int>)
         let answer = client.Member("ITestApi", "Answer", [||], typeof<int>)
+        let scale = client.Member("ITestApi", "Scale", [| typeof<int> |], typeof<int>)
+        let hold = client.Member("ITestApi", "Hold", [||], typeof<int>)
+        let holdAsync = client.Member("ITestApi", "HoldAsync", [||], typeof<int>)
 
         { new ITestApi with
             member _.Echo a = echo.Task [| box a |]
@@ -258,4 +377,7 @@ module TestApiProxy =
             member _.Record a = record.UnitTask [| box a |]
             member _.Fail() = fail.Task [||]
             member _.Answer() = answer.Task [||]
+            member _.Scale(a, b) = scale.Task([| box a |], b)
+            member _.Hold a = hold.Task([||], a)
+            member _.HoldAsync() = holdAsync.Async [||]
         }

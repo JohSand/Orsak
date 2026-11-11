@@ -115,6 +115,43 @@ generated code as it is: Myriad runs when .NET builds the contract's project, no
   `Some 401`, or `None` when the server couldn't be reached.
 * **Arguments the server can't read** are answered 400, and the member isn't called.
 * **An exception on the server** is logged, and answered with status 500 and a body that doesn't say what it was.
+* **A cancelled call raises `OperationCanceledException`,** as below.
+
+## Cancellation
+
+A member that can be cancelled takes a `CancellationToken`, as a .NET API does:
+
+```fsharp
+[<GenRemote>]
+type IOrderApi =
+    abstract Place: Order -> Task<Result<OrderId, PlaceError>>
+    abstract History: customer: string * cancellationToken: CancellationToken -> Task<Order list>
+```
+
+The token isn't sent. The client's cancels the call: the proxy aborts the request, with fetch's `AbortController` on
+Fable, or the `HttpClient`'s token on .NET, and the call raises `OperationCanceledException`. On the server,
+`MapRemote` passes the member the request's `RequestAborted`, which ASP.NET Core cancels when the client aborts or goes
+away, so the work stops with it. A call the client cancelled isn't an error on the server: it is logged at the debug
+level, and nothing is answered.
+
+The arguments sent are the same with a token or without, so a member can take one without its clients and server
+having to change together.
+
+A member returning `Async` takes no token: the client's call is cancelled with the `Async`, and the server starts it
+with `RequestAborted`.
+
+The effect passes its token to the member. On .NET, an environment that is an `ICancellationProvider`, such as one
+begun by `Cancellation.within`, has it in `CancellationSource.getToken`:
+
+```fsharp
+module OrderApi =
+    let history customer = eff {
+        let! token = CancellationSource.getToken ()
+        return! Effect.Create(fun (p: #IOrderApiProvider) -> p.OrderApi.History(customer, token))
+    }
+```
+
+On Fable, which doesn't have Orsak's cancellation providers, the client's environment provides a token of its own.
 
 ## Authorization
 

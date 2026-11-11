@@ -92,12 +92,12 @@ group, so authorization applies to all of them. Then `[<GenRemote>]` generated t
 once for each member, so an unsupported type fails when a proxy is made or the endpoints are mapped. And a format was
 split in two: the mapping of F# types to `WireValue`s, `WireMapping.fs` (formerly `JsonCodec.fs`), and an encoding of
 those to bytes, `IWireEncoding`, which `Conformance` checks, so MessagePack, say, is an encoding of a few dozen lines.
-Still to do:
+Later, more types crossed (maps, sets, dates and times, `Some None`), and cancellation: a member taking a
+`CancellationToken` doesn't send it, the client's aborts the request (fetch's `AbortController` on Fable), and the
+server passes `RequestAborted` in its place. Still to do:
 
-* **More types:** maps, sets, dates; and `Some None`, which an option written as its value or null can't tell from
-  `None`.
-* **Cancellation:** a client's token to `fetch`'s `AbortController`, and the request's `RequestAborted` on the server.
 * **Versioning:** client and server deployed apart; snapshot tests of a contract's JSON would show a change.
+* **Type overrides per format,** such as a `DateTime` written another way.
 
 ## Why not Fable.Remoting
 
