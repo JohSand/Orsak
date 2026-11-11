@@ -1,6 +1,6 @@
 module App
 
-open System.Threading.Tasks
+open System
 open Orsak
 open Orsak.Remoting
 
@@ -11,11 +11,15 @@ type Greeter() =
     interface IGreeter with
         member _.Greet name = $"Hello {name}"
 
+    // the base effects, from the package: Time.delay waits on this clock
+    interface ITimeProvider with
+        member _.Clock = TimeProvider.System
+
 let greet name = Effect.Create(fun (g: #IGreeter) -> g.Greet name)
 
 let greetAll names : Effect<Greeter, string list, string> = eff {
     let! greetings = names |> List.map greet |> Effect.par
-    do! Task.Delay 1
+    do! Time.delay (TimeSpan.FromMilliseconds 1.0)
     return greetings
 }
 

@@ -10,12 +10,13 @@
         <ProjectReference Include="..\..\..\src\Orsak\Orsak.fsproj" />
         <ProjectReference Include="..\..\..\src\Orsak.Remoting\Orsak.Remoting.fsproj" />
     </ItemGroup>
-    <!-- Orsak.Myriad generates the proxy into Contract.fs when .NET builds this project; Fable compiles the result, and
-         neither runs Myriad nor can compile Orsak.Myriad, so none of this is for Fable -->
+    <!-- Orsak.Myriad generates the effects and the proxy into Contract.fs when .NET builds this project, with the
+         attributes of its own referenced; Fable compiles the result, and neither runs Myriad nor can compile
+         Orsak.Myriad, so none of this is for Fable -->
     <ItemGroup Condition="'$(FABLE_COMPILER)' != 'true'">
         <PackageReference Include="Myriad.Sdk" Version="1.1.0" PrivateAssets="all" />
         <PackageDownload Include="Myriad" Version="[1.1.0]" />
-        <ProjectReference Include="..\..\..\src\Orsak.Myriad\Orsak.Myriad.fsproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\src\Orsak.Myriad\Orsak.Myriad.fsproj" />
         <!-- for the contract's ASP.NET Core attributes, which Fable doesn't see: see Contract.fs -->
         <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="10.0.14" />
     </ItemGroup>
