@@ -153,6 +153,48 @@ module OrderApi =
 
 On Fable, which doesn't have Orsak's cancellation providers, the client's environment provides a token of its own.
 
+## Streams
+
+A member returning a `RemoteStream` streams its items, which the client reads as they come, rather than once they are
+all there:
+
+```fsharp
+[<GenRemote>]
+type IOrderApi =
+    abstract Placed: customer: string -> RemoteStream<Result<Order, PlaceError>>
+```
+
+On .NET, `RemoteStream<'T>` is an `IAsyncEnumerable<'T>`, so the server returns one as usual, such as an effect
+sequence started in its environment, whose items are results, so the contract's errors cross as items:
+
+```fsharp
+type ServerOrderApi(env: ServerEnv) =
+    interface IOrderApi with
+        member _.Placed customer = (Orders.placed customer).Invoke env
+```
+
+Fable has no `IAsyncEnumerable`, as its members return a `ValueTask`, so there `RemoteStream<'T>` is an interface of
+Orsak.Remoting's own, whose members have the same names but return a `Task`. The functions of `RemoteStream` read a
+stream on both:
+
+```fsharp
+let! orders = api.Placed "ada" |> RemoteStream.toList
+do! api.Placed "ada" |> RemoteStream.iter (printfn "%A")
+```
+
+* **Each reading is a call:** the request is sent when the first item is asked for, so a stream can be read again,
+  and one never read sends nothing.
+* **The items are pulled:** the server writes the next item as the client reads, so a client reading slowly slows the
+  server, rather than filling a buffer.
+* **Stopping a reading ends the call,** as does cancelling its token, or the member's: the server's stream is
+  cancelled with `RequestAborted`, which is logged at the debug level.
+* **A failure once the stream has started** can't change the response's status, which was sent with its first item:
+  the server logs it, and ends the stream with a failure, without its details, which the client raises as a
+  `RemoteCallException` where it reads. So does a stream cut short.
+
+The stream is the same POST as any call, answered with a frame for each item, written by the format, and one for its
+end, so it works with any format, and authorization and headers apply to it as to any other member.
+
 ## Authorization
 
 Who a caller is, and what they may do, are checked at two places:

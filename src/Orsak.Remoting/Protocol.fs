@@ -113,6 +113,12 @@ type RemoteCallException(message: string, statusCode: int option) =
 type IRemoteTransport =
     abstract Post: url: string * contentType: string * body: byte array * cancellationToken: CancellationToken -> Task<byte array>
 
+    /// <summary>
+    /// Sends a request and returns the body of a successful response as it comes, for a stream, raising
+    /// RemoteCallException otherwise. The token aborts the request, and reading its body, until the body is disposed.
+    /// </summary>
+    abstract PostStream: url: string * contentType: string * body: byte array * cancellationToken: CancellationToken -> Task<IRemoteBody>
+
 module Routes =
     /// The route of a member of a remote interface: {prefix}/{interface}/{member}.
     let ofMember (prefix: string) (interfaceName: string) (memberName: string) =
@@ -157,6 +163,16 @@ type FetchTransport(?headers: unit -> Task<(string * string) list>, ?credentials
     [<Emit("$0.abort()")>]
     static member private Abort(controller: obj) : unit = jsNative
 
+    [<Emit("$0.body.getReader()")>]
+    static member private BodyReader(response: obj) : obj = jsNative
+
+    // a chunk of the body, empty at its end
+    [<Emit("$0.read().then(r => r.done ? new Uint8Array(0) : r.value)")>]
+    static member private ReadChunk(reader: obj) : Task<byte array> = jsNative
+
+    [<Emit("$0.cancel().catch(() => {})")>]
+    static member private CancelReader(reader: obj) : unit = jsNative
+
     // Fails with OperationCanceledException if the token is cancelled. On Fable, ThrowIfCancellationRequested and
     // OperationCanceledException() raise a plain Exception, while a cancelled Task.Delay fails with its own
     // OperationCanceledException, which a type test sees as one
@@ -171,39 +187,81 @@ type FetchTransport(?headers: unit -> Task<(string * string) list>, ?credentials
         | FetchCredentials.Include -> "include"
         | FetchCredentials.Omit -> "omit"
 
+    // Fails with RemoteCallException, or OperationCanceledException if the token was cancelled, which aborted it
+    static member private Failed (url: string) (cancellationToken: CancellationToken) (ex: exn) : Task<'a> = task {
+        do! FetchTransport.ThrowIfCancelled cancellationToken
+        return raise (RemoteCallException $"The request to {url} failed: {ex.Message}")
+    }
+
+    // Sends the request, and returns its response, and the registration of the token, which aborts it until disposed
+    member private this.Start(url: string, contentType: string, body: byte array, cancellationToken: CancellationToken) = task {
+        do! FetchTransport.ThrowIfCancelled cancellationToken
+
+        let! extra =
+            match headers with
+            | Some headers -> headers ()
+            | None -> task { return [] }
+
+        // the content type last, so it is the format's whatever the headers have
+        let sent = Array.ofList (extra @ [ "Content-Type", contentType ])
+
+        // the token aborts the request, and reading its response
+        let abort = FetchTransport.AbortController()
+        let registration = cancellationToken.Register(fun () -> FetchTransport.Abort abort) :> IDisposable
+
+        try
+            let! response = FetchTransport.Fetch(url, sent, body, this.Credentials, abort)
+            return response, registration
+        with ex ->
+            registration.Dispose()
+            return! FetchTransport.Failed url cancellationToken ex
+    }
+
+    static member private ThrowIfFailed (url: string) (status: int) (bytes: byte array) =
+        if status < 200 || status > 299 then
+            raise (RemoteCallException($"{url} answered {status}: {Encoding.UTF8.GetString bytes}", Some status))
+
     interface IRemoteTransport with
         member this.Post(url, contentType, body, cancellationToken) = task {
-            do! FetchTransport.ThrowIfCancelled cancellationToken
+            let! response, registration = this.Start(url, contentType, body, cancellationToken)
+            use _ = registration
 
-            let! extra =
-                match headers with
-                | Some headers -> headers ()
-                | None -> task { return [] }
-
-            // the content type last, so it is the format's whatever the headers have
-            let sent = Array.ofList (extra @ [ "Content-Type", contentType ])
-
-            // the token aborts the request, and reading its response
-            let abort = FetchTransport.AbortController()
-            use _ = cancellationToken.Register(fun () -> FetchTransport.Abort abort)
-
-            let! response, bytes =
+            let! bytes =
                 task {
                     try
-                        let! response = FetchTransport.Fetch(url, sent, body, this.Credentials, abort)
-                        let! bytes = FetchTransport.Bytes response
-                        return response, bytes
+                        return! FetchTransport.Bytes response
                     with ex ->
-                        do! FetchTransport.ThrowIfCancelled cancellationToken
-                        return raise (RemoteCallException $"The request to {url} failed: {ex.Message}")
+                        return! FetchTransport.Failed url cancellationToken ex
                 }
 
+            FetchTransport.ThrowIfFailed url (FetchTransport.Status response) bytes
+            return bytes
+        }
+
+        member this.PostStream(url, contentType, body, cancellationToken) = task {
+            let! response, registration = this.Start(url, contentType, body, cancellationToken)
             let status = FetchTransport.Status response
 
             if status < 200 || status > 299 then
-                raise (RemoteCallException($"{url} answered {status}: {Encoding.UTF8.GetString bytes}", Some status))
+                use _ = registration
+                let! bytes = FetchTransport.Bytes response
+                FetchTransport.ThrowIfFailed url status bytes
 
-            return bytes
+            let reader = FetchTransport.BodyReader response
+
+            return
+                { new IRemoteBody with
+                    member _.Read() = task {
+                        try
+                            return! FetchTransport.ReadChunk reader
+                        with ex ->
+                            return! FetchTransport.Failed url cancellationToken ex
+                    }
+
+                    member _.Dispose() =
+                        FetchTransport.CancelReader reader
+                        registration.Dispose()
+                }
         }
 #else
 open System.Net.Http
@@ -229,18 +287,106 @@ type HttpClientTransport(client: HttpClient) =
                 }
 
             let! bytes = response.Content.ReadAsByteArrayAsync(cancellationToken)
-
-            if not response.IsSuccessStatusCode then
-                raise (
-                    RemoteCallException(
-                        $"{url} answered {int response.StatusCode}: {Encoding.UTF8.GetString bytes}",
-                        Some(int response.StatusCode)
-                    )
-                )
-
+            HttpClientTransport.ThrowIfFailed url response bytes
             return bytes
         }
+
+        member _.PostStream(url, contentType, body, cancellationToken) = task {
+            let content = new ByteArrayContent(body)
+            content.Headers.ContentType <- MediaTypeHeaderValue.Parse contentType
+            use request = new HttpRequestMessage(HttpMethod.Post, url, Content = content)
+
+            // the headers only, so the body is read as it comes
+            let! response =
+                task {
+                    try
+                        return! client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                    with :? HttpRequestException as ex ->
+                        return raise (RemoteCallException $"The request to {url} failed: {ex.Message}")
+                }
+
+            if not response.IsSuccessStatusCode then
+                use _ = response
+                let! bytes = response.Content.ReadAsByteArrayAsync(cancellationToken)
+                HttpClientTransport.ThrowIfFailed url response bytes
+
+            let! stream = response.Content.ReadAsStreamAsync(cancellationToken)
+            let buffer = Array.zeroCreate<byte> 16384
+
+            return
+                { new IRemoteBody with
+                    member _.Read() = task {
+                        let! n =
+                            task {
+                                try
+                                    return! stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)
+                                with
+                                // a cancelled read may fail with an IOException, as the connection is aborted
+                                | _ when cancellationToken.IsCancellationRequested ->
+                                    return raise (OperationCanceledException cancellationToken)
+                                | ex ->
+                                    return raise (RemoteCallException $"Reading the response of {url} failed: {ex.Message}")
+                            }
+
+                        return Array.sub buffer 0 n
+                    }
+
+                    member _.Dispose() =
+                        stream.Dispose()
+                        response.Dispose()
+                }
+        }
+
+    static member private ThrowIfFailed (url: string) (response: HttpResponseMessage) (bytes: byte array) =
+        if not response.IsSuccessStatusCode then
+            raise (
+                RemoteCallException(
+                    $"{url} answered {int response.StatusCode}: {Encoding.UTF8.GetString bytes}",
+                    Some(int response.StatusCode)
+                )
+            )
 #endif
+
+/// One reading of a stream: the call starts with the first item asked for, and stops when the reading is disposed,
+/// or either token is cancelled.
+type internal StreamReading<'T>
+    (url: string, start: CancellationToken -> Task<IRemoteBody>, decode: byte array -> obj, callToken: CancellationToken, readToken: CancellationToken) =
+    let stop = new CancellationTokenSource()
+    let byCall = callToken.Register(fun () -> stop.Cancel()) :> IDisposable
+    let byRead = readToken.Register(fun () -> stop.Cancel()) :> IDisposable
+    let mutable body: IRemoteBody option = None
+    let mutable frames: Frames.Reader option = None
+    let mutable current = Unchecked.defaultof<'T>
+
+    member _.Current = current
+
+    member _.MoveNext() : Task<bool> = task {
+        let! reader =
+            match frames with
+            | Some reader -> task { return reader }
+            | None -> task {
+                let! b = start stop.Token
+                body <- Some b
+                let reader = Frames.Reader b
+                frames <- Some reader
+                return reader
+              }
+
+        match! reader.Next() with
+        | Some(Item content) ->
+            current <- unbox<'T> (decode content)
+            return true
+        | Some End -> return false
+        | Some(Failed message) -> return raise (RemoteCallException $"The stream of {url} failed on the server: {message}")
+        | None -> return raise (RemoteCallException $"The stream of {url} ended before its end.")
+    }
+
+    member _.Dispose() =
+        // ends the call if it hasn't ended
+        stop.Cancel()
+        body |> Option.iter (fun b -> b.Dispose())
+        byCall.Dispose()
+        byRead.Dispose()
 
 /// <summary>
 /// A member of a remote interface, with the codecs of its arguments and result, made once: what a proxy calls.
@@ -276,6 +422,45 @@ type RemoteMember(url: string, format: IWireFormat, transport: IRemoteTransport,
 
     /// Calls a member that returns a Task without a value.
     member this.UnitTask(args: obj array) : Task = this.UnitTask(args, CancellationToken.None)
+
+    /// <summary>
+    /// Calls a member that returns a stream, of items of the member's result type, which are read as they come. Each
+    /// reading of the stream is a call of its own, cancelled by either token, or by stopping it.
+    /// </summary>
+    member _.Stream<'T>(args: obj array, cancellationToken: CancellationToken) : RemoteStream<'T> =
+        let start token =
+            transport.PostStream(url, format.ContentType, arguments.Encode args, token)
+
+        let reading readToken =
+            StreamReading<'T>(url, start, result.Decode, cancellationToken, readToken)
+#if FABLE_COMPILER
+        { new RemoteStream<'T> with
+            member _.GetAsyncEnumerator(readToken) =
+                let r = reading readToken
+
+                { new IRemoteStreamEnumerator<'T> with
+                    member _.Current = r.Current
+                    member _.MoveNextAsync() = r.MoveNext()
+                    member _.DisposeAsync() = task { r.Dispose() } :> Task
+                }
+        }
+#else
+        { new System.Collections.Generic.IAsyncEnumerable<'T> with
+            member _.GetAsyncEnumerator(readToken) =
+                let r = reading readToken
+
+                { new System.Collections.Generic.IAsyncEnumerator<'T> with
+                    member _.Current = r.Current
+                    member _.MoveNextAsync() = ValueTask<bool>(r.MoveNext())
+                    member _.DisposeAsync() =
+                        r.Dispose()
+                        ValueTask.CompletedTask
+                }
+        }
+#endif
+
+    /// <summary>Calls a member that returns a stream, of items of the member's result type.</summary>
+    member this.Stream<'T>(args: obj array) : RemoteStream<'T> = this.Stream<'T>(args, CancellationToken.None)
 
     /// Calls a member that returns an Async, cancelled by the Async's own token.
     member this.Async<'T>(args: obj array) : Async<'T> = async {

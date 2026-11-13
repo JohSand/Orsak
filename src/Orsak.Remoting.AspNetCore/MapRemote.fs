@@ -19,11 +19,22 @@ open Orsak.Remoting
 [<Extension>]
 type RemoteEndpoints =
 
-    /// The type of the value a member returns: that of its Task, ValueTask or Async, unit for a Task of none, or itself.
+    /// Whether a member returns a stream, an IAsyncEnumerable, whose items are written as they come.
+    static member private IsStream(returnType: Type) =
+        returnType.IsGenericType
+        && returnType.GetGenericTypeDefinition() = typedefof<Collections.Generic.IAsyncEnumerable<obj>>
+
+    /// The type of the value a member returns: that of its Task, ValueTask or Async, unit for a Task of none, the
+    /// items' of a stream, or itself.
     static member private ResultType(returnType: Type) =
         let generic = if returnType.IsGenericType then returnType.GetGenericTypeDefinition() else null
 
-        if generic = typedefof<Task<obj>> || generic = typedefof<ValueTask<obj>> || generic = typedefof<Async<obj>> then
+        if
+            generic = typedefof<Task<obj>>
+            || generic = typedefof<ValueTask<obj>>
+            || generic = typedefof<Async<obj>>
+            || RemoteEndpoints.IsStream returnType
+        then
             returnType.GetGenericArguments()[0]
         elif typeof<Task>.IsAssignableFrom returnType || returnType = typeof<Void> then
             typeof<unit>
@@ -73,6 +84,55 @@ type RemoteEndpoints =
             | _ -> return returned
     }
 
+    /// <summary>
+    /// Writes the items of a stream as frames, as they come, flushing each, and then its end; or, if it fails once
+    /// the response has started, so its status can't change, a frame of its failure, without its details.
+    /// </summary>
+    static member internal WriteStream<'T>(items: obj, codec: IWireCodec, ctx: HttpContext, contentType: string, logger: unit -> ILogger) : Task = task {
+        let aborted = ctx.RequestAborted
+        let write frame = ctx.Response.Body.WriteAsync(Frames.write frame, aborted)
+        ctx.Response.ContentType <- contentType
+        // the headers now, so the client starts reading before the first item
+        do! ctx.Response.StartAsync(aborted)
+
+        let e = (items :?> Collections.Generic.IAsyncEnumerable<'T>).GetAsyncEnumerator(aborted)
+
+        // the enumerator is disposed after a failure too, awaited, which a finally in a task can't
+        let! failure =
+            task {
+                try
+                    let mutable more = true
+
+                    while more do
+                        let! next = e.MoveNextAsync()
+
+                        if next then
+                            do! write (Item(codec.Encode(box e.Current)))
+                            do! ctx.Response.Body.FlushAsync(aborted)
+                        else
+                            more <- false
+
+                    do! write End
+                    return None
+                with e ->
+                    return Some e
+            }
+
+        do! e.DisposeAsync()
+
+        match failure with
+        | None -> ()
+        | Some(:? OperationCanceledException) when aborted.IsCancellationRequested ->
+            logger().LogDebug("The remote stream {Path} was stopped by its client", ctx.Request.Path)
+        | Some e ->
+            logger().LogError(e, "The remote stream {Path} failed", ctx.Request.Path)
+
+            try
+                do! write (Failed "The stream failed on the server.")
+            with _ ->
+                ()
+    }
+
     static member private Handle<'Api>
         (m: MethodInfo, formats: IWireFormat list, create: HttpContext -> 'Api)
         : RequestDelegate =
@@ -98,6 +158,17 @@ type RemoteEndpoints =
         let codecs = [
             for f in formats -> f, f.ArgumentsCodecFor argTypes, f.CodecFor resultType
         ]
+
+        // a stream's items are written as they come, by WriteStream of their type, made once
+        let writeStream =
+            if RemoteEndpoints.IsStream m.ReturnType then
+                Some(
+                    typeof<RemoteEndpoints>
+                        .GetMethod("WriteStream", BindingFlags.NonPublic ||| BindingFlags.Static)
+                        .MakeGenericMethod(resultType)
+                )
+            else
+                None
 
         RequestDelegate(fun ctx -> task {
             let contentType = string ctx.Request.ContentType
@@ -135,17 +206,25 @@ type RemoteEndpoints =
                         task {
                             try
                                 let returned = m.Invoke(create ctx, withTokens args aborted)
-                                let! value = RemoteEndpoints.Await(m.ReturnType, returned, aborted)
-                                return Ok(result.Encode value)
+
+                                match writeStream with
+                                | Some _ -> return Ok(Choice2Of2 returned)
+                                | None ->
+                                    let! value = RemoteEndpoints.Await(m.ReturnType, returned, aborted)
+                                    return Ok(Choice1Of2(result.Encode value))
                             with e ->
                                 let e = match e with :? TargetInvocationException as t when not (isNull t.InnerException) -> t.InnerException | e -> e
                                 return Error e
                         }
 
                     match response with
-                    | Ok body ->
+                    | Ok(Choice1Of2 body) ->
                         ctx.Response.ContentType <- format.ContentType
                         do! ctx.Response.Body.WriteAsync(body, aborted)
+                    | Ok(Choice2Of2 items) ->
+                        let write = writeStream.Value
+                        let writeArgs: obj array = [| items; box result; box ctx; box format.ContentType; box logger |]
+                        do! write.Invoke((null: obj), writeArgs) :?> Task
                     | Error(:? OperationCanceledException) when aborted.IsCancellationRequested ->
                         // the client cancelled the call, or went away: nobody reads an answer, and nothing failed
                         logger().LogDebug("The remote call {Path} was cancelled by its client", ctx.Request.Path)

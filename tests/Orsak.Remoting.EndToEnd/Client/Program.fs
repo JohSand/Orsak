@@ -128,6 +128,38 @@ let checks () : Task<unit> = task {
     // by hand, as .NET prints a bool True, and Fable true
     let yesNo b = if b then "yes" else "no"
     printfn $"held on the server: {yesNo held}, released: {yesNo released}"
+
+    // a stream, read as it comes: its items are results, so the contract's errors cross as items
+    let counted (items: Result<int, string> list) =
+        items
+        |> List.map (function
+            | Ok n -> $"Ok {n}"
+            | Error e -> $"Error {e}")
+        |> String.concat "; "
+
+    let! three = api.Countdown 3 |> RemoteStream.toList
+    printfn $"streamed: {counted three}"
+
+    let! none = api.Countdown 0 |> RemoteStream.toList
+    printfn $"streamed an error: {counted none}"
+
+    // a failure on the server, once the stream has started, is raised where it is read
+    let read = ResizeArray()
+
+    try
+        do! api.Countdown -1 |> RemoteStream.iter read.Add
+        printfn "failed on the server: ended"
+    with :? RemoteCallException ->
+        printfn $"failed on the server: raised RemoteCallException, after {counted (List.ofSeq read)}"
+
+    // stopping a stream ends its call, without reading the rest
+    let e = (api.Countdown 1000).GetAsyncEnumerator(System.Threading.CancellationToken.None)
+    let! _ = e.MoveNextAsync()
+    let first = e.Current
+    let! _ = e.MoveNextAsync()
+    let second = e.Current
+    do! e.DisposeAsync()
+    printfn $"stopped after two: {counted [ first; second ]}"
 }
 
 #if FABLE_COMPILER

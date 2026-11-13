@@ -57,6 +57,46 @@ let order = {
     Codes = [| 1; 2 |]
 }
 
+/// The bytes, in chunks of at most n.
+let chunksOf (n: int) (bytes: byte array) = bytes |> Array.chunkBySize n |> List.ofArray
+
+/// A body of the chunks, then its end.
+let bodyOf (chunks: byte array list) =
+    let mutable rest = chunks
+
+    { new IRemoteBody with
+        member _.Read() = task {
+            match rest with
+            | chunk :: more ->
+                rest <- more
+                return chunk
+            | [] -> return [||]
+          }
+
+        member _.Dispose() = ()
+    }
+
+/// All the frames of the chunks, then the None of their end.
+let readFrames (chunks: byte array list) = task {
+    let reader = Frames.Reader(bodyOf chunks)
+    let read = ResizeArray()
+    let mutable more = true
+
+    while more do
+        let! frame = reader.Next()
+        read.Add frame
+        more <- frame.IsSome
+
+    return List.ofSeq read
+}
+
+/// A transport that answers each stream with the chunks.
+let streaming (chunks: byte array list) =
+    { new IRemoteTransport with
+        member _.Post(_, _, _, _) = task { return [||] }
+        member _.PostStream(_, _, _, _) = task { return bodyOf chunks }
+    }
+
 let tests = [
     test "Orsak.Remoting's JSON of a record with a list, an option and an array" (fun () ->
         writesAndReads
@@ -223,5 +263,58 @@ let tests = [
             }
 
         equal "OperationCanceledException" raised
+    })
+
+    test "a stream's frames are read back, split anywhere into chunks" (fun () -> task {
+        let frames = [ Item [| 1uy; 2uy |]; Item [||]; Failed "gone"; End ]
+        let bytes = frames |> List.map Frames.write |> Array.concat
+        let! read = readFrames (chunksOf 3 bytes)
+        equal (List.map Some frames @ [ None ]) read
+    })
+
+    test "a stream cut short within a frame fails" (fun () -> task {
+        let bytes = Frames.write (Item [| 1uy; 2uy; 3uy |])
+
+        let! raised =
+            task {
+                try
+                    let! _ = readFrames (chunksOf 2 bytes[.. bytes.Length - 2])
+                    return false
+                with _ ->
+                    return true
+            }
+
+        isTrue "read a frame cut short" raised
+    })
+
+    test "a remote stream decodes its items as they come, and its end" (fun () -> task {
+        let codec = format.CodecFor typeof<Line>
+        let lines = [ { Product = "apple"; Quantity = 2 }; { Product = "pear"; Quantity = 1 } ]
+
+        let bytes =
+            (lines |> List.map (fun l -> Frames.write (Item(codec.Encode(box l))))) @ [ Frames.write End ]
+            |> Array.concat
+
+        let client = RemoteClient("http://localhost", "/api", format, streaming (chunksOf 5 bytes))
+        let! read = client.Member("IApi", "Lines", [||], typeof<Line>).Stream<Line>([||]) |> RemoteStream.toList
+        equal lines read
+    })
+
+    test "a remote stream that ends without its end frame raises RemoteCallException" (fun () -> task {
+        let codec = format.CodecFor typeof<int>
+        let bytes = Frames.write (Item(codec.Encode(box 1)))
+        let client = RemoteClient("http://localhost", "/api", format, streaming [ bytes ])
+
+        let! raised =
+            task {
+                try
+                    let! _ = client.Member("IApi", "Ints", [||], typeof<int>).Stream<int>([||]) |> RemoteStream.toList
+                    return "nothing"
+                with
+                | :? RemoteCallException -> return "RemoteCallException"
+                | e -> return $"another exception: {e.Message}"
+            }
+
+        equal "RemoteCallException" raised
     })
 ]

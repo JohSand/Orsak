@@ -25,12 +25,16 @@ unknown: Error UnknownProduct plum
 unreachable: raised RemoteCallException, status none
 anonymous: raised RemoteCallException, status 401
 cancelled: raised OperationCanceledException
-held on the server: yes, released: yes'
+held on the server: yes, released: yes
+streamed: Ok 3; Ok 2; Ok 1
+streamed an error: Error nothing to count
+failed on the server: raised RemoteCallException, after Ok -1
+stopped after two: Ok 1000; Ok 999'
 
 check() {
     local name=$1 actual=$2
-    # order ids grow, with each run against the same server
-    actual=$(printf '%s\n' "$actual" | sed -E 's/Ok [0-9]+/Ok N/')
+    # order ids grow, with each run against the same server; a stream's numbers don't
+    actual=$(printf '%s\n' "$actual" | sed -E '/^(placed|without a note):/ s/Ok [0-9]+/Ok N/')
     echo "== $name"
     printf '%s\n' "$actual"
     [ "$actual" = "$expected" ] || { echo "$name: not as expected" >&2; exit 1; }

@@ -94,7 +94,10 @@ split in two: the mapping of F# types to `WireValue`s, `WireMapping.fs` (formerl
 those to bytes, `IWireEncoding`, which `Conformance` checks, so MessagePack, say, is an encoding of a few dozen lines.
 Later, more types crossed (maps, sets, dates and times, `Some None`), and cancellation: a member taking a
 `CancellationToken` doesn't send it, the client's aborts the request (fetch's `AbortController` on Fable), and the
-server passes `RequestAborted` in its place. Still to do:
+server passes `RequestAborted` in its place. And streams: a member returning a `RemoteStream`, an `IAsyncEnumerable` on
+.NET and an interface of its own on Fable, which has none, is answered with a frame for each item, over the same POST,
+which the client reads as they come, rather than over WebSockets, so headers, authorization, cancellation and
+backpressure work as for any call. Still to do:
 
 * **Versioning:** client and server deployed apart; snapshot tests of a contract's JSON would show a change.
 * **Type overrides per format,** such as a `DateTime` written another way.

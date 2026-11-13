@@ -231,6 +231,7 @@ module MyriadTests =
     [<Theory>]
     [<InlineData(23)>]
     [<InlineData(24)>]
+    [<InlineData(25)>]
     let ``RemoteGen creates the expected output`` (i: int) = task {
         let assm = typeof<AssemblyHook>.GetTypeInfo().Assembly
 
@@ -252,7 +253,7 @@ module MyriadTests =
     }
 
     [<Theory>]
-    [<InlineData("abstract Place: int -> int", "must return a Task, a ValueTask or an Async")>]
+    [<InlineData("abstract Place: int -> int", "must return a Task, a ValueTask, an Async or a RemoteStream")>]
     [<InlineData("abstract Count: Task<int>", "must be a method")>]
     [<InlineData("abstract Wait: CancellationToken -> Async<int>", "cancelled by its own token")>]
     [<InlineData("abstract Wait: a: CancellationToken * b: CancellationToken -> Task<int>", "more than one CancellationToken")>]
