@@ -3848,10 +3848,19 @@ type Effect<'R, 'T, 'E> with
     }
 
     ///Implements Return on the effect
-    static member inline Return(a) = eff { return a }
+    static member inline Return(a: 'a) : Effect<'r, 'a, 'e> = eff { return a }
+
+    ///Implements Return on the effect, given an effect of the type to return, for the type alone
+    static member inline Return(_: Effect<'r, 'a, 'e>) : 'a -> Effect<'r, 'a, 'e> = fun a -> eff { return a }
 
     (* Monad *)
     ///Implements Bind on the effect, which together with the functor Return makes it a Monad
+    static member inline Bind(h: Effect<'env, 'arg, 'err>, f: 'arg -> Effect<'env, 'res, 'err>) : Effect<'env, 'res, 'err> = eff {
+        let! e = h
+        return! f e
+    }
+
+    ///Implements Bind on the effect, as an operator
     static member inline (>>=)(h: Effect<'r, 'a, 'e>, f: 'a -> Effect<'r, 'b, 'e>) = eff {
         let! e = h
         return! f e
