@@ -303,9 +303,16 @@ type Effect<'R, 'T, 'E> with
         return f e
     }
 
-    static member inline Return(a) = eff { return a }
+    static member inline Return(a: 'a) : Effect<'r, 'a, 'e> = eff { return a }
+
+    static member inline Return(_: Effect<'r, 'a, 'e>) : 'a -> Effect<'r, 'a, 'e> = fun a -> eff { return a }
 
     (* Monad *)
+    static member inline Bind(h: Effect<'env, 'arg, 'err>, f: 'arg -> Effect<'env, 'res, 'err>) : Effect<'env, 'res, 'err> = eff {
+        let! e = h
+        return! f e
+    }
+
     static member inline (>>=)(h: Effect<'r, 'a, 'e>, f: 'a -> Effect<'r, 'b, 'e>) = eff {
         let! e = h
         return! f e
