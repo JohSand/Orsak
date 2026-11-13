@@ -11,6 +11,7 @@
         <Compile Include="Runner.fs" />
         <Compile Include="EffTests.fs" />
         <Compile Include="EffectModuleTests.fs" />
+        <Compile Include="BaseEffectsTests.fs" />
         <Compile Include="RemotingTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
