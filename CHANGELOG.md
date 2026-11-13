@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+**Breaking:** the `Effect` type's static `Return` returns an effect of the type it's a member of, `Effect<'r, 'a, 'e>.Return: 'a -> Effect<'r, 'a, 'e>`, instead of being a generic method returning any effect, so code compiled against 0.8.0 that calls it must be recompiled. A second `Return` takes an effect of the type and returns a function making one, and a static `Bind` binds an effect, as `>>=` does
+
 ### Added
 Fable support for JavaScript: `Effect`, `eff` and the `Effect` module, from the `Orsak` package, which carries the sources Fable compiles. Effects run on `Task`, which Fable compiles to promises, and `fanOut`, effect sequences, the base effects, resilience and scopes are .NET only, see the Fable guide (experimental)
 Orsak.Remoting and Orsak.Remoting.AspNetCore: a client, compiled with Fable or on .NET, calls the members of an interface on an ASP.NET Core server, which serves them with `MapRemote`. The wire format is pluggable, `IWireFormat`, and JSON is the first, the same on .NET and Fable; the contract's errors cross as values, and a failed call raises `RemoteCallException`, see the Remoting guide (experimental)

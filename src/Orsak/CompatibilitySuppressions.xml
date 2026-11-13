@@ -17,6 +17,13 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:Orsak.Effect`3.Return``3(``0)</Target>
+    <Left>lib/net10.0/Orsak.dll</Left>
+    <Right>lib/net10.0/Orsak.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:Orsak.Effect`3.op_LessMultiplyGreater``2(Orsak.Effect{`0,Microsoft.FSharp.Core.FSharpFunc{``0,`1},``1},Orsak.Effect{`0,``0,``1})</Target>
     <Left>lib/net8.0/Orsak.dll</Left>
     <Right>lib/net8.0/Orsak.dll</Right>
@@ -25,6 +32,13 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:Orsak.Effect`3.op_LessMultiplyGreater$W``2(Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``1,``1}},Orsak.Effect{`0,Microsoft.FSharp.Core.FSharpFunc{``0,`1},``1},Orsak.Effect{`0,``0,``1})</Target>
+    <Left>lib/net8.0/Orsak.dll</Left>
+    <Right>lib/net8.0/Orsak.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:Orsak.Effect`3.Return``3(``0)</Target>
     <Left>lib/net8.0/Orsak.dll</Left>
     <Right>lib/net8.0/Orsak.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
