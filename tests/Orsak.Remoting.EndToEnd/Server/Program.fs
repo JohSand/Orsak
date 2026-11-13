@@ -67,6 +67,20 @@ type Holds() =
     member val Held = 0 with get, set
     member val Released = 0 with get, set
 
+/// The numbers from a number down to 1, waiting a little before each, as it would for work; an error from 0, and a
+/// failure, an exception, after one item from below 0.
+let countdown from : EffSeq<ServerEnv, int, string> = effSeq {
+    if from = 0 then
+        do! Error "nothing to count"
+    elif from < 0 then
+        yield from
+        failwith "counting below 0"
+    else
+        for i in from .. -1 .. 1 do
+            do! Task.Delay 10
+            yield i
+}
+
 /// IOrderApi on the server: each call runs an effect in the server's environment.
 type ServerOrderApi(env: ServerEnv, holds: Holds) =
     interface IOrderApi with
@@ -85,6 +99,8 @@ type ServerOrderApi(env: ServerEnv, holds: Holds) =
         }
 
         member _.Holds() = Task.FromResult(lock holds (fun () -> holds.Held, holds.Released))
+
+        member _.Countdown from = (countdown from).Invoke env
 
 [<EntryPoint>]
 let main args =

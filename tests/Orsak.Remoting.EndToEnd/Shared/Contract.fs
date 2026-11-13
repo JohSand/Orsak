@@ -35,6 +35,9 @@ type IOrderApi =
     // waits until the call is cancelled, which the client does, and Holds counts the calls held and released
     abstract Hold: cancellationToken: CancellationToken -> Task<unit>
     abstract Holds: unit -> Task<int * int>
+    // counts down from a number to 1, as it streams, an effect sequence on the server: from 0 it streams the error,
+    // and from below 0 the server fails after one item
+    abstract Countdown: from: int -> RemoteStream<Result<int, string>>
 
 type IOrderApiProvider =
     abstract OrderApi: IOrderApi
@@ -64,9 +67,13 @@ module OrderApiProxy =
         let hold = client.Member("IOrderApi", "Hold", [||], typeof<unit>)
         let holds = client.Member("IOrderApi", "Holds", [||], typeof<int * int>)
 
+        let countdown =
+            client.Member("IOrderApi", "Countdown", [| typeof<int> |], typeof<Result<int, string>>)
+
         { new IOrderApi with
             member _.Place a = place.Task [| box a |]
             member _.History a = history.Task [| box a |]
             member _.Hold a = hold.Task([||], a)
             member _.Holds() = holds.Task [||]
+            member _.Countdown a = countdown.Stream [| box a |]
         }

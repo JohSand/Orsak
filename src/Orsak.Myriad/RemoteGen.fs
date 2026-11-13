@@ -14,6 +14,8 @@ type RemoteCall =
     | UnitTask
     | AsyncOf
     | ValueTaskOf
+    /// A stream, read as it comes: a RemoteStream or, on .NET, an IAsyncEnumerable.
+    | StreamOf
 
 /// [omit]
 /// How a member takes its arguments, which its implementation must follow.
@@ -72,7 +74,7 @@ module RemoteAst =
         | SynType.App(SynType.LongIdent(SynLongIdent(ids, _, _)), _, _, _, _, _, _) -> Some (List.last ids).idText
         | _ -> None
 
-    /// The call and result type of what a member returns: a Task, ValueTask or Async of a value, or a Task of none.
+    /// The call and result type of what a member returns: a Task, ValueTask or Async of a value, a Task of none, or a stream.
     let private result (interfaceName: string) (memberName: string) (returnType: SynType) =
         match unnamed returnType with
         | SynType.App(typeName = name; typeArgs = [ resultType ]) ->
@@ -80,9 +82,11 @@ module RemoteAst =
             | Some "Task" -> TaskOf, resultType
             | Some "ValueTask" -> ValueTaskOf, resultType
             | Some "Async" -> AsyncOf, resultType
-            | _ -> failwith $"GenRemote: '%s{interfaceName}.%s{memberName}' must return a Task, a ValueTask or an Async."
+            | Some "RemoteStream"
+            | Some "IAsyncEnumerable" -> StreamOf, resultType
+            | _ -> failwith $"GenRemote: '%s{interfaceName}.%s{memberName}' must return a Task, a ValueTask, an Async or a RemoteStream."
         | t when lastName t = Some "Task" -> UnitTask, longType [ "unit" ]
-        | _ -> failwith $"GenRemote: '%s{interfaceName}.%s{memberName}' must return a Task, a ValueTask or an Async."
+        | _ -> failwith $"GenRemote: '%s{interfaceName}.%s{memberName}' must return a Task, a ValueTask, an Async or a RemoteStream."
 
     /// The argument types of a curried signature, `a -> b -> Task<c>`, and what it returns.
     let rec private curried (t: SynType) =
@@ -230,6 +234,7 @@ module RemoteSyntax =
             | UnitTask -> "UnitTask"
             | AsyncOf -> "Async"
             | ValueTaskOf -> "ValueTask"
+            | StreamOf -> "Stream"
 
         let callee = longExpr [ Writer.toCamelCase m.name; callName ]
 
