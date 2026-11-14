@@ -9,6 +9,7 @@
 	<ItemGroup>
 		<Compile Include="RoutingBenchmarks.fs" />
 		<Compile Include="BindBenchmarks.fs" />
+		<Compile Include="RemotingBenchmarks.fs" />
 		<Compile Include="Program.fs" />
 	</ItemGroup>
 
@@ -19,6 +20,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Orsak\Orsak.fsproj" />
 		<ProjectReference Include="..\..\src\Orsak.AspNetCore\Orsak.AspNetCore.fsproj" />
+		<ProjectReference Include="..\..\src\Orsak.Remoting.AspNetCore\Orsak.Remoting.AspNetCore.fsproj" />
 	</ItemGroup>
 
 </Project>
