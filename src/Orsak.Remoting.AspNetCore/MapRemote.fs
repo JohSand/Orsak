@@ -41,48 +41,69 @@ type RemoteEndpoints =
         else
             returnType
 
+    static member internal AwaitTask<'T>(returned: obj, _: CancellationToken) : Task<obj> =
+        let t = returned :?> Task<'T>
+
+        if t.IsCompletedSuccessfully then
+            Task.FromResult(box t.Result)
+        else
+            task {
+                let! value = t
+                return box value
+            }
+
+    static member internal AwaitValueTask<'T>(returned: obj, _: CancellationToken) : Task<obj> =
+        let t = returned :?> ValueTask<'T>
+
+        if t.IsCompletedSuccessfully then
+            Task.FromResult(box t.Result)
+        else
+            task {
+                let! value = t
+                return box value
+            }
+
+    static member internal AwaitAsync<'T>(returned: obj, cancellationToken: CancellationToken) : Task<obj> = task {
+        let! value = Async.StartAsTask(returned :?> Async<'T>, cancellationToken = cancellationToken)
+        return box value
+    }
+
+    static member private Unit: Task<obj> = Task.FromResult(box ())
+
     /// <summary>
-    /// The value a member returned, awaited: a Task, a ValueTask or an Async of a value, a Task of none, or a value. An
-    /// Async is started with the token.
+    /// How the value a member returns is awaited, chosen once, by its return type: a Task, a ValueTask or an Async of a
+    /// value, a Task of none, or a value. An Async is started with the token.
     /// </summary>
-    static member private Await(returnType: Type, returned: obj, cancellationToken: CancellationToken) : Task<obj> = task {
+    static member private Awaiter(returnType: Type) : Func<obj, CancellationToken, Task<obj>> =
         let generic = if returnType.IsGenericType then returnType.GetGenericTypeDefinition() else null
 
-        if generic = typedefof<Async<obj>> then
-            let started =
-                typeof<Async>
-                    .GetMethod("StartAsTask")
-                    .MakeGenericMethod(returnType.GetGenericArguments())
-                    // its two optional parameters: no task creation options, and the token
-                    .Invoke((null: obj), [| returned; (null: obj); box (Some cancellationToken) |])
+        let ofType name =
+            typeof<RemoteEndpoints>
+                .GetMethod(name, BindingFlags.NonPublic ||| BindingFlags.Static)
+                .MakeGenericMethod(returnType.GetGenericArguments())
+                .CreateDelegate<Func<obj, CancellationToken, Task<obj>>>()
 
-            return!
-                RemoteEndpoints.Await(
-                    typedefof<Task<obj>>.MakeGenericType(returnType.GetGenericArguments()),
-                    started,
-                    cancellationToken
-                )
+        if generic = typedefof<Task<obj>> then
+            ofType "AwaitTask"
         elif generic = typedefof<ValueTask<obj>> then
-            let task = returnType.GetMethod("AsTask").Invoke(returned, [||])
+            ofType "AwaitValueTask"
+        elif generic = typedefof<Async<obj>> then
+            ofType "AwaitAsync"
+        elif typeof<Task>.IsAssignableFrom returnType then
+            Func<_, _, _>(fun returned _ ->
+                let t = returned :?> Task
 
-            return!
-                RemoteEndpoints.Await(
-                    typedefof<Task<obj>>.MakeGenericType(returnType.GetGenericArguments()),
-                    task,
-                    cancellationToken
-                )
-        else
-            match returned with
-            | :? Task as t ->
-                do! t
-
-                if generic = typedefof<Task<obj>> then
-                    return returnType.GetProperty("Result").GetValue(returned)
+                if t.IsCompletedSuccessfully then
+                    RemoteEndpoints.Unit
                 else
-                    return box ()
-            | _ when returnType = typeof<Void> -> return box ()
-            | _ -> return returned
-    }
+                    task {
+                        do! t
+                        return box ()
+                    })
+        elif returnType = typeof<Void> then
+            Func<_, _, _>(fun _ _ -> RemoteEndpoints.Unit)
+        else
+            Func<_, _, _>(fun returned _ -> Task.FromResult returned)
 
     /// <summary>
     /// Writes the items of a stream as frames, as they come, flushing each, and then its end; or, if it fails once
@@ -159,16 +180,20 @@ type RemoteEndpoints =
             for f in formats -> f, f.ArgumentsCodecFor argTypes, f.CodecFor resultType
         ]
 
-        // a stream's items are written as they come, by WriteStream of their type, made once
+        // a stream's items are written as they come, by WriteStream of their type; anything else is awaited, by an
+        // awaiter of its return type: either made once
         let writeStream =
             if RemoteEndpoints.IsStream m.ReturnType then
                 Some(
                     typeof<RemoteEndpoints>
                         .GetMethod("WriteStream", BindingFlags.NonPublic ||| BindingFlags.Static)
                         .MakeGenericMethod(resultType)
+                        .CreateDelegate<Func<obj, IWireCodec, HttpContext, string, unit -> ILogger, Task>>()
                 )
             else
                 None
+
+        let await = RemoteEndpoints.Awaiter m.ReturnType
 
         RequestDelegate(fun ctx -> task {
             let contentType = string ctx.Request.ContentType
@@ -210,7 +235,7 @@ type RemoteEndpoints =
                                 match writeStream with
                                 | Some _ -> return Ok(Choice2Of2 returned)
                                 | None ->
-                                    let! value = RemoteEndpoints.Await(m.ReturnType, returned, aborted)
+                                    let! value = await.Invoke(returned, aborted)
                                     return Ok(Choice1Of2(result.Encode value))
                             with e ->
                                 let e = match e with :? TargetInvocationException as t when not (isNull t.InnerException) -> t.InnerException | e -> e
@@ -222,9 +247,7 @@ type RemoteEndpoints =
                         ctx.Response.ContentType <- format.ContentType
                         do! ctx.Response.Body.WriteAsync(body, aborted)
                     | Ok(Choice2Of2 items) ->
-                        let write = writeStream.Value
-                        let writeArgs: obj array = [| items; box result; box ctx; box format.ContentType; box logger |]
-                        do! write.Invoke((null: obj), writeArgs) :?> Task
+                        do! writeStream.Value.Invoke(items, result, ctx, format.ContentType, logger)
                     | Error(:? OperationCanceledException) when aborted.IsCancellationRequested ->
                         // the client cancelled the call, or went away: nobody reads an answer, and nothing failed
                         logger().LogDebug("The remote call {Path} was cancelled by its client", ctx.Request.Path)

@@ -4,7 +4,7 @@ Performance measurements for Orsak, separate from `experiments/`, which is for t
 
 | Project | What it measures |
 |---|---|
-| `Orsak.Benchmarks` | BenchmarkDotNet micro benchmarks: `Effect.par`/`whenAll`, `effSeq`, Orsak.AspNetCore routing (`RoutingBenchmarks.fs`), and binding an effect against an inlined delegate (`BindBenchmarks.fs`) |
+| `Orsak.Benchmarks` | BenchmarkDotNet micro benchmarks: `Effect.par`/`whenAll`, `effSeq`, Orsak.AspNetCore routing (`RoutingBenchmarks.fs`), binding an effect against an inlined delegate (`BindBenchmarks.fs`), and a call to an Orsak.Remoting.AspNetCore endpoint for each kind of member (`RemotingBenchmarks.fs`) |
 | `LoadTest.Baseline` | An ASP.NET Core app using minimal API endpoints |
 | `LoadTest.Orsak` | The same endpoints through Orsak.AspNetCore routing (`RouteGet`, `RouteGet2`) |
 | `LoadTest.Driver` | Drives HTTP load against both apps and prints them side by side |
