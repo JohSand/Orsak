@@ -1145,6 +1145,55 @@ module EffListTests =
         }
         |> run
 
+    [<Fact>]
+    let ``effList for runs over many items without overflowing the stack`` () =
+        effList {
+            for i in 1..100_000 do
+                let! j = eff { return i }
+                j
+        }
+        |> fun es -> eff {
+            let! e = es
+            e =! [ 1..100_000 ]
+            return ()
+        }
+        |> run
+
+    [<Fact>]
+    let ``effList for keeps the order of the items around it`` () =
+        effList {
+            0
+
+            for i in 1..3 do
+                i
+                i * 10
+
+            yield! [ 4; 5 ]
+        }
+        |> fun es -> eff {
+            let! e = es
+            e =! [ 0; 1; 10; 2; 20; 3; 30; 4; 5 ]
+            return ()
+        }
+        |> run
+
+    [<Fact>]
+    let ``effList for stops at the first error`` () = task {
+        let mutable ran = 0
+
+        do!
+            effList {
+                for i in 1..5 do
+                    ran <- ran + 1
+                    let! () = if i = 3 then Error "three" else Ok()
+                    i
+            }
+            |> expectError "three"
+            |> run
+
+        ran =! 3
+    }
+
 module Laws =
     let (===) (e1: Effect<_, _, _>) (e2: Effect<_, _, _>) = task {
         let! r1 = run e1

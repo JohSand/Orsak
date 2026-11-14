@@ -23,8 +23,17 @@ type EffectListBuilder() =
     member _.Combine(eff1: EffectList<'r, 'a, 'e>, eff2: EffectList<'r, 'a, 'e>) : EffectList<'r, 'a, 'e> =
         eff1 |> Effect.bind (fun l1 -> eff2 |> Effect.map (List.append l1))
 
-    member this.For(s: seq<'a>, f: 'a -> EffectList<'r, 'b, 'e>) : EffectList<'r, 'b, 'e> =
-        s |> Seq.map f |> Seq.fold (fun a b -> this.Combine(a, b)) (Effect.ret [])
+    // one effect, running the body for each item in a loop, so neither the stack nor the time grows with the items'
+    // number, as folding Combine, which nests a bind and copies the list so far for each item, did
+    member _.For(s: seq<'a>, f: 'a -> EffectList<'r, 'b, 'e>) : EffectList<'r, 'b, 'e> = eff {
+        let items = ResizeArray<'b>()
+
+        for a in s do
+            let! some = f a
+            items.AddRange some
+
+        return List.ofSeq items
+    }
 
 /// <summary>
 /// The <c>effList</c> computation expression.

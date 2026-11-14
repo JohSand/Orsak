@@ -17,6 +17,7 @@ Orsak.Remoting: a member taking a `CancellationToken` can be cancelled. The toke
 ### Fixed
 `return!` of a `Task<'T>` in an `eff` returns the task's value, instead of `unit`, and can be used in a `try` block too
 The `Effect` type's `<*>` applies an effect of a function to an effect of its argument, for FSharpPlus too, as up to 0.5.0. From 0.6.0 it expected the function to return the type it was applied to, so it couldn't be used
+A `for` in an `effList` runs its body in a loop when the effect runs, so it can go over any number of items. It nested an effect for each item, which overflowed the stack at a few hundred, copied the list so far for each, and ran each body as the effect was built, so an error didn't stop the loop
 
 ## [0.8.0] - 2026-11-08
 
