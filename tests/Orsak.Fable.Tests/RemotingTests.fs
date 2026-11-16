@@ -103,6 +103,42 @@ let tests = [
             """{"Customer":"ada","Lines":[{"Product":"apple","Quantity":2}],"Note":"ring twice","Codes":[1,2]}"""
             order)
 
+    test "Orsak.Remoting's JSON escapes a string from its first character to escape, and reads it back" (fun () -> task {
+        for s, text in [
+            "plain", "\"plain\""
+            "", "\"\""
+            "say \"hi\"", "\"say \\\"hi\\\"\""
+            "a\\b", "\"a\\\\b\""
+            "tab\tthen\nline", "\"tab\\tthen\\nline\""
+            "bell\u0007", "\"bell\\u0007\""
+            "åäö €", "\"åäö €\""
+        ] do
+            equal text (Json.write (WireValue.String s))
+            equal (WireValue.String s) (Json.parse text)
+
+        equal (WireValue.String "a/bé") (Json.parse "\"a\\/b\\u00e9\"")
+    })
+
+    test "Orsak.Remoting's JSON reads a whole number that fits an int as an Int, and any other as a Float" (fun () -> task {
+        for text, value in [
+            "0", WireValue.Int 0
+            "-0", WireValue.Int 0
+            "0123", WireValue.Int 123
+            "2147483647", WireValue.Int 2147483647
+            "-2147483648", WireValue.Int -2147483648
+            "2147483648", WireValue.Float 2147483648.0
+            "-2147483649", WireValue.Float -2147483649.0
+            "12345678901", WireValue.Float 12345678901.0
+            "1.5", WireValue.Float 1.5
+            "1e3", WireValue.Float 1000.0
+            "-2.5E-1", WireValue.Float -0.25
+        ] do
+            equal value (Json.parse text)
+
+        equal "-2147483648" (Json.write (WireValue.Int -2147483648))
+        equal (WireValue.Array [ WireValue.Int 1; WireValue.String "a"; WireValue.Map [] ]) (Json.parse " [ 1 , \"a\" , { } ] ")
+    })
+
     test "Orsak.Remoting's JSON of None, and of empty lists and arrays" (fun () ->
         writesAndReads
             """{"Customer":"bo","Lines":[],"Note":null,"Codes":[]}"""
