@@ -10,6 +10,7 @@
 		<Compile Include="RoutingBenchmarks.fs" />
 		<Compile Include="BindBenchmarks.fs" />
 		<Compile Include="RemotingBenchmarks.fs" />
+		<Compile Include="StjEncoding.fs" />
 		<Compile Include="WireBenchmarks.fs" />
 		<Compile Include="Program.fs" />
 	</ItemGroup>

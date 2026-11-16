@@ -71,3 +71,40 @@ type WireFormats() =
     /// JSON bytes to F# value.
     [<Benchmark>]
     member this.Decode() = this.Payload.Codec.Decode this.Payload.Bytes
+
+/// The JSON step alone, WireValues to bytes and back, by Orsak.Remoting's JsonEncoding and by System.Text.Json.
+[<MemoryDiagnoser>]
+type WireJson() =
+    let ours = JsonEncoding.Instance :> IWireEncoding
+    let stj = StjEncoding.StjEncoding() :> IWireEncoding
+
+    static member Payloads() = WireFormats.Payloads()
+
+    [<ParamsSource("Payloads")>]
+    member val Payload = Unchecked.defaultof<Payload> with get, set
+
+    /// What's measured must be right: the STJ encoding passes the conformance checks and agrees with ours, and reads
+    /// back each payload as ours wrote it, and ours as it wrote it.
+    [<GlobalSetup>]
+    member this.Setup() =
+        match Conformance.check stj @ Conformance.agree ours stj with
+        | [] -> ()
+        | failures -> failwith (String.Join("\n", failures))
+
+        let p = this.Payload
+
+        if p.Mapping.Decode(stj.Read p.Bytes) <> p.Value || p.Mapping.Decode(ours.Read(stj.Write p.Wire)) <> p.Value then
+            failwith $"The encodings don't agree on {p}"
+
+    [<Benchmark>]
+    member this.OursWrite() = ours.Write this.Payload.Wire
+
+    [<Benchmark>]
+    member this.StjWrite() = stj.Write this.Payload.Wire
+
+    /// Both read the text JsonEncoding wrote, as a server would read a Fable client's.
+    [<Benchmark>]
+    member this.OursRead() = ours.Read this.Payload.Bytes
+
+    [<Benchmark>]
+    member this.StjRead() = stj.Read this.Payload.Bytes
