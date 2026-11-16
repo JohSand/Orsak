@@ -11,9 +11,10 @@ open System.Text
 /// </summary>
 module Json =
 
-    let private writeString (sb: StringBuilder) (s: string) =
-        sb.Append '"' |> ignore
+    /// Whether a character is escaped in a JSON string.
+    let private mustEscape (c: char) = c = '"' || c = '\\' || c < ' '
 
+    let private writeEscaped (sb: StringBuilder) (s: string) =
         for c in s do
             match c with
             | '"' -> sb.Append "\\\"" |> ignore
@@ -26,45 +27,72 @@ module Json =
             | c when c < ' ' -> sb.Append("\\u").Append((int c).ToString("x4")) |> ignore
             | c -> sb.Append c |> ignore
 
+    let private writeString (sb: StringBuilder) (s: string) =
+        sb.Append '"' |> ignore
+        let mutable first = 0
+
+        while first < s.Length && not (mustEscape s[first]) do
+            first <- first + 1
+
+        // most strings have nothing to escape, and are written whole
+        if first = s.Length then
+            sb.Append s |> ignore
+        else
+            sb.Append(s.Substring(0, first)) |> ignore
+            writeEscaped sb (s.Substring first)
+
         sb.Append '"' |> ignore
 
-    let rec private writeTo (sb: StringBuilder) json =
+    let rec private writeTo (sb: StringBuilder) (digits: char array) json =
         match json with
         | WireValue.Nil -> sb.Append "null" |> ignore
         | WireValue.Bool b -> sb.Append(if b then "true" else "false") |> ignore
-        | WireValue.Int i -> sb.Append(string i) |> ignore
+#if FABLE_COMPILER
+        | WireValue.Int i ->
+            ignore digits
+            sb.Append(string i) |> ignore
+#else
+        // into the buffer of the digits, rather than a string first, in the invariant culture, as StringBuilder's
+        // Append of an int is in the current one, whose minus sign may not be '-'
+        | WireValue.Int i ->
+            let mutable written = 0
+            i.TryFormat(Span digits, &written, ReadOnlySpan.Empty, CultureInfo.InvariantCulture) |> ignore
+            sb.Append(digits, 0, written) |> ignore
+#endif
         | WireValue.Float f -> sb.Append(f.ToString("R", CultureInfo.InvariantCulture)) |> ignore
         | WireValue.String s -> writeString sb s
         | WireValue.Bytes b -> writeString sb (Convert.ToBase64String b)
         | WireValue.Array items ->
             sb.Append '[' |> ignore
+            let mutable first = true
 
-            items
-            |> List.iteri (fun i item ->
-                if i > 0 then
+            for item in items do
+                if not first then
                     sb.Append ',' |> ignore
 
-                writeTo sb item)
+                first <- false
+                writeTo sb digits item
 
             sb.Append ']' |> ignore
         | WireValue.Map fields ->
             sb.Append '{' |> ignore
+            let mutable first = true
 
-            fields
-            |> List.iteri (fun i (name, value) ->
-                if i > 0 then
+            for name, value in fields do
+                if not first then
                     sb.Append ',' |> ignore
 
+                first <- false
                 writeString sb name
                 sb.Append ':' |> ignore
-                writeTo sb value)
+                writeTo sb digits value
 
             sb.Append '}' |> ignore
 
     /// The text of <paramref name="json"/>, without whitespace.
     let write json =
         let sb = StringBuilder()
-        writeTo sb json
+        writeTo sb (Array.zeroCreate 11) json
         sb.ToString()
 
     let private hexValue (c: char) =
@@ -73,8 +101,10 @@ module Json =
         elif c >= 'A' && c <= 'F' then int c - int 'A' + 10
         else failwith $"Invalid hex digit '{c}' in JSON"
 
-    /// Parses JSON text.
-    let parse (text: string) : WireValue =
+    let private isDigit (c: char) = c >= '0' && c <= '9'
+
+    /// Reads one JSON text, from its start, keeping its place as a field rather than in closures.
+    type private Parser(text: string) =
         let mutable i = 0
 
         let fail expected =
@@ -92,10 +122,8 @@ module Json =
             else
                 fail $"'{c}'"
 
-        let parseString () =
-            expect '"'
-            let sb = StringBuilder()
-
+        /// The rest of a string with escapes, from the first.
+        let parseEscaped (sb: StringBuilder) =
             while i < text.Length && text[i] <> '"' do
                 if text[i] = '\\' then
                     i <- i + 1
@@ -119,8 +147,23 @@ module Json =
 
                 i <- i + 1
 
+        let parseString () =
             expect '"'
-            sb.ToString()
+            let start = i
+
+            while i < text.Length && text[i] <> '"' && text[i] <> '\\' do
+                i <- i + 1
+
+            // most strings have no escapes, and are read whole
+            if i < text.Length && text[i] = '"' then
+                i <- i + 1
+                text.Substring(start, i - 1 - start)
+            else
+                let sb = StringBuilder()
+                sb.Append(text.Substring(start, i - start)) |> ignore
+                parseEscaped sb
+                expect '"'
+                sb.ToString()
 
         let parseLiteral (literal: string) value =
             if i + literal.Length <= text.Length && text.Substring(i, literal.Length) = literal then
@@ -128,6 +171,38 @@ module Json =
                 value
             else
                 fail literal
+
+        /// The number from start to i: an Int if it has no fraction or exponent and fits an int, else a Float.
+        let number start =
+            let negative = text[start] = '-'
+            let digits = if negative then start + 1 else start
+            let mutable plain = i - digits >= 1 && i - digits <= 10
+            let mutable k = digits
+
+            while plain && k < i do
+                plain <- isDigit text[k]
+                k <- k + 1
+
+            let mutable n = 0.0
+
+            if plain then
+                // ten digits at most, which a double holds exactly
+                for k in digits .. i - 1 do
+                    n <- n * 10.0 + float (int text[k] - int '0')
+
+            let n = if negative then -n else n
+
+            if plain && n >= -2147483648.0 && n <= 2147483647.0 then
+                WireValue.Int(int n)
+            else
+                let number = text.Substring(start, i - start)
+                let value = Double.Parse(number, CultureInfo.InvariantCulture)
+
+                // a double holds every int exactly
+                if number.IndexOfAny [| '.'; 'e'; 'E' |] < 0 && value >= -2147483648.0 && value <= 2147483647.0 then
+                    WireValue.Int(int value)
+                else
+                    WireValue.Float value
 
         let rec parseValue () =
             skipWhitespace ()
@@ -183,28 +258,32 @@ module Json =
             | _ ->
                 let start = i
 
-                while i < text.Length && (Char.IsDigit text[i] || "+-.eE".IndexOf text[i] >= 0) do
+                while i < text.Length
+                      && (Char.IsDigit text[i]
+                          || text[i] = '-'
+                          || text[i] = '+'
+                          || text[i] = '.'
+                          || text[i] = 'e'
+                          || text[i] = 'E') do
                     i <- i + 1
 
                 if i = start then
                     fail "a value"
 
-                let number = text.Substring(start, i - start)
-                let value = Double.Parse(number, CultureInfo.InvariantCulture)
+                number start
 
-                // a double holds every int exactly
-                if number.IndexOfAny [| '.'; 'e'; 'E' |] < 0 && value >= -2147483648.0 && value <= 2147483647.0 then
-                    WireValue.Int(int value)
-                else
-                    WireValue.Float value
+        member _.Parse() =
+            let value = parseValue ()
+            skipWhitespace ()
 
-        let value = parseValue ()
-        skipWhitespace ()
+            if i <> text.Length then
+                fail "the end of the text"
 
-        if i <> text.Length then
-            fail "the end of the text"
+            value
 
-        value
+    /// Parses JSON text.
+    let parse (text: string) : WireValue = Parser(text).Parse()
+
 
 /// <summary>
 /// Orsak.Remoting's JSON, written and parsed in plain F#, so it is the same text on .NET and Fable. Its content type,
