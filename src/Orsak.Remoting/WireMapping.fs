@@ -22,6 +22,32 @@ type WireMapping = {
     Decode: WireValue -> obj
 }
 
+#if !FABLE_COMPILER
+/// Collections of an element type known only at run time, made by these methods of the type, as delegates made once
+/// per type, rather than by a reflection call per item.
+type internal TypedCollections =
+    static member List<'T>(values: obj array) : obj = box (List.ofArray (Array.map unbox<'T> values))
+    static member Array<'T>(values: obj array) : obj = box (Array.map unbox<'T> values)
+    static member Set<'T when 'T: comparison>(values: obj array) : obj = box (Set.ofArray (Array.map unbox<'T> values))
+
+    static member HashSet<'T>(values: obj array) : obj =
+        box (Collections.Generic.HashSet<'T>(Array.map unbox<'T> values))
+
+    static member Map<'K, 'V when 'K: comparison>(pairs: (obj * obj) list) : obj =
+        box (Map.ofList [ for k, v in pairs -> unbox<'K> k, unbox<'V> v ])
+
+    static member Pairs<'K, 'V>(v: obj) : (obj * obj) list =
+        let pairs = v :?> Collections.Generic.IEnumerable<Collections.Generic.KeyValuePair<'K, 'V>>
+        [ for p in pairs -> box p.Key, box p.Value ]
+
+    /// The delegate of the method of this type with the name, of the type arguments.
+    static member Of<'F when 'F :> Delegate>(name: string, [<ParamArray>] types: Type array) : 'F =
+        typeof<TypedCollections>
+            .GetMethod(name, Reflection.BindingFlags.Static ||| Reflection.BindingFlags.Public ||| Reflection.BindingFlags.NonPublic)
+            .MakeGenericMethod(types)
+            .CreateDelegate<'F>()
+#endif
+
 /// <summary>
 /// Compiles <see cref="T:Orsak.Remoting.WireMapping"/>s for F# types, public or not, by reflection on their types, which
 /// .NET and Fable both have for F# types: the same for every encoding, so a contract's types mean the same in each. A
@@ -209,6 +235,66 @@ module WireMapping =
 #endif
             | _ -> None)
 
+    // Reading and making records, unions and tuples: on .NET, readers and constructors made once per type, as
+    // FSharpValue's functions look the type's members up on every call; on Fable, those functions, which don't.
+
+    let private recordReader (t: Type) : obj -> obj array =
+#if FABLE_COMPILER
+        // a value knows its type
+        ignore t
+        fun v -> FSharpValue.GetRecordFields(v, true)
+#else
+        FSharpValue.PreComputeRecordReader(t, true)
+#endif
+
+    let private recordConstructor (t: Type) : obj array -> obj =
+#if FABLE_COMPILER
+        fun values -> FSharpValue.MakeRecord(t, values, true)
+#else
+        FSharpValue.PreComputeRecordConstructor(t, true)
+#endif
+
+    let private tupleReader (t: Type) : obj -> obj array =
+#if FABLE_COMPILER
+        ignore t
+        FSharpValue.GetTupleFields
+#else
+        FSharpValue.PreComputeTupleReader t
+#endif
+
+    let private tupleConstructor (t: Type) : obj array -> obj =
+#if FABLE_COMPILER
+        fun values -> FSharpValue.MakeTuple(values, t)
+#else
+        FSharpValue.PreComputeTupleConstructor t
+#endif
+
+    /// A union's tag, of the case of a value.
+    let private unionTagReader (t: Type) : obj -> int =
+#if FABLE_COMPILER
+        fun v -> (fst (FSharpValue.GetUnionFields(v, t, true))).Tag
+#else
+        FSharpValue.PreComputeUnionTagReader(t, true)
+#endif
+
+    let private unionReader (t: Type) (case: UnionCaseInfo) : obj -> obj array =
+#if FABLE_COMPILER
+        // the value knows its case
+        ignore case
+        fun v -> snd (FSharpValue.GetUnionFields(v, t, true))
+#else
+        // the case knows its type
+        ignore t
+        FSharpValue.PreComputeUnionReader(case, true)
+#endif
+
+    let private unionConstructor (case: UnionCaseInfo) : obj array -> obj =
+#if FABLE_COMPILER
+        fun values -> FSharpValue.MakeUnion(case, values, true)
+#else
+        FSharpValue.PreComputeUnionConstructor(case, true)
+#endif
+
     /// The mapping of a field or an element, compiled when first used, so a type that contains itself, such as a tree,
     /// is compiled once rather than without end.
     let rec private child (t: Type) =
@@ -312,6 +398,9 @@ module WireMapping =
         elif t.IsArray then
             let elementType = t.GetElementType()
             let element = child elementType
+#if !FABLE_COMPILER
+            let make = TypedCollections.Of<Func<obj array, obj>>("Array", elementType)
+#endif
 
             mapping (fun v -> WireValue.Array [ for item in (v :?> IEnumerable) -> element.Encode item ]) (function
                 | WireValue.Array items ->
@@ -319,26 +408,21 @@ module WireMapping =
 #if FABLE_COMPILER
                     box values
 #else
-                    let array = Array.CreateInstance(elementType, values.Length)
-                    values |> Array.iteri (fun i v -> array.SetValue(v, i))
-                    box array
+                    make.Invoke values
 #endif
                 | value -> fail t value)
         elif isGeneric typedefof<list<obj>> t then
             let element = child (t.GetGenericArguments()[0])
 #if !FABLE_COMPILER
-            // a list of the element type, built from its Cons and Empty cases
-            let cases = FSharpType.GetUnionCases(t, true)
-            let empty = FSharpValue.MakeUnion(cases[0], [||])
+            let make = TypedCollections.Of<Func<obj array, obj>>("List", t.GetGenericArguments()[0])
 #endif
 
             mapping (fun v -> WireValue.Array [ for item in (v :?> IEnumerable) -> element.Encode item ]) (function
                 | WireValue.Array items ->
-                    let values = [ for item in items -> element.Decode item ]
 #if FABLE_COMPILER
-                    box values
+                    box [ for item in items -> element.Decode item ]
 #else
-                    List.foldBack (fun (v: obj) tail -> FSharpValue.MakeUnion(cases[1], [| v; tail |])) values empty
+                    make.Invoke [| for item in items -> element.Decode item |]
 #endif
                 | value -> fail t value)
         elif isGeneric typedefof<ResizeArray<obj>> t then
@@ -358,18 +442,15 @@ module WireMapping =
         elif isGeneric typedefof<Generic.HashSet<obj>> t then
             let element = child (t.GetGenericArguments()[0])
 #if !FABLE_COMPILER
-            let add = t.GetMethod("Add", [| t.GetGenericArguments()[0] |])
+            let make = TypedCollections.Of<Func<obj array, obj>>("HashSet", t.GetGenericArguments()[0])
 #endif
 
             mapping (fun v -> WireValue.Array [ for item in (v :?> IEnumerable) -> element.Encode item ]) (function
                 | WireValue.Array items ->
-                    let values = [ for item in items -> element.Decode item ]
 #if FABLE_COMPILER
-                    box (Generic.HashSet<obj> values)
+                    box (Generic.HashSet<obj> [ for item in items -> element.Decode item ])
 #else
-                    let set = Activator.CreateInstance t
-                    values |> List.iter (fun v -> add.Invoke(set, [| v |]) |> ignore)
-                    set
+                    make.Invoke [| for item in items -> element.Decode item |]
 #endif
                 | value -> fail t value)
         elif isGeneric typedefof<Map<string, obj>> t || isGeneric typedefof<Generic.Dictionary<string, obj>> t then
@@ -377,9 +458,8 @@ module WireMapping =
             let keyType, valueType = t.GetGenericArguments()[0], t.GetGenericArguments()[1]
             let key, value = child keyType, child valueType
 #if !FABLE_COMPILER
-            let pair = typedefof<Generic.KeyValuePair<obj, obj>>.MakeGenericType(keyType, valueType)
-            let pairKey, pairValue = pair.GetProperty "Key", pair.GetProperty "Value"
-            let tupleType = FSharpType.MakeTupleType [| keyType; valueType |]
+            let readPairs = TypedCollections.Of<Func<obj, (obj * obj) list>>("Pairs", keyType, valueType)
+            let makeMap = TypedCollections.Of<Func<(obj * obj) list, obj>>("Map", keyType, valueType)
 #endif
 
             let pairs (v: obj) : (obj * obj) list =
@@ -389,7 +469,7 @@ module WireMapping =
                 else
                     [ for KeyValue(k, v) in unbox<Generic.Dictionary<obj, obj>> v -> k, v ]
 #else
-                [ for p in (v :?> IEnumerable) -> pairKey.GetValue p, pairValue.GetValue p ]
+                readPairs.Invoke v
 #endif
 
             // a key read twice keeps its last value, as in a Map
@@ -403,9 +483,7 @@ module WireMapping =
                     box dictionary
 #else
                 if isMap then
-                    let tuples = Array.CreateInstance(tupleType, pairs.Length)
-                    pairs |> List.iteri (fun i (k, v) -> tuples.SetValue(FSharpValue.MakeTuple([| k; v |], tupleType), i))
-                    Activator.CreateInstance(t, [| box tuples |])
+                    makeMap.Invoke pairs
                 else
                     let dictionary = Activator.CreateInstance t :?> IDictionary
                     pairs |> List.iter (fun (k, v) -> dictionary[k] <- v)
@@ -432,6 +510,9 @@ module WireMapping =
                     | other -> fail t other)
         elif isGeneric typedefof<Set<int>> t then
             let element = child (t.GetGenericArguments()[0])
+#if !FABLE_COMPILER
+            let make = TypedCollections.Of<Func<obj array, obj>>("Set", t.GetGenericArguments()[0])
+#endif
 
             mapping (fun v -> WireValue.Array [ for item in (v :?> IEnumerable) -> element.Encode item ]) (function
                 | WireValue.Array items ->
@@ -439,9 +520,7 @@ module WireMapping =
 #if FABLE_COMPILER
                     box (Set.ofArray (Array.map unbox<IComparable> values))
 #else
-                    let typed = Array.CreateInstance(t.GetGenericArguments()[0], values.Length)
-                    values |> Array.iteri (fun i v -> typed.SetValue(v, i))
-                    Activator.CreateInstance(t, [| box typed |])
+                    make.Invoke values
 #endif
                 | value -> fail t value)
         elif isGeneric typedefof<option<obj>> t then
@@ -452,6 +531,8 @@ module WireMapping =
             let encodeSome v = if nested then WireValue.Array [ inner.Encode v ] else inner.Encode v
 #if !FABLE_COMPILER
             let some = (FSharpType.GetUnionCases(t, true))[1]
+            let readSome = unionReader t some
+            let makeSome = unionConstructor some
 #endif
 
             mapping
@@ -461,11 +542,7 @@ module WireMapping =
                     | Some value -> encodeSome value
                     | None -> WireValue.Nil
 #else
-                    if isNull v then
-                        WireValue.Nil
-                    else
-                        let _, fields = FSharpValue.GetUnionFields(v, t, true)
-                        encodeSome fields[0]
+                    if isNull v then WireValue.Nil else encodeSome (readSome v).[0]
 #endif
                 )
                 (fun value ->
@@ -482,65 +559,76 @@ module WireMapping =
 #if FABLE_COMPILER
                         box (Some v)
 #else
-                        FSharpValue.MakeUnion(some, [| v |])
+                        makeSome [| v |]
 #endif
                 )
         elif FSharpType.IsTuple t then
             let elements = FSharpType.GetTupleElements t |> Array.map child
+            let read, make = tupleReader t, tupleConstructor t
 
             mapping
-                (fun v ->
-                    WireValue.Array(List.ofArray (Array.map2 (fun (m: WireMapping) f -> m.Encode f) elements (FSharpValue.GetTupleFields v))))
+                (fun v -> WireValue.Array(List.ofArray (Array.map2 (fun (m: WireMapping) f -> m.Encode f) elements (read v))))
                 (function
                 | WireValue.Array items when items.Length = elements.Length ->
-                    FSharpValue.MakeTuple(Array.map2 (fun (m: WireMapping) item -> m.Decode item) elements (Array.ofList items), t)
+                    make (Array.map2 (fun (m: WireMapping) item -> m.Decode item) elements (Array.ofList items))
                 | value -> fail t value)
         elif FSharpType.IsRecord(t, true) then
             let fields = [| for f in FSharpType.GetRecordFields(t, true) -> f.Name, child f.PropertyType |]
+            let read, make = recordReader t, recordConstructor t
 
             mapping
                 (fun v ->
-                    let values = FSharpValue.GetRecordFields(v, true)
+                    let values = read v
                     WireValue.Map [ for i, (name, m) in Array.indexed fields -> name, m.Encode values[i] ])
                 (function
                 | WireValue.Map members as value ->
-                    let values = [|
-                        for name, m in fields ->
-                            match List.tryFind (fun (n, _) -> n = name) members with
-                            | Some(_, field) -> m.Decode field
-                            | None -> fail t value
-                    |]
+                    let members = Array.ofList members
 
-                    FSharpValue.MakeRecord(t, values, true)
+                    let values =
+                        fields
+                        |> Array.mapi (fun i (name, m: WireMapping) ->
+                            // in the fields' order, as written, or else looked for
+                            if i < members.Length && fst members[i] = name then
+                                m.Decode(snd members[i])
+                            else
+                                match Array.tryFind (fun (n, _) -> n = name) members with
+                                | Some(_, field) -> m.Decode field
+                                | None -> fail t value)
+
+                    make values
                 | value -> fail t value)
         elif FSharpType.IsUnion(t, true) then
             let cases = [|
-                for case in FSharpType.GetUnionCases(t, true) -> case, [| for f in case.GetFields() -> child f.PropertyType |]
+                for case in FSharpType.GetUnionCases(t, true) ->
+                    case, [| for f in case.GetFields() -> child f.PropertyType |], unionReader t case, unionConstructor case
             |]
 
+            let tag = unionTagReader t
+
             let caseNamed name =
-                cases |> Array.tryFind (fun (case: UnionCaseInfo, _) -> case.Name = name)
+                cases |> Array.tryFind (fun (case: UnionCaseInfo, _, _, _) -> case.Name = name)
 
             mapping
                 (fun v ->
-                    let case, values = FSharpValue.GetUnionFields(v, t, true)
-                    let _, fields = cases[case.Tag]
+                    let case, fields, read, _ = cases[tag v]
 
                     match fields with
                     | [||] -> WireValue.String case.Name
-                    | [| field |] -> WireValue.Map [ case.Name, field.Encode values[0] ]
-                    | _ -> WireValue.Map [ case.Name, WireValue.Array [ for i, f in Array.indexed fields -> f.Encode values[i] ] ])
+                    | [| field |] -> WireValue.Map [ case.Name, field.Encode((read v).[0]) ]
+                    | _ ->
+                        let values = read v
+                        WireValue.Map [ case.Name, WireValue.Array [ for i, f in Array.indexed fields -> f.Encode values[i] ] ])
                 (fun value ->
                     match value with
                     | WireValue.String name ->
                         match caseNamed name with
-                        | Some(case, [||]) -> FSharpValue.MakeUnion(case, [||], true)
+                        | Some(_, [||], _, make) -> make [||]
                         | _ -> fail t value
                     | WireValue.Map [ name, inner ] ->
                         match caseNamed name, inner with
-                        | Some(case, [| field |]), _ -> FSharpValue.MakeUnion(case, [| field.Decode inner |], true)
-                        | Some(case, fields), WireValue.Array items when fields.Length = items.Length ->
-                            FSharpValue.MakeUnion(case, Array.map2 (fun (f: WireMapping) item -> f.Decode item) fields (Array.ofList items), true)
+                        | Some(_, [| field |], _, make), _ -> make [| field.Decode inner |]
+                        | Some(_, fields, _, make), WireValue.Array items when fields.Length = items.Length ->
+                            make (Array.map2 (fun (f: WireMapping) item -> f.Decode item) fields (Array.ofList items))
                         | _ -> fail t value
                     | _ -> fail t value)
         else
