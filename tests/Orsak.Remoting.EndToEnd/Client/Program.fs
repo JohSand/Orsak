@@ -152,7 +152,8 @@ let checks () : Task<unit> = task {
     with :? RemoteCallException ->
         printfn $"failed on the server: raised RemoteCallException, after {counted (List.ofSeq read)}"
 
-    // stopping a stream ends its call, without reading the rest
+    // stopping a stream ends its call, without reading the rest, and the server stops counting
+    let! stoppedBefore, _ = api.Stopped()
     let e = (api.Countdown 1000).GetAsyncEnumerator(System.Threading.CancellationToken.None)
     let! _ = e.MoveNextAsync()
     let first = e.Current
@@ -160,6 +161,23 @@ let checks () : Task<unit> = task {
     let second = e.Current
     do! e.DisposeAsync()
     printfn $"stopped after two: {counted [ first; second ]}"
+
+    // counting down from 1000 takes 10 seconds, so a countdown stopped within 5 was stopped by the server
+    let rec stopped tries = task {
+        let! stops, streamed = api.Stopped()
+
+        if stops > stoppedBefore then
+            return Some streamed
+        elif tries = 0 then
+            return None
+        else
+            do! Task.Delay 50
+            return! stopped (tries - 1)
+    }
+
+    match! stopped 100 with
+    | Some streamed -> printfn $"stopped on the server: yes, early: {yesNo (streamed < 1000)}"
+    | None -> printfn "stopped on the server: no"
 }
 
 #if FABLE_COMPILER
