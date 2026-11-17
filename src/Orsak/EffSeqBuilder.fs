@@ -52,6 +52,36 @@ type ResumableAsyncEnumerator<'T>() =
     [<DefaultValue(false)>]
     val mutable Current: ValueOption<'T>
 
+    /// The finally blocks of the try/finally blocks the sequence is in, innermost on top, which disposing it before
+    /// it ends runs; null until it enters one.
+    [<DefaultValue(false)>]
+    val mutable Finallies: Stack<unit -> Task>
+
+    /// On entering a try/finally block.
+    member this.PushFinally(f: unit -> Task) =
+        if isNull this.Finallies then
+            this.Finallies <- Stack()
+
+        this.Finallies.Push f
+
+    /// On leaving a try/finally block, as its finally block runs.
+    member this.PopFinally() = this.Finallies.Pop() |> ignore
+
+    /// Runs the finally blocks of the try/finally blocks a sequence disposed before its end is in, innermost first, as
+    /// an exception would, each even if one before it fails.
+    static member private RunFinallies(finallies: Stack<unit -> Task>) = task {
+        let mutable failure = null
+
+        while finallies.Count > 0 do
+            try
+                do! finallies.Pop () ()
+            with e ->
+                if isNull failure then
+                    failure <- e
+
+        if not (isNull failure) then
+            Runtime.ExceptionServices.ExceptionDispatchInfo.Throw failure
+    }
 
     interface IAsyncEnumerator<'T> with
         member this.Current =
@@ -80,10 +110,22 @@ type ResumableAsyncEnumerator<'T>() =
                 | ValueTaskSourceStatus.Pending
                 | _ -> ValueTask<bool>(this, version)
 
-        member this.DisposeAsync() = vtask {
-            this.InProgress <- -1
-            return ()
-        }
+        member this.DisposeAsync() =
+            let finallies = this.Finallies
+            this.Finallies <- null
+
+            if isNull finallies || finallies.Count = 0 then
+                this.InProgress <- -1
+                ValueTask.CompletedTask
+            else
+                ValueTask(
+                    task {
+                        try
+                            do! ResumableAsyncEnumerator<'T>.RunFinallies finallies
+                        finally
+                            this.InProgress <- -1
+                    }
+                )
 
 
 /// <summary>
@@ -172,6 +214,7 @@ and [<NoComparison; NoEquality>] EffectEnumerable<'Env, 'Machine, 'T, 'Err
                     EffectEnumerable<'Env, 'Machine, 'T, 'Err>(InProgress = 1)
 
             enumerator.Token <- ct
+            enumerator.Finallies <- null
 
             //this gives the clone a COPY of our IResumableStateMachine, which at this point should be the initial machine.
             enumerator.StateMachine <- this.InitialMachine
@@ -340,10 +383,15 @@ type EffSeqBuilder() =
     member inline _.TryWith(body: EffSeqCode<'Env, 'T, 'Err>, catch: exn -> EffSeqCode<'Env, 'T, 'Err>) =
         ResumableCode.TryWith(body, catch)
 
+    // Each try/finally pushes its finally block on entering, for a sequence disposed before it leaves, and pops it as
+    // it runs; resuming a sequence goes on from where it was, so doesn't push again.
     member inline _.TryFinallyAsync(body: EffSeqCode<'Env, 'T, 'Err>, compensationAction: unit -> Task) =
         ResumableCode.TryFinallyAsync(
-            EffSeqCode<'Env, 'T, 'Err>(fun sm -> body.Invoke(&sm)),
             EffSeqCode<'Env, 'T, 'Err>(fun sm ->
+                sm.Data.Enumerator.PushFinally compensationAction
+                body.Invoke(&sm)),
+            EffSeqCode<'Env, 'T, 'Err>(fun sm ->
+                sm.Data.Enumerator.PopFinally()
                 let task = compensationAction ()
 
                 if __useResumableCode<obj> then
@@ -378,8 +426,14 @@ type EffSeqBuilder() =
 
     member inline _.TryFinally(body: EffSeqCode<'Env, 'T, 'Err>, compensationAction: unit -> unit) =
         ResumableCode.TryFinally(
-            EffSeqCode<'Env, 'T, 'Err>(fun sm -> body.Invoke(&sm)),
-            EffSeqCode<'Env, 'T, 'Err>(fun _ ->
+            EffSeqCode<'Env, 'T, 'Err>(fun sm ->
+                sm.Data.Enumerator.PushFinally(fun () ->
+                    compensationAction ()
+                    Task.CompletedTask)
+
+                body.Invoke(&sm)),
+            EffSeqCode<'Env, 'T, 'Err>(fun sm ->
+                sm.Data.Enumerator.PopFinally()
                 compensationAction ()
                 true)
         )
@@ -505,8 +559,34 @@ module LowPrioritySeq =
                 [<InlineIfLambda>] compensationAction: unit -> ^TaskLike
             ) =
             ResumableCode.TryFinallyAsync(
-                EffSeqCode<'Env, 'T, 'Err>(fun sm -> body.Invoke(&sm)),
                 EffSeqCode<'Env, 'T, 'Err>(fun sm ->
+                    // as a Task, for a sequence disposed before it leaves the block
+                    sm.Data.Enumerator.PushFinally(fun () ->
+                        let taskLike = compensationAction ()
+
+                        if isNull (box taskLike) then
+                            Task.CompletedTask
+                        else
+                            let awaiter = (^TaskLike: (member GetAwaiter: unit -> ^Awaiter) taskLike)
+
+                            if (^Awaiter: (member get_IsCompleted: unit -> bool) awaiter) then
+                                (^Awaiter: (member GetResult: unit -> unit) awaiter)
+                                Task.CompletedTask
+                            else
+                                let completion = TaskCompletionSource()
+
+                                awaiter.UnsafeOnCompleted(fun () ->
+                                    try
+                                        (^Awaiter: (member GetResult: unit -> unit) awaiter)
+                                        completion.SetResult()
+                                    with e ->
+                                        completion.SetException e)
+
+                                completion.Task)
+
+                    body.Invoke(&sm)),
+                EffSeqCode<'Env, 'T, 'Err>(fun sm ->
+                    sm.Data.Enumerator.PopFinally()
                     let taskLike = compensationAction ()
 
                     if isNull (box taskLike) then

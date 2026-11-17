@@ -1295,3 +1295,177 @@ module ``EffSeq Suspension and Resumption`` =
         Assert.Equal("upstream failure", exn.Message)
         do! enumerator.DisposeAsync()
     }
+
+module ``Effect Sequences Stopped Early`` =
+    /// Reads the first two items of a sequence, and disposes it, as a reader stopping early does.
+    let readTwo (token: CancellationToken) (es: EffSeq<unit, int, string>) = task {
+        let e = es.Invoke().GetAsyncEnumerator(token)
+        let! _ = e.MoveNextAsync()
+        let first = e.Current
+        let! _ = e.MoveNextAsync()
+        let second = e.Current
+        do! e.DisposeAsync()
+        return [ first; second ]
+    }
+
+    [<Fact>]
+    let ``a finally runs when the sequence is disposed before its end`` () = task {
+        let ran = ResizeArray()
+
+        let! items =
+            effSeq {
+                try
+                    for i in 1..1000 do
+                        do! Task.Yield()
+                        yield i
+                finally
+                    ran.Add "finally"
+            }
+            |> readTwo CancellationToken.None
+
+        test <@ items = [ Ok 1; Ok 2 ] && List.ofSeq ran = [ "finally" ] @>
+    }
+
+    [<Fact>]
+    let ``a finally runs when a sequence of plain yields is disposed before its end`` () = task {
+        let ran = ResizeArray()
+
+        let! _ =
+            effSeq {
+                try
+                    1
+                    2
+                    3
+                finally
+                    ran.Add "finally"
+            }
+            |> readTwo CancellationToken.None
+
+        test <@ List.ofSeq ran = [ "finally" ] @>
+    }
+
+    [<Fact>]
+    let ``uses are disposed innermost first when the sequence is disposed before its end`` () = task {
+        let disposed = ResizeArray()
+
+        let spy name =
+            { new IDisposable with
+                member _.Dispose() = disposed.Add name
+            }
+
+        let asyncSpy name =
+            { new IAsyncDisposable with
+                member _.DisposeAsync() =
+                    ValueTask(
+                        task {
+                            do! Task.Yield()
+                            disposed.Add name
+                        }
+                    )
+            }
+
+        let! _ =
+            effSeq {
+                use _outer = spy "outer"
+                use _middle = asyncSpy "middle"
+
+                try
+                    for i in 1..1000 do
+                        do! Task.Yield()
+                        yield i
+                finally
+                    disposed.Add "inner"
+            }
+            |> readTwo CancellationToken.None
+
+        test <@ List.ofSeq disposed = [ "inner"; "middle"; "outer" ] @>
+    }
+
+    [<Fact>]
+    let ``a finally runs when the sequence is disposed after its token was cancelled`` () = task {
+        use cts = new CancellationTokenSource()
+        let ran = ResizeArray()
+
+        let s = effSeq {
+            try
+                for i in 1..1000 do
+                    do! Task.Yield()
+                    yield i
+            finally
+                ran.Add "finally"
+        }
+
+        let e = s.Invoke().GetAsyncEnumerator(cts.Token)
+        let! _ = e.MoveNextAsync()
+        cts.Cancel()
+        let! more = e.MoveNextAsync()
+        do! e.DisposeAsync()
+
+        test <@ not more && List.ofSeq ran = [ "finally" ] @>
+    }
+
+    [<Fact>]
+    let ``a finally that ran isn't run again when the sequence is disposed`` () = task {
+        let ran = ResizeArray()
+
+        let s = effSeq {
+            try
+                yield 1
+            finally
+                ran.Add "first"
+
+            yield 2
+            yield 3
+        }
+
+        let! _ = readTwo CancellationToken.None s
+        let! _ = readTwo CancellationToken.None s
+        test <@ List.ofSeq ran = [ "first"; "first" ] @>
+    }
+
+    [<Fact>]
+    let ``a sequence read in a for is disposed when the sequence reading it is disposed before its end`` () = task {
+        let ran = ResizeArray()
+
+        let inner = effSeq {
+            try
+                for i in 1..1000 do
+                    do! Task.Yield()
+                    yield i
+            finally
+                ran.Add "inner"
+        }
+
+        let! items =
+            effSeq {
+                for i in inner do
+                    yield i * 10
+            }
+            |> readTwo CancellationToken.None
+
+        test <@ items = [ Ok 10; Ok 20 ] && List.ofSeq ran = [ "inner" ] @>
+    }
+
+    [<Fact>]
+    let ``every finally runs when the sequence is disposed before its end, and the first failure is raised`` () = task {
+        let ran = ResizeArray()
+
+        let s = effSeq {
+            try
+                try
+                    for i in 1..1000 do
+                        do! Task.Yield()
+                        yield i
+                finally
+                    ran.Add "inner"
+                    failwith "inner failed"
+            finally
+                ran.Add "outer"
+        }
+
+        let e = s.Invoke().GetAsyncEnumerator(CancellationToken.None)
+        let! _ = e.MoveNextAsync()
+
+        let! exn = Assert.ThrowsAsync<Exception>(fun () -> e.DisposeAsync().AsTask())
+        test <@ exn.Message = "inner failed" && List.ofSeq ran = [ "inner"; "outer" ] @>
+    }
