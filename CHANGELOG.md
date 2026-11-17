@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-17
+
 ### Changed
 **Breaking:** the `Effect` type's static `Return` returns an effect of the type it's a member of, `Effect<'r, 'a, 'e>.Return: 'a -> Effect<'r, 'a, 'e>`, instead of being a generic method returning any effect, so code compiled against 0.8.0 that calls it must be recompiled. A second `Return` takes an effect of the type and returns a function making one, and a static `Bind` binds an effect, as `>>=` does
 
@@ -158,7 +160,8 @@ First release
 - Effect type and its builder
 - Effect module with functions to manipulate effects
 
-[Unreleased]: https://github.com/JohSand/Orsak/compare/0.8.0...HEAD
+[Unreleased]: https://github.com/JohSand/Orsak/compare/0.9.0...HEAD
+[0.9.0]: https://github.com/JohSand/Orsak/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/JohSand/Orsak/compare/0.7.0...0.8.0
 [0.7.0]: https://github.com/JohSand/Orsak/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/JohSand/Orsak/compare/0.5.0...0.6.0
