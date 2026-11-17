@@ -3,8 +3,6 @@
 		<TargetFrameworks>net8.0; net10.0</TargetFrameworks>
 		<RootNamespace>Orsak.Remoting.AspNetCore</RootNamespace>
 		<Description>Serves the members of an interface to Orsak.Remoting's clients, from ASP.NET Core.</Description>
-		<!-- a new package: nothing to validate against until its first release -->
-		<DisablePackageBaselineValidation>true</DisablePackageBaselineValidation>
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Include="MapRemote.fs" />
