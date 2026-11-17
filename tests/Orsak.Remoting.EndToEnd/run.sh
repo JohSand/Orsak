@@ -29,7 +29,8 @@ held on the server: yes, released: yes
 streamed: Ok 3; Ok 2; Ok 1
 streamed an error: Error nothing to count
 failed on the server: raised RemoteCallException, after Ok -1
-stopped after two: Ok 1000; Ok 999'
+stopped after two: Ok 1000; Ok 999
+stopped on the server: yes, early: yes'
 
 check() {
     local name=$1 actual=$2

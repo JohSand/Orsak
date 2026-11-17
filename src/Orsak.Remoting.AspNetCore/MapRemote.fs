@@ -125,6 +125,9 @@ type RemoteEndpoints =
                     let mutable more = true
 
                     while more do
+                        // a stream that doesn't watch the token would go on: writing to a client that has gone away
+                        // doesn't fail, as the server drops what's written
+                        aborted.ThrowIfCancellationRequested()
                         let! next = e.MoveNextAsync()
 
                         if next then

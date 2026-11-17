@@ -67,22 +67,36 @@ type Holds() =
     member val Held = 0 with get, set
     member val Released = 0 with get, set
 
+/// The countdowns stopped before counting to 1, and how many numbers the last streamed.
+type Stops() =
+    member val Stopped = 0 with get, set
+    member val Streamed = 0 with get, set
+
 /// The numbers from a number down to 1, waiting a little before each, as it would for work; an error from 0, and a
-/// failure, an exception, after one item from below 0.
-let countdown from : EffSeq<ServerEnv, int, string> = effSeq {
+/// failure, an exception, after one item from below 0. A countdown its reader stops ends there, recorded in stops.
+let countdown (stops: Stops) from : EffSeq<ServerEnv, int, string> = effSeq {
     if from = 0 then
         do! Error "nothing to count"
     elif from < 0 then
         yield from
         failwith "counting below 0"
     else
-        for i in from .. -1 .. 1 do
-            do! Task.Delay 10
-            yield i
+        let streamed = ref 0
+
+        try
+            for i in from .. -1 .. 1 do
+                do! Task.Delay 10
+                streamed.Value <- streamed.Value + 1
+                yield i
+        finally
+            if streamed.Value < from then
+                lock stops (fun () ->
+                    stops.Stopped <- stops.Stopped + 1
+                    stops.Streamed <- streamed.Value)
 }
 
 /// IOrderApi on the server: each call runs an effect in the server's environment.
-type ServerOrderApi(env: ServerEnv, holds: Holds) =
+type ServerOrderApi(env: ServerEnv, holds: Holds, stops: Stops) =
     interface IOrderApi with
         member _.Place order = (placeOrder order |> Effect.run env).AsTask()
 
@@ -100,7 +114,9 @@ type ServerOrderApi(env: ServerEnv, holds: Holds) =
 
         member _.Holds() = Task.FromResult(lock holds (fun () -> holds.Held, holds.Released))
 
-        member _.Countdown from = (countdown from).Invoke env
+        member _.Countdown from = (countdown stops from).Invoke env
+
+        member _.Stopped() = Task.FromResult(lock stops (fun () -> stops.Stopped, stops.Streamed))
 
 [<EntryPoint>]
 let main args =
@@ -109,6 +125,7 @@ let main args =
     let app = builder.Build()
     let env = { Store = InMemoryStore() }
     let holds = Holds()
+    let stops = Stops()
 
     // the server requires the client's name, as authentication would
     app.Use(fun (ctx: Microsoft.AspNetCore.Http.HttpContext) (next: Microsoft.AspNetCore.Http.RequestDelegate) ->
@@ -119,6 +136,6 @@ let main args =
             System.Threading.Tasks.Task.CompletedTask)
     |> ignore
 
-    app.MapRemote<IOrderApi>("/api", [ JsonFormat.Instance ], fun _ -> ServerOrderApi(env, holds)) |> ignore
+    app.MapRemote<IOrderApi>("/api", [ JsonFormat.Instance ], fun _ -> ServerOrderApi(env, holds, stops)) |> ignore
     app.Run()
     0
