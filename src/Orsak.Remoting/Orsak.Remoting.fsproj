@@ -3,8 +3,6 @@
 		<TargetFrameworks>net8.0; net10.0</TargetFrameworks>
 		<RootNamespace>Orsak.Remoting</RootNamespace>
 		<Description>Calls the members of an interface on a server, from .NET or Fable: the wire format, pluggable, and the client.</Description>
-		<!-- a new package: nothing to validate against until its first release -->
-		<DisablePackageBaselineValidation>true</DisablePackageBaselineValidation>
 	</PropertyGroup>
 
 	<!-- The same files on .NET and Fable, which compiles the transport with fetch rather than an HttpClient -->
