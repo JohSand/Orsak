@@ -13,7 +13,8 @@ on a server. The interface is the contract, so the effects created from it run o
 happens on the server. It is experimental.
 
 [The remoting sample](https://github.com/JohSand/Orsak/tree/main/samples/Remoting) is a todo list in the browser, kept
-on the server, with all of what this page shows.
+on the server, with all of what this page shows. [Elmish](elmish.html) shows the same client with the Elmish
+architecture, the effects as its commands.
 
 ## The contract
 

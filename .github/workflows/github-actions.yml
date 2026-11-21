@@ -182,7 +182,8 @@ jobs:
 
   # Orsak's Fable implementation: the tests both implementations share, run on .NET and, compiled with Fable, on
   # Node.js; a Fable app compiled against the packed Orsak and Orsak.Remoting packages, as a user's project would be;
-  # and Orsak.Remoting end to end, a server called by a client compiled with Fable and by one on .NET.
+  # Orsak.Remoting end to end, a server called by a client compiled with Fable and by one on .NET; and the Elmish
+  # sample.
   fable:
     needs: changes
     if: ${{ needs.changes.outputs.code == 'true' }}
@@ -216,6 +217,13 @@ jobs:
 
       - name: Call a server with Orsak.Remoting, from Fable on Node.js and from .NET
         run: tests/Orsak.Remoting.EndToEnd/run.sh
+
+      # The Elmish guide's recipe: its update tested on .NET, and the app compiled with Fable, so the code the guide
+      # shows can't go stale.
+      - name: Test the Elmish sample, and compile it with Fable
+        run: |
+          dotnet run --project samples/Elmish/Tests -c Release
+          dotnet fable samples/Elmish/App -o samples/Elmish/wwwroot/app --noCache
 
   # Publishes the packages once the test jobs pass. A push to main publishes prereleases to GitHub Packages; a tag,
   # made by scripts/release.sh, publishes the release to nuget.org and then creates its GitHub release, with the notes
