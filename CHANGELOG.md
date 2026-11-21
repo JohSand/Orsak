@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+The Elmish guide and sample: Orsak effects as the commands of an Elmish app, so `update` returns effects of any environment and a test runs them against fakes, with an adapter of about 25 lines that an app copies
+
 ## [0.9.0] - 2026-11-17
 
 ### Changed
