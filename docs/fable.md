@@ -45,6 +45,8 @@ task {
 |> ignore
 ```
 
+In an app with the Elmish architecture, effects can be its commands: see [Elmish](elmish.html).
+
 ## What differs from .NET
 
 * **Effects run on `Task`**, which Fable compiles to a JavaScript promise, rather than `ValueTask`, which Fable doesn't
