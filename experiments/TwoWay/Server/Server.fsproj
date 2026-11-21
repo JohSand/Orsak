@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+    <!-- Serves the contract with MapRemote, and the connections down which it calls the clients -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="Connections.fs" />
+        <Compile Include="Todos.fs" />
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Shared\Shared.fsproj" />
+        <ProjectReference Include="..\..\..\src\Orsak.Remoting.AspNetCore\Orsak.Remoting.AspNetCore.fsproj" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Both ways on .NET, with no browser: the callbacks' codecs, the server's effects against fake clients, the
+         connections, and the client's events as changes of its model -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="..\Client\Change.fs" Link="Change.fs" />
+        <Compile Include="..\Client\TodoList.fs" Link="TodoList.fs" />
+        <Compile Include="..\Client\Detail.fs" Link="Detail.fs" />
+        <Compile Include="..\Client\AppModel.fs" Link="AppModel.fs" />
+        <Compile Include="..\Client\Events.fs" Link="Events.fs" />
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Shared\Shared.fsproj" />
+        <ProjectReference Include="..\Server\Server.fsproj" />
+    </ItemGroup>
+</Project>
