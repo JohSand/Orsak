@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- The app of model changes, compiled with Fable into ../out and bundled by Vite, against the remoting sample's contract -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="Change.fs" />
+        <Compile Include="TodoList.fs" />
+        <Compile Include="Detail.fs" />
+        <Compile Include="AppModel.fs" />
+        <Compile Include="OrsakReact.fs" />
+        <Compile Include="Views.fs" />
+        <Compile Include="Main.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Feliz" Version="3.4.0" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\samples\Remoting\Shared\Shared.fsproj" />
+    </ItemGroup>
+</Project>
