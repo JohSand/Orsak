@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- The React app, compiled with Fable into ../out and bundled by Vite, against the remoting sample's contract -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="OrsakReact.fs" />
+        <Compile Include="Todos.fs" />
+        <Compile Include="Main.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Feliz" Version="3.4.0" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\samples\Remoting\Shared\Shared.fsproj" />
+    </ItemGroup>
+</Project>
